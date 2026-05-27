@@ -976,3 +976,77 @@ html.halloween .hero-bg-img, html.christmas .hero-bg-img, html.winter .hero-bg-i
   display: none;
 }
 
+
+/* ===== Premium Custom Cursor ===== */
+@media (pointer: fine) {
+  html.has-custom-cursor,
+  html.has-custom-cursor body,
+  html.has-custom-cursor a,
+  html.has-custom-cursor button,
+  html.has-custom-cursor [role="button"],
+  html.has-custom-cursor input,
+  html.has-custom-cursor textarea,
+  html.has-custom-cursor select,
+  html.has-custom-cursor label {
+    cursor: none !important;
+  }
+}
+
+.cursor-dot,
+.cursor-ring {
+  position: fixed;
+  top: 0;
+  left: 0;
+  pointer-events: none;
+  z-index: 2147483646;
+  opacity: 0;
+  will-change: transform, opacity;
+  transition: opacity 200ms ease, width 220ms cubic-bezier(.2,.8,.2,1),
+              height 220ms cubic-bezier(.2,.8,.2,1),
+              background-color 220ms ease, border-color 220ms ease,
+              backdrop-filter 220ms ease;
+}
+
+.cursor-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 9999px;
+  background: var(--primary);
+  box-shadow:
+    0 0 12px color-mix(in oklab, var(--primary) 70%, transparent),
+    0 0 32px color-mix(in oklab, var(--primary) 35%, transparent);
+  mix-blend-mode: screen;
+}
+
+.cursor-dot[data-state="text"] {
+  width: 2px;
+  height: 22px;
+  border-radius: 2px;
+}
+
+.cursor-ring {
+  width: 38px;
+  height: 38px;
+  border-radius: 9999px;
+  border: 1.5px solid color-mix(in oklab, var(--primary) 75%, transparent);
+  background: color-mix(in oklab, var(--primary) 6%, transparent);
+  backdrop-filter: blur(2px);
+}
+
+.cursor-ring[data-state="hover"] {
+  width: 60px;
+  height: 60px;
+  border-color: color-mix(in oklab, var(--primary) 90%, transparent);
+  background: color-mix(in oklab, var(--primary) 14%, transparent);
+  box-shadow:
+    0 0 30px color-mix(in oklab, var(--primary) 45%, transparent),
+    inset 0 0 18px color-mix(in oklab, var(--primary) 25%, transparent);
+}
+
+.cursor-ring[data-press="1"] {
+  transform-origin: center;
+  transition: opacity 200ms ease, width 120ms ease, height 120ms ease;
+  width: 28px;
+  height: 28px;
+  background: color-mix(in oklab, var(--primary) 22%, transparent);
+}

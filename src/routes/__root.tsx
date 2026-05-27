@@ -4,6 +4,7 @@ import { Toaster } from "sonner";
 import appCss from "../styles.css?url";
 import { AuthProvider } from "@/lib/auth-context";
 import { ThemeProvider } from "@/hooks/useTheme";
+import { CustomCursor } from "@/components/CustomCursor";
 
 function NotFoundComponent() {
   return (
@@ -99,6 +100,7 @@ function RootComponent() {
       <QueryClientProvider client={queryClient}>
         <AuthProvider>
           <Outlet />
+          <CustomCursor />
           <Toaster theme="dark" position="top-right" />
         </AuthProvider>
       </QueryClientProvider>
