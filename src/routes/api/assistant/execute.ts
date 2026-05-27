@@ -800,6 +800,53 @@ end)
   };
 }
 
+function getMapStarterTemplate(prompt: string): ExecuteResult {
+  const title = prompt.replace(/[^a-zA-Z0-9 ]/g, " ").trim().split(/\s+/).slice(0, 4).join(" ") || "BloxSmith map";
+  return {
+    message: `The AI timed out, so I queued a focused starter version of ${title} in Workspace/Map with a Play-mode spawn. Run a smaller follow-up to add the next piece.`,
+    files: [],
+    actions: [
+      { type: "create", className: "Folder", name: "Map", parent: "Workspace" },
+      { type: "create", className: "Folder", name: "Buildings", parent: "Workspace/Map" },
+      { type: "create", className: "Folder", name: "Roads", parent: "Workspace/Map" },
+      { type: "create", className: "Folder", name: "Props", parent: "Workspace/Map" },
+      { type: "spawn", name: "BloxsmithSpawn", parent: "Workspace/Map", position: { __t: "Vector3", x: 0, y: 6, z: 0 } },
+      {
+        type: "create_part",
+        parent: "Workspace/Map",
+        name: "PlayableGround",
+        size: [160, 2, 160],
+        position: [0, 0, 0],
+        material: "Grass",
+        color: [72, 160, 82],
+        anchored: true,
+      },
+      {
+        type: "create_part",
+        parent: "Workspace/Map/Props",
+        name: "BuildMarker",
+        size: [10, 8, 10],
+        position: [0, 5, -24],
+        material: "Neon",
+        color: [90, 170, 255],
+        anchored: true,
+      },
+    ],
+  };
+}
+
+function getFocusedFallbackTemplate(prompt: string): ExecuteResult {
+  const lower = prompt.toLowerCase();
+  if (/\bshop|store\b/.test(lower)) return getShopTemplate() as ExecuteResult;
+  if (/\bobby|obby|parkour\b/.test(lower)) return getObbyTemplate() as ExecuteResult;
+  if (/\btycoon\b/.test(lower)) return getTycoonTemplate() as ExecuteResult;
+  if (/\bcoin|coins|currency\b/.test(lower)) return getCoinsTemplate() as ExecuteResult;
+  if (/\bnpc|character|dummy\b/.test(lower)) return getNpcTemplate() as ExecuteResult;
+  if (/\btree|forest\b/.test(lower)) return getTreesTemplate() as ExecuteResult;
+  if (/\bgrass\b/.test(lower)) return getGrassTemplate() as ExecuteResult;
+  return getMapStarterTemplate(prompt);
+}
+
 function pickFastTools(prompt: string, ctx: { projectId: string; userId: string }) {
   const allTools = buildBloxSmithTools(ctx) as Record<string, any>;
   const lower = prompt.toLowerCase();
@@ -1615,18 +1662,23 @@ export const Route = createFileRoute("/api/assistant/execute")({
                 if (!result && lastErr) throw lastErr;
               } catch (outerErr: any) {
                 console.error("AI client initialisation/generation failed:", outerErr);
-                await refundOnFailure("ai generation failed");
                 const msg = String(outerErr?.message ?? outerErr);
-                if (/too large|context length|tpm/i.test(msg)) {
+                const isTimeout = /took too long|aborted|abort|timeout|timed out/i.test(msg);
+                if (isTimeout) {
+                  await refundOnFailure("ai generation timeout fallback");
+                  result = getFocusedFallbackTemplate(prompt);
+                } else if (/too large|context length|tpm/i.test(msg)) {
+                  await refundOnFailure("ai generation failed");
                   throw new Error(
                     "Your project context is too large for this model even after the AI compressed it down to just your prompt. Try a shorter, more focused request (e.g. 'add a jump pad' instead of 'build the whole game'), or split the build into smaller steps.",
                   );
+                } else {
+                  await refundOnFailure("ai generation failed");
+                  if (msg.includes("429")) throw new Error("AI rate limit. Try again in a moment.");
+                  if (msg.includes("402"))
+                    throw new Error("AI credits exhausted. Add credits in workspace settings.");
+                  throw new Error("AI generation failed: " + msg);
                 }
-
-                if (msg.includes("429")) throw new Error("AI rate limit. Try again in a moment.");
-                if (msg.includes("402"))
-                  throw new Error("AI credits exhausted. Add credits in workspace settings.");
-                throw new Error("AI generation failed: " + msg);
               }
             }
           }
@@ -1769,7 +1821,7 @@ export const Route = createFileRoute("/api/assistant/execute")({
               project_id: projectId,
               prompt,
               status: shouldAuto ? "success" : "pending",
-              credits_used: isOwner ? 0 : cost,
+              credits_used: charged.current ? cost : 0,
               result: { ...result, _queued: queued } as any,
             })
             .select("id")
