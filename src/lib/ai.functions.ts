@@ -654,19 +654,20 @@ export const improvePrompt = createServerFn({ method: "POST" })
     const { resolveBuiltInGateway } = await import("./ai-providers.server");
     const model = resolveBuiltInGateway({ kind: "fast" }).model;
 
-    const system = `You rewrite short Roblox Studio build prompts into clearer, more specific build prompts for BloxSmith (an AI Roblox game builder).
+    const system = `You tighten short Roblox Studio build prompts for BloxSmith. Make them clearer, not longer.
 
 Rules:
-- Keep the user's intent exactly. Do not invent a different game.
-- Add concrete details that help the builder: services (ServerScriptService, ReplicatedStorage, StarterPlayerScripts), RemoteEvents, data persistence, leaderstats, basic UI, win/lose loop, sounds — only when relevant.
-- Keep it under 120 words.
-- Output PLAIN TEXT only — no markdown headings, no bullets, no code blocks, no preamble like "Here is the improved prompt:". Just the improved prompt text itself.`;
+- Keep the user's exact intent. Don't invent a different game or add unrelated systems.
+- Output ONE short sentence (max ~25 words, hard cap 30). No lists, no multiple sentences.
+- Only add a detail if the original is truly vague (e.g. "make a game" → pick a genre). Otherwise just clean up grammar/clarity.
+- No services, no RemoteEvent names, no implementation details — that's the builder's job.
+- PLAIN TEXT only — no markdown, no quotes, no preamble like "Here is...". Just the rewritten prompt.`;
 
     try {
       const { text } = await generateText({
         model,
         system,
-        prompt: `Original prompt:\n${data.prompt}\n\nRewrite it.`,
+        prompt: `Original:\n${data.prompt}\n\nRewrite as one short, clear sentence.`,
       });
       const cleaned = text.trim().replace(/^["']|["']$/g, "");
       return { prompt: cleaned || data.prompt };
