@@ -10,6 +10,7 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as TermsRouteImport } from './routes/terms'
+import { Route as TemplatesRouteImport } from './routes/templates'
 import { Route as SitemapDotxmlRouteImport } from './routes/sitemap[.]xml'
 import { Route as SignupRouteImport } from './routes/signup'
 import { Route as PrivacyRouteImport } from './routes/privacy'
@@ -18,6 +19,7 @@ import { Route as PluginRouteImport } from './routes/plugin'
 import { Route as McpServersRouteImport } from './routes/mcp-servers'
 import { Route as McpRouteImport } from './routes/mcp'
 import { Route as LoginRouteImport } from './routes/login'
+import { Route as IdeasRouteImport } from './routes/ideas'
 import { Route as FaqRouteImport } from './routes/faq'
 import { Route as DocsRouteImport } from './routes/docs'
 import { Route as DashboardRouteImport } from './routes/dashboard'
@@ -48,6 +50,11 @@ import { Route as ApiPublicOauthRegisterRouteImport } from './routes/api/public/
 const TermsRoute = TermsRouteImport.update({
   id: '/terms',
   path: '/terms',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const TemplatesRoute = TemplatesRouteImport.update({
+  id: '/templates',
+  path: '/templates',
   getParentRoute: () => rootRouteImport,
 } as any)
 const SitemapDotxmlRoute = SitemapDotxmlRouteImport.update({
@@ -88,6 +95,11 @@ const McpRoute = McpRouteImport.update({
 const LoginRoute = LoginRouteImport.update({
   id: '/login',
   path: '/login',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const IdeasRoute = IdeasRouteImport.update({
+  id: '/ideas',
+  path: '/ideas',
   getParentRoute: () => rootRouteImport,
 } as any)
 const FaqRoute = FaqRouteImport.update({
@@ -232,6 +244,7 @@ export interface FileRoutesByFullPath {
   '/dashboard': typeof DashboardRoute
   '/docs': typeof DocsRoute
   '/faq': typeof FaqRoute
+  '/ideas': typeof IdeasRoute
   '/login': typeof LoginRoute
   '/mcp': typeof McpRoute
   '/mcp-servers': typeof McpServersRoute
@@ -240,6 +253,7 @@ export interface FileRoutesByFullPath {
   '/privacy': typeof PrivacyRoute
   '/signup': typeof SignupRoute
   '/sitemap.xml': typeof SitemapDotxmlRoute
+  '/templates': typeof TemplatesRoute
   '/terms': typeof TermsRoute
   '/.well-known/oauth-authorization-server': typeof DotwellKnownOauthAuthorizationServerRoute
   '/.well-known/oauth-protected-resource': typeof DotwellKnownOauthProtectedResourceRoute
@@ -269,6 +283,7 @@ export interface FileRoutesByTo {
   '/dashboard': typeof DashboardRoute
   '/docs': typeof DocsRoute
   '/faq': typeof FaqRoute
+  '/ideas': typeof IdeasRoute
   '/login': typeof LoginRoute
   '/mcp': typeof McpRoute
   '/mcp-servers': typeof McpServersRoute
@@ -277,6 +292,7 @@ export interface FileRoutesByTo {
   '/privacy': typeof PrivacyRoute
   '/signup': typeof SignupRoute
   '/sitemap.xml': typeof SitemapDotxmlRoute
+  '/templates': typeof TemplatesRoute
   '/terms': typeof TermsRoute
   '/.well-known/oauth-authorization-server': typeof DotwellKnownOauthAuthorizationServerRoute
   '/.well-known/oauth-protected-resource': typeof DotwellKnownOauthProtectedResourceRoute
@@ -307,6 +323,7 @@ export interface FileRoutesById {
   '/dashboard': typeof DashboardRoute
   '/docs': typeof DocsRoute
   '/faq': typeof FaqRoute
+  '/ideas': typeof IdeasRoute
   '/login': typeof LoginRoute
   '/mcp': typeof McpRoute
   '/mcp-servers': typeof McpServersRoute
@@ -315,6 +332,7 @@ export interface FileRoutesById {
   '/privacy': typeof PrivacyRoute
   '/signup': typeof SignupRoute
   '/sitemap.xml': typeof SitemapDotxmlRoute
+  '/templates': typeof TemplatesRoute
   '/terms': typeof TermsRoute
   '/.well-known/oauth-authorization-server': typeof DotwellKnownOauthAuthorizationServerRoute
   '/.well-known/oauth-protected-resource': typeof DotwellKnownOauthProtectedResourceRoute
@@ -346,6 +364,7 @@ export interface FileRouteTypes {
     | '/dashboard'
     | '/docs'
     | '/faq'
+    | '/ideas'
     | '/login'
     | '/mcp'
     | '/mcp-servers'
@@ -354,6 +373,7 @@ export interface FileRouteTypes {
     | '/privacy'
     | '/signup'
     | '/sitemap.xml'
+    | '/templates'
     | '/terms'
     | '/.well-known/oauth-authorization-server'
     | '/.well-known/oauth-protected-resource'
@@ -383,6 +403,7 @@ export interface FileRouteTypes {
     | '/dashboard'
     | '/docs'
     | '/faq'
+    | '/ideas'
     | '/login'
     | '/mcp'
     | '/mcp-servers'
@@ -391,6 +412,7 @@ export interface FileRouteTypes {
     | '/privacy'
     | '/signup'
     | '/sitemap.xml'
+    | '/templates'
     | '/terms'
     | '/.well-known/oauth-authorization-server'
     | '/.well-known/oauth-protected-resource'
@@ -420,6 +442,7 @@ export interface FileRouteTypes {
     | '/dashboard'
     | '/docs'
     | '/faq'
+    | '/ideas'
     | '/login'
     | '/mcp'
     | '/mcp-servers'
@@ -428,6 +451,7 @@ export interface FileRouteTypes {
     | '/privacy'
     | '/signup'
     | '/sitemap.xml'
+    | '/templates'
     | '/terms'
     | '/.well-known/oauth-authorization-server'
     | '/.well-known/oauth-protected-resource'
@@ -458,6 +482,7 @@ export interface RootRouteChildren {
   DashboardRoute: typeof DashboardRoute
   DocsRoute: typeof DocsRoute
   FaqRoute: typeof FaqRoute
+  IdeasRoute: typeof IdeasRoute
   LoginRoute: typeof LoginRoute
   McpRoute: typeof McpRoute
   McpServersRoute: typeof McpServersRoute
@@ -466,6 +491,7 @@ export interface RootRouteChildren {
   PrivacyRoute: typeof PrivacyRoute
   SignupRoute: typeof SignupRoute
   SitemapDotxmlRoute: typeof SitemapDotxmlRoute
+  TemplatesRoute: typeof TemplatesRoute
   TermsRoute: typeof TermsRoute
   DotwellKnownOauthAuthorizationServerRoute: typeof DotwellKnownOauthAuthorizationServerRoute
   DotwellKnownOauthProtectedResourceRoute: typeof DotwellKnownOauthProtectedResourceRoute
@@ -494,6 +520,13 @@ declare module '@tanstack/react-router' {
       path: '/terms'
       fullPath: '/terms'
       preLoaderRoute: typeof TermsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/templates': {
+      id: '/templates'
+      path: '/templates'
+      fullPath: '/templates'
+      preLoaderRoute: typeof TemplatesRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/sitemap.xml': {
@@ -550,6 +583,13 @@ declare module '@tanstack/react-router' {
       path: '/login'
       fullPath: '/login'
       preLoaderRoute: typeof LoginRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/ideas': {
+      id: '/ideas'
+      path: '/ideas'
+      fullPath: '/ideas'
+      preLoaderRoute: typeof IdeasRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/faq': {
@@ -746,6 +786,7 @@ const rootRouteChildren: RootRouteChildren = {
   DashboardRoute: DashboardRoute,
   DocsRoute: DocsRoute,
   FaqRoute: FaqRoute,
+  IdeasRoute: IdeasRoute,
   LoginRoute: LoginRoute,
   McpRoute: McpRoute,
   McpServersRoute: McpServersRoute,
@@ -754,6 +795,7 @@ const rootRouteChildren: RootRouteChildren = {
   PrivacyRoute: PrivacyRoute,
   SignupRoute: SignupRoute,
   SitemapDotxmlRoute: SitemapDotxmlRoute,
+  TemplatesRoute: TemplatesRoute,
   TermsRoute: TermsRoute,
   DotwellKnownOauthAuthorizationServerRoute:
     DotwellKnownOauthAuthorizationServerRoute,
@@ -779,3 +821,13 @@ const rootRouteChildren: RootRouteChildren = {
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
+
+import type { getRouter } from './router.tsx'
+import type { startInstance } from './start.ts'
+declare module '@tanstack/react-start' {
+  interface Register {
+    ssr: true
+    router: Awaited<ReturnType<typeof getRouter>>
+    config: Awaited<ReturnType<typeof startInstance.getOptions>>
+  }
+}
