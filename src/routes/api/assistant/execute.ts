@@ -1689,6 +1689,9 @@ export const Route = createFileRoute("/api/assistant/execute")({
             }
           }
 
+          const { scoreGeneration } = await import("@/lib/ai-quality");
+          const quality = scoreGeneration(result.files as any, queued as any);
+
           return new Response(
             JSON.stringify({
               generationId,
@@ -1702,6 +1705,8 @@ export const Route = createFileRoute("/api/assistant/execute")({
                 errors: validation.errors,
                 warnings: validation.warnings,
               },
+              quality,
+              aiMode: typeof aiMode === "string" ? aiMode : null,
               queuedCount: queued.length,
               aiActivity,
             }),
