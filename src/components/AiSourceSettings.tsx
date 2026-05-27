@@ -1,17 +1,14 @@
 import { useEffect, useState } from "react";
 import { Link } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
-import { Loader2, Key, Server, Check, X, Eye, EyeOff, Plug, ExternalLink, AlertCircle } from "lucide-react";
+import { Loader2, Key, Server, Check, X, Plug, ExternalLink, AlertCircle } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import {
   getProjectAiConfig,
   saveProjectAiSettings,
-  saveProviderKey,
-  clearProviderKey,
 } from "@/lib/project-ai.functions";
 import { SITE_PROVIDER_LABELS, SITE_PROVIDER_MODELS, type SiteProviderId } from "@/lib/ai-models";
 
-type ProviderId = "openai" | "anthropic" | "google" | "groq" | "neokens";
 type SiteOnlyProviderId = SiteProviderId;
 type Mode = "mcp" | "api_key";
 const isSiteProvider = (value: unknown): value is SiteOnlyProviderId =>
@@ -28,27 +25,11 @@ type McpRow = {
 
 
 const PROVIDER_LABELS: Record<ProviderId, string> = {
-  openai: "OpenAI",
-  anthropic: "Anthropic",
-  google: "Google Gemini",
   groq: SITE_PROVIDER_LABELS.groq,
   neokens: SITE_PROVIDER_LABELS.neokens,
 };
 
 const PROVIDER_MODELS: Record<ProviderId, string[]> = {
-  openai: ["gpt-5", "gpt-5-mini", "gpt-5-nano", "gpt-5-codex", "gpt-4.1", "gpt-4.1-mini"],
-  anthropic: [
-    "claude-sonnet-4-5",
-    "claude-opus-4-1",
-    "claude-3-5-sonnet-latest",
-    "claude-3-5-haiku-latest",
-  ],
-  google: [
-    "gemini-2.5-pro",
-    "gemini-2.5-flash",
-    "gemini-2.5-flash-lite",
-    "gemini-3-flash-preview",
-  ],
   groq: [
     ...SITE_PROVIDER_MODELS.groq,
   ],
@@ -56,14 +37,6 @@ const PROVIDER_MODELS: Record<ProviderId, string[]> = {
     ...SITE_PROVIDER_MODELS.neokens,
   ],
 
-};
-
-const PROVIDER_KEY_HINTS: Record<ProviderId, string> = {
-  openai: "sk-... — platform.openai.com/api-keys",
-  anthropic: "sk-ant-... — console.anthropic.com/settings/keys",
-  google: "AI... — aistudio.google.com/apikey",
-  groq: "Site-wide free key managed by admin (GROQ_API_KEY)",
-  neokens: "Site-wide key managed by admin (NEOKENS_API_KEY)",
 };
 
 const SITE_ONLY_PROVIDERS: SiteOnlyProviderId[] = ["groq", "neokens"];
