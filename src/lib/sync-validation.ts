@@ -265,6 +265,21 @@ export function validateGenerated(
       continue;
     }
 
+    // Reject runtime terrain-painting scripts — they only run in Play mode,
+    // so in Studio edit (what the user sees) nothing happens. AI MUST use
+    // the `terrainFill` action so the plugin paints in edit mode.
+    if (/Terrain\s*:\s*(FillBlock|FillRegion|FillBall|FillCylinder|FillWedge|WriteVoxels|PasteRegion|SetMaterialColor)\b/.test(f.content)) {
+      errors.push({
+        level: "error",
+        scope: "file",
+        target,
+        message: "runtime Terrain:Fill*/WriteVoxels script — use the `terrainFill` action so the plugin paints in Studio edit mode (Play-mode scripts don't affect what you see)",
+      });
+      continue;
+    }
+
+
+
     // Service references inside the script
     for (const svc of extractServiceRefs(f.content)) {
       if (!VALID_SERVICES.has(svc)) {
