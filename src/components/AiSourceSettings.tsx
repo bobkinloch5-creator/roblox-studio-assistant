@@ -9,8 +9,10 @@ import {
   saveProviderKey,
   clearProviderKey,
 } from "@/lib/project-ai.functions";
+import { SITE_PROVIDER_LABELS, SITE_PROVIDER_MODELS, type SiteProviderId } from "@/lib/ai-models";
 
 type ProviderId = "openai" | "anthropic" | "google" | "groq" | "neokens";
+type SiteOnlyProviderId = SiteProviderId;
 type Mode = "mcp" | "api_key";
 
 type McpRow = {
@@ -27,8 +29,8 @@ const PROVIDER_LABELS: Record<ProviderId, string> = {
   openai: "OpenAI",
   anthropic: "Anthropic",
   google: "Google Gemini",
-  groq: "Groq",
-  neokens: "Neokens",
+  groq: SITE_PROVIDER_LABELS.groq,
+  neokens: SITE_PROVIDER_LABELS.neokens,
 };
 
 const PROVIDER_MODELS: Record<ProviderId, string[]> = {
@@ -46,22 +48,10 @@ const PROVIDER_MODELS: Record<ProviderId, string[]> = {
     "gemini-3-flash-preview",
   ],
   groq: [
-    "llama-3.3-70b-versatile",
-    "llama-3.1-8b-instant",
-    "openai/gpt-oss-120b",
-    "openai/gpt-oss-20b",
-    "meta-llama/llama-4-scout-17b-16e-instruct",
-    "meta-llama/llama-4-maverick-17b-128e-instruct",
-    "qwen/qwen3-32b",
-    "moonshotai/kimi-k2-instruct",
-    "deepseek-r1-distill-llama-70b",
+    ...SITE_PROVIDER_MODELS.groq,
   ],
   neokens: [
-    "gemini-3-flash",
-    "claude-haiku-4-5-20251001",
-    "gpt-5.3-codex",
-    "gemini-3.1-pro",
-    "gpt-5.1",
+    ...SITE_PROVIDER_MODELS.neokens,
   ],
 
 };
@@ -73,6 +63,8 @@ const PROVIDER_KEY_HINTS: Record<ProviderId, string> = {
   groq: "Site-wide free key managed by admin (GROQ_API_KEY)",
   neokens: "Site-wide key managed by admin (NEOKENS_API_KEY)",
 };
+
+const SITE_ONLY_PROVIDERS: SiteOnlyProviderId[] = ["groq", "neokens"];
 
 export function AiSourceSettings({
   projectId,
