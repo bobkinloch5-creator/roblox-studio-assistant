@@ -5,7 +5,7 @@ import { useServerFn } from "@tanstack/react-start";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth-context";
 import { toggleShowcaseLike, remixShowcaseProject } from "@/lib/showcase.functions";
-import { Heart, GitFork, Sparkles, Loader2, ArrowLeft } from "lucide-react";
+import { Heart, GitFork, Sparkles, Loader2, ArrowLeft, Share2 } from "lucide-react";
 import { toast } from "sonner";
 
 export const Route = createFileRoute("/showcase/$projectId")({
