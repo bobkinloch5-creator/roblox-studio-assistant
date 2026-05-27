@@ -1438,10 +1438,10 @@ function Actions.insertAsset(a)
 	model:Destroy()
 	local placed = (typeof(targetParent) == "Instance" and targetParent ~= parent) and targetParent or moved[1]
 	if a.position and placed and placed:IsA("Model") then
-		local pos = coerceValue(a.position)
+		local pos = asVector3(a.position)
 		placed:PivotTo(CFrame.new(pos))
 	elseif a.position and placed and placed:IsA("BasePart") then
-		placed.CFrame = CFrame.new(coerceValue(a.position))
+		placed.CFrame = CFrame.new(asVector3(a.position))
 	end
 	if placed then stabilizeGeneratedInstance(placed) end
 	return true, nil, placed
@@ -1559,7 +1559,7 @@ function Actions.insert_toolbox_asset(a)
 
 	local placed = (typeof(targetParent) == "Instance" and targetParent ~= parent) and targetParent or moved[1]
 	if a.position and placed then
-		local pos = coerceValue(a.position)
+		local pos = asVector3(a.position)
 		if placed:IsA("Model") then
 			placed:PivotTo(CFrame.new(pos))
 		elseif placed:IsA("BasePart") then
