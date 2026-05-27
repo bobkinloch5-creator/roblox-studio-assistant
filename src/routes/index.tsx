@@ -242,6 +242,15 @@ function useLiveStats() {
 }
 
 function Landing() {
+  const { data: live } = useLiveStats();
+  const stats = live
+    ? [
+        { value: compact(live.scripts), label: "Scripts generated" },
+        { value: compact(live.projects), label: "Games started" },
+        { value: compact(live.users), label: "Builders" },
+        { value: compact(live.showcased), label: "In showcase" },
+      ]
+    : fallbackStats;
   return (
     <div className="min-h-screen flex flex-col">
       <Header />
