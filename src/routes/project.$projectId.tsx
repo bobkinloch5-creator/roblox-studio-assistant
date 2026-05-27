@@ -57,6 +57,7 @@ import {
   MicOff,
   History,
   ImagePlus,
+  Globe,
 } from "lucide-react";
 import { toast } from "sonner";
 import { downloadRbxmx } from "@/lib/rbxmx-export";
