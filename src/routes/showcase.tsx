@@ -1,9 +1,11 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { Header, Footer } from "@/components/layout";
 import { useQuery } from "@tanstack/react-query";
+import { useServerFn } from "@tanstack/react-start";
 import { supabase } from "@/integrations/supabase/client";
-import { Heart, GitFork, Sparkles, Loader2 } from "lucide-react";
+import { Heart, GitFork, Sparkles, Loader2, Flame } from "lucide-react";
 import { useState } from "react";
+import { getTrendingShowcase } from "@/lib/showcase.functions";
 
 export const Route = createFileRoute("/showcase")({
   component: ShowcasePage,
@@ -40,11 +42,26 @@ type ShowcaseProject = {
 };
 
 function ShowcasePage() {
-  const [sort, setSort] = useState<"recent" | "likes" | "remixes">("recent");
+  const [sort, setSort] = useState<"trending" | "recent" | "likes" | "remixes">("trending");
+  const fetchTrending = useServerFn(getTrendingShowcase);
 
   const { data, isLoading } = useQuery({
     queryKey: ["showcase", sort],
     queryFn: async () => {
+      if (sort === "trending") {
+        const res = await fetchTrending();
+        return res.items.map((p) => ({
+          id: p.id,
+          showcase_title: p.title,
+          showcase_description: p.description,
+          showcase_thumbnail_url: p.thumbnailUrl,
+          showcase_likes_count: p.likes,
+          showcase_remix_count: p.remixes,
+          showcase_published_at: p.publishedAt,
+          name: p.title,
+          game_type: p.gameType,
+        })) as ShowcaseProject[];
+      }
       const orderCol =
         sort === "likes"
           ? "showcase_likes_count"
@@ -62,6 +79,7 @@ function ShowcasePage() {
       if (error) throw error;
       return (data ?? []) as ShowcaseProject[];
     },
+    staleTime: 60_000,
   });
 
   return (
@@ -79,17 +97,24 @@ function ShowcasePage() {
         </header>
 
         <div className="mb-6 flex flex-wrap gap-2">
-          {(["recent", "likes", "remixes"] as const).map((s) => (
+          {(["trending", "recent", "likes", "remixes"] as const).map((s) => (
             <button
               key={s}
               onClick={() => setSort(s)}
-              className={`px-3 py-1.5 rounded-full text-sm border transition ${
+              className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm border transition ${
                 sort === s
                   ? "bg-primary text-primary-foreground border-primary"
                   : "border-border text-muted-foreground hover:text-foreground"
               }`}
             >
-              {s === "recent" ? "Most Recent" : s === "likes" ? "Most Liked" : "Most Remixed"}
+              {s === "trending" && <Flame className="h-3.5 w-3.5" />}
+              {s === "trending"
+                ? "Trending"
+                : s === "recent"
+                ? "Most Recent"
+                : s === "likes"
+                ? "Most Liked"
+                : "Most Remixed"}
             </button>
           ))}
         </div>
