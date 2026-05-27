@@ -139,6 +139,7 @@ export function AiSourceSettings({
 
   useEffect(() => {
     load();
+    loadMcp();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [projectId]);
 
