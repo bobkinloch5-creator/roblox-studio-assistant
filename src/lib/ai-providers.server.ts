@@ -55,6 +55,32 @@ export const PROVIDER_DEFAULT_MODEL: Record<ProviderId, string> = {
   neokens: SITE_PROVIDER_DEFAULT_MODEL.neokens,
 };
 
+const NEOKENS_MODEL_BY_KIND: Record<ModelKind, string> = {
+  chat: "gpt-5.3-codex",
+  build: "gpt-5.3-codex",
+  fast: "gpt-5.3-codex",
+  large: "gpt-5.3-codex",
+};
+
+const sanitizingFetch: typeof fetch = async (input, init) => {
+  if (init?.body && typeof init.body === "string") {
+    try {
+      const parsed = JSON.parse(init.body);
+      if (Array.isArray(parsed?.messages)) {
+        parsed.messages = parsed.messages.map((m: any) => {
+          if (!m || typeof m !== "object") return m;
+          const { reasoning_content, reasoning, ...rest } = m;
+          return rest;
+        });
+        init = { ...init, body: JSON.stringify(parsed) };
+      }
+    } catch {
+      // Leave non-JSON request bodies untouched.
+    }
+  }
+  return fetch(input as any, init);
+};
+
 function providerEndpoint(provider: ProviderId): { name: string; baseURL: string } {
   switch (provider) {
     case "openai":
@@ -81,6 +107,7 @@ export function createProvider(provider: ProviderId, apiKey: string) {
     name,
     baseURL,
     apiKey,
+    fetch: sanitizingFetch,
   });
 }
 
@@ -91,6 +118,28 @@ export type ResolvedGateway = {
   // The vercel AI SDK model handle to pass into generateText / streamText.
   model: ReturnType<ReturnType<typeof createOpenAICompatible>>;
 };
+
+export function resolveBuiltInGateway(opts: { kind: ModelKind; thinking?: boolean }): ResolvedGateway {
+  const neokensKey = process.env.NEOKENS_API_KEY;
+  if (neokensKey) {
+    const modelName = NEOKENS_MODEL_BY_KIND[opts.kind] ?? SITE_PROVIDER_DEFAULT_MODEL.neokens;
+    const gw = createProvider("neokens", neokensKey);
+    return { source: "mcp", provider: "neokens", modelName, model: gw(modelName) };
+  }
+
+  const groqKey = process.env.GROQ_API_KEY;
+  if (!groqKey) throw new Error("AI gateway not configured — NEOKENS_API_KEY or GROQ_API_KEY missing.");
+  const gw = createGroqProvider(groqKey);
+  const modelName =
+    opts.kind === "large"
+      ? BLOXSMITH_LARGE_MODEL
+      : opts.kind === "fast"
+        ? BLOXSMITH_FAST_MODEL
+        : opts.thinking
+          ? BLOXSMITH_THINK_MODEL
+          : BLOXSMITH_MODEL;
+  return { source: "mcp", provider: "groq", modelName, model: gw(modelName) };
+}
 
 /**
  * Resolves which AI gateway + model to use for a given user + project.
@@ -108,25 +157,7 @@ export async function resolveAiGateway(opts: {
   kind: ModelKind;
   thinking?: boolean;
 }): Promise<ResolvedGateway> {
-  const fallback = (): ResolvedGateway => {
-    const groqKey = process.env.GROQ_API_KEY;
-    if (!groqKey) throw new Error("AI gateway not configured — GROQ_API_KEY missing.");
-    const gw = createGroqProvider(groqKey);
-    const m =
-      opts.kind === "large"
-        ? BLOXSMITH_LARGE_MODEL
-        : opts.kind === "fast"
-          ? BLOXSMITH_FAST_MODEL
-          : opts.thinking
-            ? BLOXSMITH_THINK_MODEL
-            : BLOXSMITH_MODEL;
-    return {
-      source: "mcp",
-      provider: "groq",
-      modelName: m,
-      model: gw(m),
-    };
-  };
+  const fallback = (): ResolvedGateway => resolveBuiltInGateway(opts);
 
   if (!opts.projectId) return fallback();
 

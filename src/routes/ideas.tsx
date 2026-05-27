@@ -53,18 +53,23 @@ function IdeasPage() {
   const [buildingIdx, setBuildingIdx] = useState<number | null>(null);
 
   const gen = useMutation({
-    mutationFn: () =>
-      generate({
+    mutationFn: () => {
+      if (!user) throw new Error("Sign in to generate ideas.");
+      return generate({
         data: {
           category: category === "Any" ? undefined : (category as (typeof IDEA_CATEGORIES)[number]),
           count: 3,
         },
-      }),
+      });
+    },
     onSuccess: (res) => {
       setIdeas((res.ideas ?? []) as Idea[]);
       if (!res.ideas?.length) toast.error("No ideas returned — try again");
     },
-    onError: (e: Error) => toast.error(e.message),
+    onError: (e: Error) => {
+      toast.error(e.message);
+      if (e.message.includes("Sign in")) nav({ to: "/login" });
+    },
   });
 
   const buildIdea = async (idx: number, idea: Idea) => {

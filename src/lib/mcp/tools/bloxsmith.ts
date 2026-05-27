@@ -63,17 +63,14 @@ async function runBuild(projectId: string, prompt: string, callerUserId: string)
     .maybeSingle();
   if (!spent) throw new Error("Could not spend credit (concurrent update).");
 
-  const apiKey = process.env.GROQ_API_KEY;
-  if (!apiKey) throw new Error("GROQ_API_KEY missing on server.");
-
   const { generateText, stepCountIs } = await import("ai");
-  const { createGroqProvider, SYSTEM_PROMPT, BLOXSMITH_MODEL } = await import(
+  const { SYSTEM_PROMPT } = await import(
     "@/lib/ai-gateway.server"
   );
+  const { resolveBuiltInGateway } = await import("@/lib/ai-providers.server");
   const { buildBloxSmithTools } = await import("@/lib/ai-tools.server");
 
-  const gateway = createGroqProvider(apiKey);
-  const model = gateway(BLOXSMITH_MODEL);
+  const model = resolveBuiltInGateway({ kind: "build" }).model;
 
   const { data: liveContext } = await supabaseAdmin
     .from("plugin_context")
