@@ -1065,3 +1065,50 @@ html.halloween .hero-bg-img, html.christmas .hero-bg-img, html.winter .hero-bg-i
 @media (prefers-reduced-motion: reduce) {
   .cursor-dot, .cursor-ring { transition: none; }
 }
+
+/* Click ripple feedback */
+.click-ripple {
+  position: absolute;
+  width: 14px;
+  height: 14px;
+  margin: -7px 0 0 -7px;
+  border-radius: 9999px;
+  background: color-mix(in oklab, var(--primary) 55%, transparent);
+  box-shadow:
+    0 0 0 2px color-mix(in oklab, var(--primary) 70%, transparent),
+    0 0 24px color-mix(in oklab, var(--primary) 60%, transparent);
+  animation: click-ripple 0.6s cubic-bezier(0.22, 0.61, 0.36, 1) forwards;
+  pointer-events: none;
+  will-change: transform, opacity;
+}
+
+@keyframes click-ripple {
+  0% {
+    transform: scale(0.4);
+    opacity: 0.9;
+  }
+  60% {
+    opacity: 0.55;
+  }
+  100% {
+    transform: scale(6);
+    opacity: 0;
+  }
+}
+
+/* Subtle press feedback on any interactive element */
+button:active,
+a:active,
+[role="button"]:active,
+input[type="submit"]:active,
+input[type="button"]:active,
+label:active,
+summary:active {
+  transform: scale(0.97);
+  transition: transform 0.08s ease-out;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .click-ripple { animation: none; opacity: 0; }
+  button:active, a:active, [role="button"]:active { transform: none; }
+}
