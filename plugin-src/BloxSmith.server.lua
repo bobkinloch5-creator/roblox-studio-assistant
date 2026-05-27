@@ -565,7 +565,7 @@ local testConnBtn     = utilityButton(utilityRow, "Test",         0.2, 5)
 local previewRow = Instance.new("Frame", root)
 previewRow.LayoutOrder = 12
 previewRow.BackgroundTransparency = 1
-previewRow.Size = UDim2.new(1,0,0,24)
+previewRow.Size = UDim2.new(1,0,0,30)
 local previewList = Instance.new("UIListLayout", previewRow)
 previewList.FillDirection = Enum.FillDirection.Horizontal
 previewList.Padding = UDim.new(0,6)
@@ -590,7 +590,7 @@ refreshPreviewToggleLabel()
 local clearRow = Instance.new("Frame", root)
 clearRow.LayoutOrder = 13
 clearRow.BackgroundTransparency = 1
-clearRow.Size = UDim2.new(1,0,0,24)
+clearRow.Size = UDim2.new(1,0,0,30)
 local clearList = Instance.new("UIListLayout", clearRow)
 clearList.FillDirection = Enum.FillDirection.Horizontal
 clearList.Padding = UDim.new(0,6)
@@ -621,7 +621,7 @@ end)
 local organizeRow = Instance.new("Frame", root)
 organizeRow.LayoutOrder = 14
 organizeRow.BackgroundTransparency = 1
-organizeRow.Size = UDim2.new(1,0,0,24)
+organizeRow.Size = UDim2.new(1,0,0,30)
 local organizeList = Instance.new("UIListLayout", organizeRow)
 organizeList.FillDirection = Enum.FillDirection.Horizontal
 organizeList.Padding = UDim.new(0,6)
@@ -668,8 +668,8 @@ end)
 local ignoreLabel = Instance.new("TextLabel", root)
 ignoreLabel.LayoutOrder = 15
 ignoreLabel.BackgroundTransparency = 1
-ignoreLabel.Size = UDim2.new(1,0,0,12)
-ignoreLabel.Font = Enum.Font.GothamMedium; ignoreLabel.TextSize = 9
+ignoreLabel.Size = UDim2.new(1,0,0,14)
+ignoreLabel.Font = Enum.Font.BuilderSansBold; ignoreLabel.TextSize = 10
 ignoreLabel.TextColor3 = C.textDim
 register(ignoreLabel, "textDim")
 ignoreLabel.Text = "IGNORE FILTERS  (comma-separated)"
@@ -677,16 +677,16 @@ ignoreLabel.TextXAlignment = Enum.TextXAlignment.Left
 
 local ignoreWrap = Instance.new("Frame", root)
 ignoreWrap.LayoutOrder = 16
-ignoreWrap.Size = UDim2.new(1,0,0,26)
+ignoreWrap.Size = UDim2.new(1,0,0,32)
 ignoreWrap.BackgroundColor3 = C.panel
 register(ignoreWrap, "panel")
 ignoreWrap.BorderSizePixel = 0
-corner(ignoreWrap, 6)
+corner(ignoreWrap, 10)
 local ignoreStroke = stroke(ignoreWrap, C.stroke, 1)
 
 local ignoreBox = Instance.new("TextBox", ignoreWrap)
-ignoreBox.Size = UDim2.new(1,-18,1,0)
-ignoreBox.Position = UDim2.new(0,9,0,0)
+ignoreBox.Size = UDim2.new(1,-24,1,0)
+ignoreBox.Position = UDim2.new(0,12,0,0)
 ignoreBox.BackgroundTransparency = 1
 ignoreBox.TextColor3 = C.text
 register(ignoreBox, "text")
