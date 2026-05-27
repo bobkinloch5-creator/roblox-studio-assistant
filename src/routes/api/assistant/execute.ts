@@ -1502,14 +1502,14 @@ export const Route = createFileRoute("/api/assistant/execute")({
                     else if (id.includes("llama-3.3-70b") || id.includes("llama3-70b") || id.includes("70b-versatile")) hardCap = 32000;
                     else if (id.includes("llama-3.1-8b") || id.includes("8b-instant")) hardCap = 8000;
                     else if (id.includes("mixtral") || id.includes("gemma")) hardCap = 8000;
-                    // Speed-tuned output cap: most builds emit < 4k tokens of JSON.
+                    // Speed-tuned output cap: most builds emit < 3k tokens of JSON.
                     // Huge caps slow Groq + Gemini dramatically without improving quality.
-                    const target = thinking ? 10000 : 5000;
+                    const target = thinking ? 8000 : 3500;
                     const maxOut = Math.min(target, hardCap);
                     // Per-attempt wall-clock cap. Cloudflare workers will 502 if a
-                    // single request hangs. Give each attempt at most ~22s so a
+                    // single request hangs. Give each attempt at most ~18s so a
                     // 2-attempt chain still fits inside the 50s response window.
-                    const perAttemptMs = thinking ? 35000 : 22000;
+                    const perAttemptMs = thinking ? 30000 : 18000;
                     const attemptCtl = new AbortController();
                     const timeoutId = setTimeout(() => attemptCtl.abort(), perAttemptMs);
                     const combinedSignal: AbortSignal = (AbortSignal as any).any
@@ -1523,8 +1523,8 @@ export const Route = createFileRoute("/api/assistant/execute")({
                           system: systemWithRules,
                           messages,
                           tools: pickFastTools(prompt, { projectId, userId }) as any,
-                          // Fewer tool-loop steps = faster builds. Most builds need 2-4 steps.
-                          stopWhen: stepCountIs(thinking ? 16 : 8),
+                          // Fewer tool-loop steps = faster builds. Most builds need 2-3 steps.
+                          stopWhen: stepCountIs(thinking ? 12 : 5),
                           maxOutputTokens: maxOut,
                           abortSignal: combinedSignal,
                         }, `ai-execute attempt#${i} src=${resolved.source} model=${att.modelId} slim=${useSlim} maxOut=${maxOut}`),
