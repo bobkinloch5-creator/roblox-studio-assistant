@@ -57,6 +57,7 @@ import {
   MicOff,
   History,
   ImagePlus,
+  Globe,
 } from "lucide-react";
 import { toast } from "sonner";
 import { downloadRbxmx } from "@/lib/rbxmx-export";
@@ -483,6 +484,10 @@ function ProjectEditor() {
   const CHAT_COST = 1;
   const runChat = useServerFn(chatWithAI);
   const [thinking, setThinking] = useState(false);
+  // Web-search toggle: when on, the AI is pushed to call the web_search /
+  // fetch_url tools to verify facts (Luau APIs, current best practices,
+  // game-design patterns) before answering / building.
+  const [webSearch, setWebSearch] = useState(false);
   const [mcpServers, setMcpServers] = useState<Array<{ name: string; enabled: boolean; ok: boolean | null }>>([]);
   const [mcpClient, setMcpClient] = useState<{ client: string | null; lastUsedAt: string | null } | null>(null);
   const [aiSettings, setAiSettings] = useState<{ mode: "mcp" | "api_key"; provider: string | null; model: string | null }>({
@@ -1228,9 +1233,15 @@ function ProjectEditor() {
     const imgs = attachments;
     setPrompt("");
     setAttachments([]);
-    if (chatMode) await runChatRequest(p || "Analyze the attached image(s).", imgs);
-    else if (planMode) await runPlanRequest(p);
-    else await runGenerate(p || "Analyze the attached image(s) and build/fix what's needed.", { images: imgs });
+    // Web-search hint: when the toggle is on, push the AI to actively call
+    // the web_search / fetch_url tools to ground its answer.
+    const webHint = webSearch
+      ? "\n\n[WEB SEARCH ENABLED] You MUST call the web_search tool (and fetch_url for promising results) before answering or building. Cite at least one source URL in your reply."
+      : "";
+    const composedPrompt = (p || "Analyze the attached image(s) and help.") + webHint;
+    if (chatMode) await runChatRequest(composedPrompt, imgs);
+    else if (planMode) await runPlanRequest(composedPrompt);
+    else await runGenerate(composedPrompt, { images: imgs });
   };
 
 
@@ -2520,6 +2531,14 @@ function ProjectEditor() {
                       className={`h-8 w-8 grid place-items-center rounded-lg transition disabled:opacity-40 ${attachments.length > 0 ? "text-primary bg-primary/10" : "text-muted-foreground hover:text-foreground hover:bg-surface"}`}
                     >
                       <ImagePlus className="h-4 w-4" />
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setWebSearch((v) => !v)}
+                      title={webSearch ? "Web search ON — AI will research before answering" : "Enable web search (AI will look things up)"}
+                      className={`h-8 w-8 grid place-items-center rounded-lg transition ${webSearch ? "text-sky-300 bg-sky-500/15" : "text-muted-foreground hover:text-foreground hover:bg-surface"}`}
+                    >
+                      <Globe className="h-4 w-4" />
                     </button>
                   </div>
                   {aiBusy ? (
