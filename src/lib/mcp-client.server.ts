@@ -12,18 +12,97 @@ type McpServer = {
   auth_header: string | null;
 };
 
-async function mcpRpc(server: McpServer, method: string, params?: any, id = 1) {
+function isOwnMcpUrl(url: string): boolean {
+  try {
+    const u = new URL(url);
+    const host = u.hostname.toLowerCase();
+    const path = u.pathname.replace(/\/+$/, "");
+    const isOurs =
+      host === "bloxsmith.pro" ||
+      host === "www.bloxsmith.pro" ||
+      host.endsWith(".lovable.app") ||
+      host === "localhost";
+    return isOurs && path === "/api/public/mcp";
+  } catch {
+    return false;
+  }
+}
+
+function randomToken(len = 32) {
+  const bytes = new Uint8Array(len);
+  crypto.getRandomValues(bytes);
+  return Array.from(bytes)
+    .map((b) => b.toString(16).padStart(2, "0"))
+    .join("");
+}
+
+async function sha256(text: string) {
+  const buf = new TextEncoder().encode(text);
+  const hash = await crypto.subtle.digest("SHA-256", buf);
+  return Array.from(new Uint8Array(hash))
+    .map((b) => b.toString(16).padStart(2, "0"))
+    .join("");
+}
+
+async function ensureOwnToken(userId: string): Promise<string> {
+  const token = "bsmcp_" + randomToken(32);
+  const hash = await sha256(token);
+  await supabaseAdmin
+    .from("mcp_tokens")
+    .upsert(
+      { user_id: userId, token_hash: hash, updated_at: new Date().toISOString() },
+      { onConflict: "user_id" },
+    );
+  return token;
+}
+
+/**
+ * Normalize whatever the user pasted into a valid Authorization header value.
+ * Accepts bare tokens ("bsmcp_xxx", "sk-...", "ghp_..."), or fully-formed
+ * "Bearer xxx" / "Basic xxx" / "Token xxx" strings.
+ */
+function normalizeAuthHeader(raw: string | null | undefined): string {
+  const v = (raw ?? "").trim();
+  if (!v) return "";
+  if (/^(Bearer|Basic|Token)\s+/i.test(v)) return v;
+  return `Bearer ${v}`;
+}
+
+async function resolveAuthHeader(server: McpServer, userId: string): Promise<string> {
+  if (isOwnMcpUrl(server.url)) {
+    const adminSecret = process.env.MCP_SECRET;
+    if (adminSecret) return `Bearer ${adminSecret}`;
+    const token = await ensureOwnToken(userId);
+    return `Bearer ${token}`;
+  }
+  return normalizeAuthHeader(server.auth_header);
+}
+
+async function mcpRpc(
+  server: McpServer,
+  authHeader: string,
+  method: string,
+  params?: any,
+  id = 1,
+) {
   const headers: Record<string, string> = {
     "Content-Type": "application/json",
     Accept: "application/json, text/event-stream",
   };
-  if (server.auth_header) headers["Authorization"] = server.auth_header;
+  if (authHeader) headers["Authorization"] = authHeader;
   const r = await fetch(server.url, {
     method: "POST",
     headers,
     body: JSON.stringify({ jsonrpc: "2.0", id, method, params }),
   });
-  if (!r.ok) throw new Error(`MCP ${server.name} HTTP ${r.status}`);
+  if (!r.ok) {
+    if (r.status === 401 || r.status === 403) {
+      throw new Error(
+        `MCP ${server.name}: ${r.status} Unauthorized — token in /mcp-servers is missing or invalid. Update it and try again.`,
+      );
+    }
+    throw new Error(`MCP ${server.name} HTTP ${r.status}`);
+  }
   const ct = r.headers.get("content-type") ?? "";
   let data: any;
   if (ct.includes("text/event-stream")) {
@@ -41,8 +120,8 @@ async function mcpRpc(server: McpServer, method: string, params?: any, id = 1) {
   return data.result;
 }
 
-async function initAndList(server: McpServer) {
-  await mcpRpc(server, "initialize", {
+async function initAndList(server: McpServer, authHeader: string) {
+  await mcpRpc(server, authHeader, "initialize", {
     protocolVersion: "2025-06-18",
     capabilities: {},
     clientInfo: { name: "bloxsmith", version: "1.0.0" },
@@ -54,12 +133,12 @@ async function initAndList(server: McpServer) {
       headers: {
         "Content-Type": "application/json",
         Accept: "application/json, text/event-stream",
-        ...(server.auth_header ? { Authorization: server.auth_header } : {}),
+        ...(authHeader ? { Authorization: authHeader } : {}),
       },
       body: JSON.stringify({ jsonrpc: "2.0", method: "notifications/initialized" }),
     });
   } catch {}
-  const result = await mcpRpc(server, "tools/list", {}, 2);
+  const result = await mcpRpc(server, authHeader, "tools/list", {}, 2);
   return (result?.tools ?? []) as Array<{
     name: string;
     description?: string;
@@ -83,17 +162,26 @@ export async function buildUserMcpTools(userId: string) {
   const tools: Record<string, any> = {};
   await Promise.all(
     servers.map(async (s) => {
+      const server = s as McpServer;
+      let authHeader = "";
       try {
-        const list = await initAndList(s as McpServer);
+        authHeader = await resolveAuthHeader(server, userId);
+      } catch (e) {
+        console.error(`[mcp] could not resolve auth for ${server.name}:`, e);
+        return;
+      }
+      try {
+        const list = await initAndList(server, authHeader);
         for (const t of list) {
-          const key = `mcp_${sanitizeName(s.name)}_${sanitizeName(t.name)}`;
+          const key = `mcp_${sanitizeName(server.name)}_${sanitizeName(t.name)}`;
           tools[key] = tool({
-            description: `[MCP:${s.name}] ${t.description ?? t.name}`,
+            description: `[MCP:${server.name}] ${t.description ?? t.name}`,
             inputSchema: z.object({}).passthrough(),
             execute: async (args: any) => {
               try {
                 const res = await mcpRpc(
-                  s as McpServer,
+                  server,
+                  authHeader,
                   "tools/call",
                   { name: t.name, arguments: args ?? {} },
                   Date.now(),
@@ -106,7 +194,7 @@ export async function buildUserMcpTools(userId: string) {
           });
         }
       } catch (e) {
-        console.error(`[mcp] failed to load ${s.name}:`, e);
+        console.error(`[mcp] failed to load ${server.name}:`, e);
       }
     }),
   );
