@@ -28,10 +28,50 @@ const TOOLBOX_CATEGORY_MAP: Record<string, number> = {
   All: 10,
 };
 
+const RBX_HEADERS = {
+  "User-Agent": "Mozilla/5.0 BloxSmith/1.0",
+  Accept: "application/json",
+};
+
+async function batchToolboxDetails(ids: number[]): Promise<any[]> {
+  if (ids.length === 0) return [];
+  try {
+    const r = await fetch(
+      `https://apis.roblox.com/toolbox-service/v1/items/details?assetIds=${ids.join(",")}`,
+      { headers: RBX_HEADERS },
+    );
+    if (!r.ok) return [];
+    const j: any = await r.json();
+    return (j.data ?? [])
+      .map((row: any) => {
+        if (!row?.asset) return null;
+        const isFree = !!row.fiatProduct?.isFree;
+        return {
+          assetId: row.asset.id as number,
+          name: (row.asset.name as string)?.trim() || `Asset ${row.asset.id}`,
+          creator: row.creator?.name,
+          creatorId: row.creator?.id,
+          creatorType: row.creator?.type === 2 ? "Group" : "User",
+          verified: !!row.creator?.isVerifiedCreator,
+          assetType: row.asset?.typeId,
+          price: isFree ? 0 : 1,
+          isForSale: !!row.fiatProduct?.purchasable,
+          upVotePercent: row.voting?.upVotePercent ?? 0,
+          voteCount: row.voting?.voteCount ?? 0,
+        };
+      })
+      .filter(Boolean);
+  } catch {
+    return [];
+  }
+}
+
 async function fetchAssetDetails(assetId: number) {
+  const batch = await batchToolboxDetails([assetId]);
+  if (batch[0]) return batch[0];
   try {
     const r = await fetch(`https://economy.roblox.com/v2/assets/${assetId}/details`, {
-      headers: { "User-Agent": "BloxSmith/1.0", Accept: "application/json" },
+      headers: RBX_HEADERS,
     });
     if (!r.ok) return null;
     const j: any = await r.json();
@@ -64,24 +104,40 @@ export async function searchRobloxAssets(
   const toolboxCat = TOOLBOX_CATEGORY_MAP[category];
   if (toolboxCat) {
     try {
-      const fetchLimit = Math.min(30, Math.max(limit * 3, 10));
+      const fetchLimit = Math.min(30, Math.max(limit * 4, 20));
       const url = `https://apis.roblox.com/toolbox-service/v1/marketplace/${toolboxCat}?keyword=${encodeURIComponent(query)}&limit=${fetchLimit}`;
-      const r = await fetch(url, {
-        headers: { "User-Agent": "BloxSmith/1.0", Accept: "application/json" },
-      });
+      const r = await fetch(url, { headers: RBX_HEADERS });
       if (!r.ok) return [];
       const j: any = await r.json();
       const ids: number[] = (j.data ?? [])
         .map((x: any) => x.id)
         .filter((n: any) => typeof n === "number");
       if (ids.length === 0) return [];
-      const detailCap = Math.min(ids.length, Math.max(limit * 2, 8), 16);
-      const enriched = (
-        await Promise.all(ids.slice(0, detailCap).map((id) => fetchAssetDetails(id)))
-      ).filter(Boolean) as any[];
+      const detailIds = ids.slice(0, Math.min(ids.length, 20));
+      let enriched = await batchToolboxDetails(detailIds);
+      // Final safety net: if detail enrichment failed entirely, still return
+      // bare ids so the AI can queue an insert. Roblox InsertService will
+      // succeed for any free model regardless of metadata.
+      if (enriched.length === 0) {
+        enriched = detailIds.map((id) => ({
+          assetId: id,
+          name: `Asset ${id}`,
+          creator: "",
+          verified: false,
+          price: 0,
+          isForSale: true,
+          upVotePercent: 0,
+          voteCount: 0,
+        }));
+      }
       let items = enriched;
       if (freeOnly) items = items.filter((i) => (i.price ?? 0) === 0);
       if (verifiedOnly) items = items.filter((i) => i.verified === true);
+      items.sort(
+        (a, b) =>
+          (b.upVotePercent ?? 0) * (b.voteCount ?? 0) -
+          (a.upVotePercent ?? 0) * (a.voteCount ?? 0),
+      );
       return items.slice(0, limit);
     } catch {
       return [];

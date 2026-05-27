@@ -1631,6 +1631,39 @@ export const Route = createFileRoute("/api/assistant/execute")({
           // Resolve any asset search queries asynchronously server-side
           mappedActions = await resolveSearchQueries(mappedActions);
 
+          // Safety net: if the user asked for a map/world/lobby and the AI
+          // didn't queue ANY toolbox insert, auto-search and inject one so
+          // the result isn't just empty Lighting tweaks.
+          const lowerPrompt = prompt.toLowerCase();
+          const wantsMap = /\b(map|world|lobby|arena|city|town|village|island|dungeon|level|scene|environment)\b/.test(lowerPrompt);
+          const hasInsert = mappedActions.some((a: any) => a?.type === "insert_toolbox_asset" || a?.type === "insertAsset");
+          if (wantsMap && !hasInsert) {
+            try {
+              const { searchRobloxAssets } = await import("@/lib/ai-tools.server");
+              // Build a focused query from the prompt (first 6 words).
+              const q = prompt.replace(/[^a-zA-Z0-9 ]/g, " ").split(/\s+/).filter(Boolean).slice(0, 6).join(" ") + " map";
+              const items = await searchRobloxAssets(q, "Models", 3, { freeOnly: true, verifiedOnly: false });
+              if (items.length > 0) {
+                console.log(`[Execute API] Safety net: injected toolbox map ${items[0].assetId} ("${items[0].name}") for query "${q}"`);
+                mappedActions.push({
+                  type: "insert_toolbox_asset",
+                  assetId: items[0].assetId,
+                  name: items[0].name || "ToolboxMap",
+                  parent: "Workspace",
+                  position: [0, 0, 0],
+                  scanScripts: true,
+                  removeUnsafeScripts: true,
+                  removeScriptsFromDecorativeAssets: true,
+                  freeOnly: true,
+                  requiresApprovalIfScriptsFound: true,
+                } as any);
+              }
+            } catch (err) {
+              console.error("Safety net toolbox search failed:", err);
+            }
+          }
+
+
           // Validation check
           const { data: existingForValidation } = await supabaseUser
             .from("project_files")
