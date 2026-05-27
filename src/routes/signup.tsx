@@ -10,7 +10,7 @@ export const Route = createFileRoute("/signup")({
   head: () => ({
     meta: [
       { title: "Sign up — BloxSmith" },
-      { name: "description", content: "Create a free BloxSmith account to start building Roblox games with AI — 10 starter credits, no card required, sync straight into Studio." },
+      { name: "description", content: "Create a free BloxSmith account to start building Roblox games with AI — 150 starter credits, no card required, sync straight into Studio." },
       { property: "og:title", content: "Sign up for BloxSmith — Free Roblox AI Builder" },
       { property: "og:description", content: "Start building Roblox games with AI in minutes. Free starter credits, no credit card, instant Roblox Studio sync." },
       { property: "og:url", content: "https://bloxsmith.pro/signup" },
@@ -68,7 +68,7 @@ function SignupPage() {
           <span className="text-xl font-bold">Blox<span className="gradient-text">Smith</span></span>
         </Link>
         <h1 className="text-2xl font-bold text-center">Create your account</h1>
-        <p className="text-sm text-muted-foreground text-center mt-1">Get 10 free credits to start, plus 10 free daily.</p>
+        <p className="text-sm text-muted-foreground text-center mt-1">Get 150 free credits to start, plus 10 free daily.</p>
         {refCode && (
           <p className="text-xs text-center mt-2 text-primary-glow">
             🎁 Referral applied: <span className="font-mono">{refCode}</span> — +10 bonus credits after signup.

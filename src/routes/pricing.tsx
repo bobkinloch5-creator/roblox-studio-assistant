@@ -59,7 +59,7 @@ function Pricing() {
           <div className="glass rounded-2xl p-5 flex flex-col">
             <h3 className="font-semibold">Free</h3>
             <div className="mt-2 text-2xl font-bold">$0</div>
-            <div className="text-xs text-muted-foreground mt-1">10 starter + 10 daily</div>
+            <div className="text-xs text-muted-foreground mt-1">150 starter + 10 daily</div>
             <p className="text-xs text-muted-foreground mt-auto pt-4">No card required.</p>
           </div>
           {CREDIT_PACKS.map((p) => {
