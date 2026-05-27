@@ -2096,6 +2096,7 @@ local function actionTouchesIgnored(action)
 end
 
 local function dispatch(action)
+	normalizePersistentParent(action)
 	local fn = Actions[action.type]
 	if not fn then return false, "unknown action: " .. tostring(action.type) end
 	if actionTouchesIgnored(action) then
@@ -2151,11 +2152,10 @@ end
 local function applyActions(actions, sourceLabel)
 	if #actions == 0 then return end
 
-	local RunService = game:GetService("RunService")
 	if not RunService:IsEdit() then
-		syncInfo.Text = "Stop Play mode first to apply changes!"
+		syncInfo.Text = "Play mode detected — stop Play to save BloxSmith changes permanently."
 		setPill("error")
-		warn("[BloxSmith] Stop Play mode first so I can apply this permanently in Studio edit mode.")
+		warn("[BloxSmith] Play mode changes may not save. Stop Play mode so I can insert generated content into persistent Studio services.")
 		local reports = {}
 		for _, a in ipairs(actions) do
 			if a.id then
@@ -2185,10 +2185,12 @@ local function applyActions(actions, sourceLabel)
 	end
 
 	local ok, fail = 0, 0
+	local touchedWorld = false
 	local reports = {}
 	local failedDetails = {}
 	local createdInstances = {}
 	for _, a in ipairs(actions) do
+		if isWorldBuildAction(a) then touchedWorld = true end
 		local pcOk, success, errOrInst, instMaybe = pcall(dispatch, a)
 		local executed = pcOk and success and success ~= false
 		local createdInst = nil
@@ -2247,6 +2249,12 @@ local function applyActions(actions, sourceLabel)
 		pcall(focusOn, createdInstances)
 	end
 
+	if touchedWorld then
+		local spawn = ensurePersistentWorldAfterInsert(createdInstances)
+		appendLog("Inserted generated world content into persistent Workspace folders; SpawnLocation verified for Play mode.")
+		if spawn then table.insert(createdInstances, spawn) end
+	end
+
 	if fail > 0 then setPill("error") else setPill("complete") end
 	appendLog(("Command executed: %d ok, %d failed"):format(ok, fail))
 
@@ -2260,8 +2268,9 @@ local function applyActions(actions, sourceLabel)
 		if connected then setPill("connected") end
 	end)
 
-	syncInfo.Text = ("[%s] Built %d action(s)%s · %s · undoable"):format(
-		activeProjectName or "project", ok, (fail > 0 and (" · " .. fail .. " failed") or ""), os.date("%H:%M:%S"))
+	local statusPrefix = touchedWorld and "Inserted into Workspace/Map — edit + play ready" or "Built"
+	syncInfo.Text = ("[%s] %s %d action(s)%s · %s · undoable"):format(
+		activeProjectName or "project", statusPrefix, ok, (fail > 0 and (" · " .. fail .. " failed") or ""), os.date("%H:%M:%S"))
 
 	return ok, fail, failedDetails
 end
