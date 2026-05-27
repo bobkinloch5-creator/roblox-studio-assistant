@@ -25,6 +25,42 @@ export type ModelProfile = {
   historyChars: number;
 };
 
+export type ProviderHealthEvent = {
+  feature: "chat" | "build" | "plan" | "fix" | "other";
+  provider: ProviderId;
+  model: string;
+  source?: "mcp" | "api_key";
+  ok: boolean;
+  durationMs?: number;
+  errorKind?: "timeout" | "context" | "rate_limit" | "tool" | "json" | "provider" | "unknown";
+  projectId?: string | null;
+  userId?: string | null;
+};
+
+export async function recordProviderHealth(event: ProviderHealthEvent): Promise<void> {
+  const row = {
+    user_id: event.userId ?? null,
+    project_id: event.projectId ?? null,
+    feature: event.feature,
+    provider: event.provider,
+    model: event.model,
+    source: event.source ?? null,
+    ok: event.ok,
+    duration_ms: event.durationMs ?? null,
+    error_kind: event.errorKind ?? null,
+  };
+
+  try {
+    const client = supabaseAdmin as any;
+    const { error } = await client.from("ai_provider_events").insert(row);
+    if (error && !/relation .*ai_provider_events.* does not exist/i.test(error.message ?? "")) {
+      console.warn("[ai-provider-health] insert failed:", error.message);
+    }
+  } catch (err) {
+    console.warn("[ai-provider-health] skipped:", err);
+  }
+}
+
 export const PROVIDER_LABELS: Record<ProviderId, string> = {
   openai: "OpenAI",
   anthropic: "Anthropic",

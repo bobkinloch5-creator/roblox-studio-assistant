@@ -36,6 +36,7 @@ const DATASTORE_LOOP = /(while\s+true|RunService\.(Heartbeat|RenderStepped|Stepp
 const ADMIN_CMD = /\b(admin|kick|ban|teleport|setwalkspeed|givecoins|giveitem)\b/i;
 const ADMIN_ALLOWLIST = /(UserId\s*==|table\.find\([^,]+,\s*\w+\.UserId\)|has_role|IsInGroup|GroupService)/;
 const COOLDOWN = /(tick\(\)|os\.clock\(\)|os\.time\(\)|debounce|cooldown)/i;
+const BACKDOOR_CODE = /\brequire\s*\(\s*\d{5,}\s*\)|\bloadstring\s*\(|\bgetfenv\s*\(|\bsetfenv\s*\(|\bInsertService\s*:\s*LoadAsset\s*\(\s*\d{5,}\s*\)/i;
 
 const MOBILE_UDIM_OFFSET = /UDim2\.new\(\s*0\s*,\s*\d{2,}/; // hardcoded large pixel offset
 const MOBILE_TEXTBUTTON = /TextButton|ImageButton|ScreenGui/;
@@ -85,6 +86,13 @@ export function scoreGeneration(files: GenFile[], actions: GenAction[]): Quality
     }
 
     // Security — LocalScript granting currency / damage
+    if (BACKDOOR_CODE.test(f.content)) {
+      securityFindings.push(`${f.path}: Suspicious code execution / marketplace require pattern detected.`);
+      securityScore -= 60;
+      exploitRisk = "high";
+      exploitReasons.push("Potential backdoor code pattern");
+    }
+
     if (isLocal && CURRENCY_WORDS.test(f.content) && /\+=|=\s*\w+\s*\+/.test(f.content)) {
       securityFindings.push(`${f.path}: LocalScript appears to modify currency/inventory client-side.`);
       securityScore -= 35;

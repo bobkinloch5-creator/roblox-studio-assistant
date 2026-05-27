@@ -16,7 +16,7 @@ export type GenAction = { type: string; [k: string]: any };
 
 export type ValidationIssue = {
   level: "error" | "warning";
-  scope: "file" | "action" | "remote" | "service";
+  scope: "file" | "action" | "remote" | "service" | "security";
   target: string;
   message: string;
 };
@@ -74,6 +74,20 @@ const REMOTE_CLASSES = new Set([
   "BindableFunction",
   "UnreliableRemoteEvent",
 ]);
+
+const BACKDOOR_PATTERNS: Array<{ re: RegExp; message: string }> = [
+  { re: /\brequire\s*\(\s*\d{5,}\s*\)/i, message: "requires a numeric marketplace module id; this is a common backdoor pattern" },
+  { re: /\bloadstring\s*\(/i, message: "uses loadstring, which executes arbitrary code" },
+  { re: /\bgetfenv\s*\(|\bsetfenv\s*\(/i, message: "uses getfenv/setfenv, which is suspicious in generated game code" },
+  { re: /\bHttpService\s*:\s*(GetAsync|PostAsync|RequestAsync)\s*\(/i, message: "makes raw HTTP requests; generated Roblox gameplay code should not phone home" },
+  { re: /\bInsertService\s*:\s*LoadAsset\s*\(\s*\d{5,}\s*\)/i, message: "loads an unchecked marketplace asset at runtime" },
+];
+
+const CLIENT_AUTHORITY_PATTERNS: Array<{ re: RegExp; message: string }> = [
+  { re: /\bleaderstats\b[\s\S]{0,120}\b(Value\s*=\s*Value\s*[+\-]|\+=|-=)/i, message: "client-side leaderstats/currency mutation must be moved to the server" },
+  { re: /\bHumanoid\s*:\s*TakeDamage\s*\(/i, message: "client-side damage must be requested through a server-validated RemoteEvent" },
+  { re: /\bMarketplaceService\s*:\s*Prompt(ProductPurchase|GamePassPurchase)\b/i, message: "purchase prompts are fine, but receipt/ownership rewards must be validated server-side" },
+];
 
 // Invented / non-existent Roblox Instance classes that the AI sometimes
 // hallucinates. We auto-remap to a real equivalent when possible, otherwise
@@ -265,6 +279,33 @@ export function validateGenerated(
       continue;
     }
 
+    for (const pattern of BACKDOOR_PATTERNS) {
+      if (pattern.re.test(f.content)) {
+        errors.push({
+          level: "error",
+          scope: "security",
+          target,
+          message: pattern.message,
+        });
+      }
+    }
+    if (errors.some((e) => e.target === target && e.scope === "security")) {
+      continue;
+    }
+
+    if (f.file_type === "LocalScript") {
+      for (const pattern of CLIENT_AUTHORITY_PATTERNS) {
+        if (pattern.re.test(f.content)) {
+          warnings.push({
+            level: "warning",
+            scope: "security",
+            target,
+            message: pattern.message,
+          });
+        }
+      }
+    }
+
     // Reject runtime terrain-painting scripts — they only run in Play mode,
     // so in Studio edit (what the user sees) nothing happens. AI MUST use
     // the `terrainFill` action so the plugin paints in edit mode.
@@ -451,6 +492,29 @@ export function validateGenerated(
     if (a.type === "delete" && !a.path) {
       errors.push({ level: "error", scope: "action", target, message: "delete action missing 'path'" });
       continue;
+    }
+
+    if ((a.type === "insert_toolbox_asset" || a.type === "insertAsset") && a.assetId) {
+      if (typeof a.assetId !== "number" || !Number.isFinite(a.assetId) || a.assetId <= 0) {
+        errors.push({ level: "error", scope: "security", target, message: "toolbox insert has an invalid assetId" });
+        continue;
+      }
+      if (a.scanScripts !== true && a.removeUnsafeScripts !== true) {
+        warnings.push({
+          level: "warning",
+          scope: "security",
+          target,
+          message: "toolbox asset should be scanned and unsafe scripts removed before insertion",
+        });
+      }
+      if (a.requiresApprovalIfScriptsFound !== true && a.removeScriptsFromDecorativeAssets !== true) {
+        warnings.push({
+          level: "warning",
+          scope: "security",
+          target,
+          message: "toolbox asset scripts should require approval or be stripped for decorative models",
+        });
+      }
     }
 
     keptActions.push(a);

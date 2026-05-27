@@ -13,7 +13,7 @@ import {
   BLOXSMITH_MODEL_TOKEN_BUDGET,
   BLOXSMITH_LARGE_MODEL_TOKEN_BUDGET,
 } from "@/lib/ai-gateway.server";
-import { getModelProfile, resolveAiGateway } from "@/lib/ai-providers.server";
+import { getModelProfile, recordProviderHealth, resolveAiGateway } from "@/lib/ai-providers.server";
 import { buildBloxSmithTools } from "@/lib/ai-tools.server";
 
 // ---------- Prompt-size protection helpers ----------
@@ -1100,8 +1100,12 @@ function pickFastTools(prompt: string, ctx: { projectId: string; userId: string 
     if (allTools[name]) picked[name] = allTools[name];
   };
   if (/\[web search enabled\]|search the web|look up|current|docs|documentation|api/i.test(prompt)) {
+    add("roblox_docs_search");
     add("web_search");
     add("fetch_url");
+  }
+  if (/\b(datastore|remoteevent|remotefunction|marketplaceservice|pathfindingservice|tweenservice|runservice|animation|animator|humanoid|screen.?gui|luau|creator hub|api reference)\b/i.test(prompt)) {
+    add("roblox_docs_search");
   }
   if (/thumbnail|icon|logo|decal|artwork|poster|banner|loading screen/i.test(prompt)) {
     add("generate_image");
@@ -1440,6 +1444,18 @@ async function withRateLimitRetry<T>(label: string, fn: () => Promise<T>): Promi
   throw lastErr;
 }
 
+function classifyProviderError(err: any): "timeout" | "context" | "rate_limit" | "tool" | "json" | "provider" | "unknown" {
+  const msg = String(err?.message ?? err);
+  const status = err?.status ?? err?.statusCode;
+  if (err?.name === "AbortError" || /aborted|abort|timeout|timed out/i.test(msg)) return "timeout";
+  if (status === 413 || /too large|context length|maximum context|token limit|tpm/i.test(msg)) return "context";
+  if (status === 429 || /\b429\b|rate.?limit|too many requests/i.test(msg)) return "rate_limit";
+  if (/tool[_ ]use|tool call|function calling|tools? (are|is) not supported|invalid tool|unsupported.*tool/i.test(msg)) return "tool";
+  if (/json|no json object|unexpected end|unterminated|truncated/i.test(msg)) return "json";
+  if (typeof status === "number" && status >= 500) return "provider";
+  return "unknown";
+}
+
 
 export const Route = createFileRoute("/api/assistant/execute")({
   server: {
@@ -1728,7 +1744,8 @@ export const Route = createFileRoute("/api/assistant/execute")({
                 const resolvedBudget = getModelProfile(resolved.provider, resolved.modelName, {
                   thinking: !!thinking,
                 }).inputTokenBudget;
-                const largeBudget = getModelProfile(resolved.provider, BLOXSMITH_LARGE_MODEL, {
+                const hasGroqFallback = !!apiKey;
+                const largeBudget = getModelProfile(hasGroqFallback ? "groq" : resolved.provider, hasGroqFallback ? BLOXSMITH_LARGE_MODEL : resolved.modelName, {
                   thinking: !!thinking,
                   retry: true,
                 }).inputTokenBudget;
@@ -1744,8 +1761,8 @@ export const Route = createFileRoute("/api/assistant/execute")({
                       // Fast path: one attempt with the small model, one with the large
                       // model as a fallback. Four attempts blew past Cloudflare's
                       // worker wall-time and caused 502s.
-                      { level: 0, modelId: thinking ? BLOXSMITH_THINK_MODEL : BLOXSMITH_MODEL, budget: resolvedBudget || BLOXSMITH_MODEL_TOKEN_BUDGET, useResolved: true },
-                      { level: 2, modelId: BLOXSMITH_LARGE_MODEL, budget: largeBudget || BLOXSMITH_LARGE_MODEL_TOKEN_BUDGET, useResolved: false },
+                      { level: 0, modelId: resolved.modelName, budget: resolvedBudget || BLOXSMITH_MODEL_TOKEN_BUDGET, useResolved: true },
+                      { level: 2, modelId: hasGroqFallback ? BLOXSMITH_LARGE_MODEL : resolved.modelName, budget: largeBudget || BLOXSMITH_LARGE_MODEL_TOKEN_BUDGET, useResolved: !hasGroqFallback },
                     ];
 
                 const systemTokens = estimateTokens(SYSTEM_PROMPT);
@@ -1823,7 +1840,9 @@ export const Route = createFileRoute("/api/assistant/execute")({
                     const isRetry = i > 0;
                     // Give build JSON enough room to finish. The previous 3.5k cap
                     // was truncating maps/UI/system builds and producing empty results.
-                    const profile = getModelProfile(resolved.provider, att.modelId, {
+                    const attemptProvider = att.useResolved ? resolved.provider : "groq";
+                    const attemptSource = att.useResolved ? resolved.source : "mcp";
+                    const profile = getModelProfile(attemptProvider, att.modelId, {
                       thinking: !!thinking,
                       heavyBuild,
                       retry: isRetry,
@@ -1841,6 +1860,7 @@ export const Route = createFileRoute("/api/assistant/execute")({
                       ? (pickFastTools(prompt, { projectId, userId }) as any)
                       : {};
                     let textRes: any;
+                    const started = Date.now();
                     try {
                       textRes = await withRateLimitRetry("ai-execute", () =>
                         generateTextWithToolFallback(generateText, {
@@ -1854,6 +1874,16 @@ export const Route = createFileRoute("/api/assistant/execute")({
                           abortSignal: combinedSignal,
                         }, `ai-execute attempt#${i} src=${resolved.source} model=${att.modelId} slim=${useSlim} maxOut=${maxOut} tools=${isRetry ? 0 : "fast"}`),
                       );
+                      await recordProviderHealth({
+                        feature: "build",
+                        provider: attemptProvider,
+                        model: att.modelId,
+                        source: attemptSource,
+                        ok: true,
+                        durationMs: Date.now() - started,
+                        projectId,
+                        userId,
+                      });
 
                     } finally {
                       clearTimeout(timeoutId);
@@ -1868,6 +1898,7 @@ export const Route = createFileRoute("/api/assistant/execute")({
                         if (e.tool === "roblox_asset_search") summary = `searched toolbox "${a.query ?? ""}" (${a.category ?? "Models"})`;
                         else if (e.tool === "roblox_asset_info") summary = `checked asset ${a.assetId ?? ""}`;
                         else if (e.tool === "roblox_asset_thumbnail") summary = `previewed asset ${a.assetId ?? ""}`;
+                        else if (e.tool === "roblox_docs_search") summary = `checked Roblox docs for "${a.query ?? ""}"`;
                         else if (e.tool === "web_search") summary = `web search "${a.query ?? ""}"`;
                         else if (e.tool === "fetch_url") summary = `fetched ${a.url ?? ""}`;
                         else if (e.tool === "list_project_files") summary = `listed your project files`;
@@ -1892,6 +1923,18 @@ export const Route = createFileRoute("/api/assistant/execute")({
 
 
                   } catch (err: any) {
+                    const attemptProvider = att.useResolved ? resolved.provider : "groq";
+                    const attemptSource = att.useResolved ? resolved.source : "mcp";
+                    await recordProviderHealth({
+                      feature: "build",
+                      provider: attemptProvider,
+                      model: att.modelId,
+                      source: attemptSource,
+                      ok: false,
+                      errorKind: classifyProviderError(err),
+                      projectId,
+                      userId,
+                    });
                     lastErr = err;
                     const msg = String(err?.message ?? err);
                     const isTooLarge = /too large|context length|token|tpm|413/i.test(msg);

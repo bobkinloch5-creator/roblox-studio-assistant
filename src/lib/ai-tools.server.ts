@@ -227,6 +227,21 @@ export const buildBloxSmithTools = (ctx: BloxSmithToolCtx = {}) => ({
     },
   }),
 
+  roblox_docs_search: tool({
+    description:
+      "Search official Roblox Creator Hub / Engine API documentation for current Roblox APIs, services, Luau patterns, and best practices. Use this before answering or generating code when the prompt mentions an API, service, DataStore, remotes, MarketplaceService, UI, animation, pathfinding, terrain, or anything you are not completely certain about.",
+    inputSchema: z.object({
+      query: z.string().min(2).max(200),
+      limit: z.number().int().min(1).max(8).default(5),
+    }),
+    strict: true,
+    execute: async ({ query, limit }) => {
+      const { searchRobloxDocs } = await import("./roblox-docs.server");
+      const results = await searchRobloxDocs(query, limit);
+      return { count: results.length, results };
+    },
+  }),
+
   // ── Realtime project awareness ──────────────────────────────────────
   list_project_files: tool({
     description:
@@ -634,5 +649,4 @@ export const buildBloxSmithTools = (ctx: BloxSmithToolCtx = {}) => ({
     },
   }),
 });
-
 

@@ -1245,6 +1245,8 @@ function ProjectEditor() {
       ? `${userPrompt}\n\n_📎 attached ${images.length} image${images.length === 1 ? "" : "s"}_`
       : userPrompt;
     await pushMsg("user", bubble);
+    const tempAssistantId = crypto.randomUUID();
+    setMessages((m) => [...m, { id: tempAssistantId, role: "assistant", content: "_Thinking..._" }]);
     try {
       const history = messages.slice(-10).map((m) => ({ role: m.role, content: m.content }));
       const out: any = await runChat({
@@ -1256,7 +1258,14 @@ function ProjectEditor() {
           ...(images.length ? { attachments: images } : {}),
         },
       });
-      await pushMsg("assistant", out.reply, { kind: "chat" });
+      const realId = await persistMsg("assistant", out.reply, { kind: "chat" });
+      setMessages((m) =>
+        m.map((x) =>
+          x.id === tempAssistantId
+            ? { ...x, id: realId ?? tempAssistantId, content: out.reply, actions: { kind: "chat" } }
+            : x,
+        ),
+      );
     } catch (e: any) {
       const msg = String(e?.message ?? "Failed");
       const friendly = /rate.?limit|busy|too many requests/i.test(msg)
@@ -1267,7 +1276,14 @@ function ProjectEditor() {
             ? "The chat request took too long. Try a shorter prompt or turn off Thinking mode."
             : msg;
       toast.error(friendly);
-      await pushMsg("assistant", friendly);
+      const realId = await persistMsg("assistant", friendly, { kind: "chat_error" });
+      setMessages((m) =>
+        m.map((x) =>
+          x.id === tempAssistantId
+            ? { ...x, id: realId ?? tempAssistantId, content: friendly, actions: { kind: "chat_error" } }
+            : x,
+        ),
+      );
     } finally {
       setAiBusy(false);
       refreshCredits();

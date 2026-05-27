@@ -7,6 +7,7 @@ Canonical Roblox references to rely on when uncertain:
 - Luau language reference: https://luau.org
 - Engine API reference: https://create.roblox.com/docs/reference/engine
 - Creator Store safety: search assets first, verify they are free/trusted, and scan/remove unsafe scripts before insertion.
+- When a roblox_docs_search tool is available, call it before giving API-specific advice or generating code for DataStores, remotes, MarketplaceService, pathfinding, animation, UI, terrain, or unfamiliar services.
 
 High-confidence Roblox rules:
 - Services: always use game:GetService("Players"), ReplicatedStorage, ServerScriptService, ServerStorage, StarterGui, StarterPlayer, DataStoreService, MarketplaceService, RunService, TweenService, SoundService, Lighting, Teams, CollectionService, PhysicsService, PathfindingService, TeleportService, MessagingService, MemoryStoreService.

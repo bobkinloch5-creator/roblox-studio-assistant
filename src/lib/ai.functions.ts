@@ -106,6 +106,18 @@ function isToolAIError(err: unknown): boolean {
   );
 }
 
+function classifyAIError(err: unknown): "timeout" | "context" | "rate_limit" | "tool" | "json" | "provider" | "unknown" {
+  const msg = getAIErrorMessage(err);
+  const status = getAIStatus(err);
+  if (isAbortError(err) || /aborted|abort|timeout|timed out/i.test(msg)) return "timeout";
+  if (isContextAIError(err)) return "context";
+  if (status === 429 || /rate.?limit|too many requests/i.test(msg)) return "rate_limit";
+  if (isToolAIError(err)) return "tool";
+  if (/json|no json object|unexpected end|unterminated|truncated/i.test(msg)) return "json";
+  if (typeof status === "number" && status >= 500) return "provider";
+  return "unknown";
+}
+
 export const generateWithAI = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((input: unknown) => InputSchema.parse(input))
@@ -630,7 +642,7 @@ export const chatWithAI = createServerFn({ method: "POST" })
       if (spendErr) throw new Error("Not enough credits. Buy more on the Pricing page.");
     }
 
-    const { getModelProfile, resolveAiGateway, resolveBuiltInGateway } = await import("./ai-providers.server");
+    const { getModelProfile, recordProviderHealth, resolveAiGateway, resolveBuiltInGateway } = await import("./ai-providers.server");
     const { ROBLOX_KNOWLEDGE_PROMPT } = await import("./roblox-knowledge");
     let resolved;
     try {
@@ -690,7 +702,7 @@ ${ROBLOX_KNOWLEDGE_PROMPT}${includeProject ? projectBlock : ""}`;
     type ChatMessages = Array<{ role: "system" | "user" | "assistant"; content: string | Part[] }>;
     const allTools = buildBloxSmithTools({ userId, projectId });
     const chatTools = Object.fromEntries(
-      ["web_search", "fetch_url", "roblox_asset_search", "roblox_asset_info", "roblox_asset_thumbnail"]
+      ["roblox_docs_search", "web_search", "fetch_url", "roblox_asset_search", "roblox_asset_info", "roblox_asset_thumbnail"]
         .filter((name) => name in allTools)
         .map((name) => [name, (allTools as Record<string, unknown>)[name]]),
     );
@@ -823,6 +835,7 @@ ${ROBLOX_KNOWLEDGE_PROMPT}${includeProject ? projectBlock : ""}`;
         });
 
         try {
+          const started = Date.now();
           const { text: out } = await callChatModel(
             attempt.label,
             attempt.resolved.model,
@@ -832,10 +845,30 @@ ${ROBLOX_KNOWLEDGE_PROMPT}${includeProject ? projectBlock : ""}`;
             Math.min(profile.stopSteps, thinking ? 6 : 4),
             tools,
           );
+          await recordProviderHealth({
+            feature: "chat",
+            provider: attempt.resolved.provider,
+            model: attempt.resolved.modelName,
+            source: attempt.resolved.source,
+            ok: true,
+            durationMs: Date.now() - started,
+            projectId: projectId ?? null,
+            userId,
+          });
           text = out.trim();
           lastErr = null;
           break;
         } catch (err: unknown) {
+          await recordProviderHealth({
+            feature: "chat",
+            provider: attempt.resolved.provider,
+            model: attempt.resolved.modelName,
+            source: attempt.resolved.source,
+            ok: false,
+            errorKind: classifyAIError(err),
+            projectId: projectId ?? null,
+            userId,
+          });
           lastErr = err;
           const retryable =
             isTransientAIError(err) || isContextAIError(err) || isAbortError(err) || isToolAIError(err);
