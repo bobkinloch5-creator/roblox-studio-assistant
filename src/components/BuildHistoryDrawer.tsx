@@ -111,6 +111,11 @@ export function BuildHistoryDrawer({
                     <AlertTriangle className="h-2.5 w-2.5" /> {it.dangerCount}
                   </span>
                 )}
+                {it.creditsUsed != null && it.creditsUsed > 0 && (
+                  <span className="inline-flex items-center gap-1 rounded-full bg-yellow-500/10 border border-yellow-500/20 px-1.5 py-0.5 text-[10px] text-yellow-300">
+                    <Coins className="h-2.5 w-2.5" /> {it.creditsUsed} cr
+                  </span>
+                )}
               </div>
             </button>
           ))}
