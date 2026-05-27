@@ -2841,6 +2841,17 @@ function ProjectEditor() {
         open={showBuildHistory}
         onClose={() => setShowBuildHistory(false)}
       />
+      <TaskBoard
+        projectId={projectId}
+        open={showTaskBoard}
+        onClose={() => setShowTaskBoard(false)}
+        onBuildTask={(t, brief) => {
+          setPrompt(
+            `Build the task: ${t.title}\n\nBrief from project manager:\n${brief}\n\nGenerate the scripts and queue Studio actions to insert them.`,
+          );
+          toggleChat(true);
+        }}
+      />
     </div>
   );
 }
