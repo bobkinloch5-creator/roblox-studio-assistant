@@ -1230,7 +1230,7 @@ function ProjectEditor() {
     setAttachments([]);
     if (chatMode) await runChatRequest(p || "Analyze the attached image(s).", imgs);
     else if (planMode) await runPlanRequest(p);
-    else await runGenerate(p);
+    else await runGenerate(p || "Analyze the attached image(s) and build/fix what's needed.", { images: imgs });
   };
 
 
