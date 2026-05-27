@@ -2369,6 +2369,8 @@ local function pull(manual)
 	local actions = data.actions or {}
 	if #actions == 0 then return end
 	appendLog("Command received: " .. tostring(#actions) .. " action(s)")
+	-- An incoming build typically spends credits — refresh the displayed balance.
+	refreshCredits(true)
 
 	-- Preview mode: stash actions for user review, do NOT touch the place.
 	if getPreview() then
