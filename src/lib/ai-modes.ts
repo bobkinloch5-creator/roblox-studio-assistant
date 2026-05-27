@@ -11,7 +11,14 @@ export type AiModeId =
   | "ui"
   | "map"
   | "npc"
-  | "security";
+  | "security"
+  | "animation"
+  | "vfx"
+  | "system"
+  | "procedural"
+  | "asset"
+  | "finish";
+
 
 export type AiModeDef = {
   id: AiModeId;
