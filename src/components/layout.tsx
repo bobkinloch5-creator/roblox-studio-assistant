@@ -4,6 +4,7 @@ import logo from "@/assets/logo.png";
 import { useState } from "react";
 import { Menu, X, User, Settings, CreditCard, LogOut, ChevronDown } from "lucide-react";
 import { PluginStatus } from "@/components/PluginStatus";
+import { McpStatus } from "@/components/McpStatus";
 import { LanguageSwitcher } from "@/components/LanguageSwitcher";
 import { ThemeToggle } from "@/components/ThemeToggle";
 
