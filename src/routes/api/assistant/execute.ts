@@ -1181,7 +1181,7 @@ export const Route = createFileRoute("/api/assistant/execute")({
           }
 
           const body = await request.json().catch(() => ({}));
-          const { projectId, prompt, autoExecute, studioConnected, thinking } = body;
+          const { projectId, prompt, autoExecute, studioConnected, thinking, aiMode } = body;
 
           if (!projectId || !prompt) {
             return new Response(JSON.stringify({ error: "Missing projectId or prompt" }), {
@@ -1189,6 +1189,10 @@ export const Route = createFileRoute("/api/assistant/execute")({
               headers: corsHeaders,
             });
           }
+
+          // Resolve optional AI mode addendum (Build/Fix/Debug/Polish/UI/etc.)
+          const { getAiModeAddendum } = await import("@/lib/ai-modes");
+          const modeAddendum = getAiModeAddendum(typeof aiMode === "string" ? aiMode : null);
 
           // RLS only returns projects the authenticated user can access.
           const { data: project, error: projectErr } = await supabaseUser
