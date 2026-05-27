@@ -997,14 +997,20 @@ function ProjectEditor() {
     }
   };
 
-  const runGenerate = async (userPrompt: string, opts?: { skipUserBubble?: boolean }) => {
+  const runGenerate = async (userPrompt: string, opts?: { skipUserBubble?: boolean; images?: string[] }) => {
     if (aiBusy) return;
     if (outOfCredits) {
       toast.error("Out of credits. Buy more or wait for the daily refill.");
       return;
     }
     setAiBusy(true);
-    if (!opts?.skipUserBubble) await pushMsg("user", userPrompt);
+    const imgs = opts?.images ?? [];
+    if (!opts?.skipUserBubble) {
+      const bubble = imgs.length
+        ? `${userPrompt}\n\n_📎 attached ${imgs.length} image${imgs.length === 1 ? "" : "s"}_`
+        : userPrompt;
+      await pushMsg("user", bubble);
+    }
     let response: Response | null = null;
     try {
       response = await fetch("/api/assistant/execute", {
@@ -1020,6 +1026,7 @@ function ProjectEditor() {
           studioConnected: aiContext?.updatedAt != null,
           thinking,
           aiMode,
+          ...(imgs.length ? { attachments: imgs } : {}),
         }),
       });
 
@@ -1223,7 +1230,7 @@ function ProjectEditor() {
     setAttachments([]);
     if (chatMode) await runChatRequest(p || "Analyze the attached image(s).", imgs);
     else if (planMode) await runPlanRequest(p);
-    else await runGenerate(p);
+    else await runGenerate(p || "Analyze the attached image(s) and build/fix what's needed.", { images: imgs });
   };
 
 

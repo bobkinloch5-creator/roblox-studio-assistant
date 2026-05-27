@@ -1181,7 +1181,15 @@ export const Route = createFileRoute("/api/assistant/execute")({
           }
 
           const body = await request.json().catch(() => ({}));
-          const { projectId, prompt, autoExecute, studioConnected, thinking, aiMode } = body;
+          const { projectId, prompt, autoExecute, studioConnected, thinking, aiMode, attachments } = body;
+          // Vision: optional list of data URLs (data:image/...;base64,...) sent
+          // from the chat composer's attach-image button. Cap to 4 images so we
+          // don't blow the context window.
+          const visionImages: string[] = Array.isArray(attachments)
+            ? attachments
+                .filter((x: unknown): x is string => typeof x === "string" && x.startsWith("data:image/"))
+                .slice(0, 4)
+            : [];
 
           if (!projectId || !prompt) {
             return new Response(JSON.stringify({ error: "Missing projectId or prompt" }), {
@@ -1428,9 +1436,20 @@ export const Route = createFileRoute("/api/assistant/execute")({
                   const model = att.useResolved
                     ? resolved.model
                     : (gateway ? gateway(att.modelId) : resolved.model);
+                  // Build the user turn. When the user attaches screenshots
+                  // (vision), send the message as a multi-part content array
+                  // so vision-capable models (Gemini 2.5+/3, GPT-5) can see
+                  // them and reason about what's broken / what to build.
+                  type Part = { type: "text"; text: string } | { type: "image"; image: string };
+                  const userContent: string | Part[] = visionImages.length > 0
+                    ? [
+                        { type: "text", text: built.contextBlock } as Part,
+                        ...visionImages.map((image): Part => ({ type: "image", image })),
+                      ]
+                    : built.contextBlock;
                   const messages = [
                     ...built.trimmedHistory,
-                    { role: "user" as const, content: built.contextBlock },
+                    { role: "user" as const, content: userContent as any },
                   ];
 
                   rawText = "";

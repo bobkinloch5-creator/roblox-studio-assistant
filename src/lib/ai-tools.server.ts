@@ -448,5 +448,62 @@ export const buildBloxSmithTools = (ctx: BloxSmithToolCtx = {}) => ({
       return { success: true };
     },
   }),
+
+  // ── AI image generation (Gemini) ─────────────────────────────────────
+  // Generates game icons, thumbnails, GUI artwork, decals, concept art via
+  // Lovable AI Gateway's Gemini image model. Image is uploaded to the
+  // public `generated-images` bucket and a URL is returned. The AI should
+  // embed that URL as a markdown image in its reply so the user sees it
+  // inline in chat and can download it to upload to Roblox as a decal.
+  generate_image: tool({
+    description:
+      "Generate a brand-new image (game icon, thumbnail, GUI artwork, decal art, concept piece, UI sticker, badge, splash, logo, banner, loading screen) from a text prompt using Google Gemini. Returns a public URL. ALWAYS embed it in your reply as markdown: ![alt](url). Use for any 'make me a thumbnail / icon / logo / decal / artwork / poster' request. Do NOT use for Roblox toolbox lookups — use roblox_asset_search for existing assets.",
+    inputSchema: z.object({
+      prompt: z.string().min(3).max(1000).describe("Detailed visual description: subject, style, mood, colors, framing. Specific = better. e.g. 'A glowing neon obby game icon, top-down isometric, vibrant cyan and magenta blocks on dark background, dramatic rim lighting, Roblox-style cartoon shading'."),
+      size: z.enum(["1024x1024", "1024x1536", "1536x1024"]).default("1024x1024"),
+    }),
+    execute: async ({ prompt, size: _size }) => {
+      const apiKey = process.env.LOVABLE_API_KEY;
+      if (!apiKey) return { error: "Image generation is unavailable (server missing LOVABLE_API_KEY)." };
+      try {
+        const r = await fetch("https://ai.gateway.lovable.dev/v1/images/generations", {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${apiKey}`,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            model: "google/gemini-2.5-flash-image",
+            messages: [{ role: "user", content: prompt }],
+            modalities: ["image", "text"],
+          }),
+        });
+        if (!r.ok) {
+          const txt = await r.text().catch(() => "");
+          if (r.status === 429) return { error: "Image generation rate-limited. Try again in a moment." };
+          if (r.status === 402) return { error: "Image generation credits exhausted." };
+          return { error: `Image generation failed (HTTP ${r.status}): ${txt.slice(0, 200)}` };
+        }
+        const j: any = await r.json();
+        const b64: string | undefined = j?.data?.[0]?.b64_json;
+        if (!b64) return { error: "Image generation returned no image data." };
+        const bytes = Buffer.from(b64, "base64");
+        const filename = `${ctx.userId ?? "anon"}/${Date.now()}-${Math.random().toString(36).slice(2, 8)}.png`;
+        const { error: upErr } = await supabaseAdmin.storage
+          .from("generated-images")
+          .upload(filename, bytes, { contentType: "image/png", upsert: false });
+        if (upErr) return { error: `Could not save image: ${upErr.message}` };
+        const { data: pub } = supabaseAdmin.storage.from("generated-images").getPublicUrl(filename);
+        return {
+          imageUrl: pub.publicUrl,
+          markdown: `![${prompt.slice(0, 80)}](${pub.publicUrl})`,
+          tip: "Embed `markdown` in your reply so the user sees the image. To use as a Roblox decal, the user uploads it via Roblox's Asset Manager and you'll get an assetId.",
+        };
+      } catch (e: any) {
+        return { error: String(e?.message ?? e) };
+      }
+    },
+  }),
 });
+
 
