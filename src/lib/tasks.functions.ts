@@ -145,12 +145,6 @@ export const planFromPrompt = createServerFn({ method: "POST" })
       if (error) throw new Error("Not enough credits to plan tasks.");
     }
 
-    const apiKey = process.env.GROQ_API_KEY;
-    if (!apiKey) {
-      if (!isOwner) await supabase.rpc("refund_credits", { _amount: COST, _reason: "no ai key" });
-      throw new Error("AI gateway not configured.");
-    }
-
     // Pull existing tasks so we don't duplicate planned work.
     const { data: existing } = await supabase
       .from("project_tasks")
@@ -161,8 +155,14 @@ export const planFromPrompt = createServerFn({ method: "POST" })
     const existingTitles = (existing ?? []).map((r) => r.title.toLowerCase());
 
     const { generateText } = await import("ai");
-    const { createGroqProvider, BLOXSMITH_FAST_MODEL } = await import("./ai-gateway.server");
-    const model = createGroqProvider(apiKey)(BLOXSMITH_FAST_MODEL);
+    const { resolveBuiltInGateway } = await import("./ai-providers.server");
+    let model;
+    try {
+      model = resolveBuiltInGateway({ kind: "fast" }).model;
+    } catch (e) {
+      if (!isOwner) await supabase.rpc("refund_credits", { _amount: COST, _reason: "no ai key" });
+      throw e;
+    }
 
     const system = `You are a Roblox project manager. Break the user's request into 6-14 ordered, atomic build tasks. Each task should be one buildable system or feature (e.g. "Create leaderstats", "Add coin pickup system", "Build sell zone", "Wire DataStore saving"). Return STRICT JSON only:
 {"tasks":[{"title":"...","kind":"feature|system|ui|data|polish"}]}
@@ -400,15 +400,15 @@ export const buildTaskBrief = createServerFn({ method: "POST" })
       if (error) throw new Error("Not enough credits.");
     }
 
-    const apiKey = process.env.GROQ_API_KEY;
-    if (!apiKey) {
-      if (!isOwner) await supabase.rpc("refund_credits", { _amount: COST, _reason: "no ai key" });
-      throw new Error("AI gateway not configured.");
-    }
-
     const { generateText } = await import("ai");
-    const { createGroqProvider, BLOXSMITH_FAST_MODEL } = await import("./ai-gateway.server");
-    const model = createGroqProvider(apiKey)(BLOXSMITH_FAST_MODEL);
+    const { resolveBuiltInGateway } = await import("./ai-providers.server");
+    let model;
+    try {
+      model = resolveBuiltInGateway({ kind: "fast" }).model;
+    } catch (e) {
+      if (!isOwner) await supabase.rpc("refund_credits", { _amount: COST, _reason: "no ai key" });
+      throw e;
+    }
 
     const system = `You are a senior Roblox developer. Given one task, produce a SHORT build brief (<= 120 words) covering:
 1) What it is, 2) Where it goes in Studio (services + folders), 3) Server vs client split (security), 4) How to test in Play Solo.
