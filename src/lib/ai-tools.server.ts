@@ -144,7 +144,7 @@ export const buildBloxSmithTools = (ctx: BloxSmithToolCtx = {}) => ({
   // ── Roblox catalog (verified creators only by default) ──────────────
   roblox_asset_search: tool({
     description:
-      "Search the Roblox catalog / toolbox for free assets to insert. Returns assetIds, names, creators. Filtered to VERIFIED creators only by default (Roblox + verified-badge users) for safety. Categories: Models, Decals, Audio, Meshes, Animations, Gear, Hats, Plugins, Accessories, Faces.",
+      "Search the Roblox Toolbox / Creator Store for FREE assets to insert. Returns real assetIds, names, creators. Defaults to free-only (price=0). Categories: Models, Decals, Audio, Meshes, Animations, Plugins (toolbox), or Hats/Gear/Accessories/Faces (catalog wearables).",
     inputSchema: z.object({
       query: z.string().min(1).max(120),
       category: z
@@ -165,40 +165,12 @@ export const buildBloxSmithTools = (ctx: BloxSmithToolCtx = {}) => ({
       limit: z.number().int().min(1).max(20).default(8),
       verifiedOnly: z
         .boolean()
-        .default(true)
-        .describe("If true, only return assets from Roblox or verified-badge creators."),
+        .default(false)
+        .describe("If true, only return assets from Roblox or verified-badge creators. Default false — most free toolbox models are made by ordinary users."),
     }),
     execute: async ({ query, category, limit, verifiedOnly }) => {
-      try {
-        // Pull more than asked so verified filter still gives `limit` results.
-        const fetchLimit = Math.min(30, Math.max(limit * 3, 10));
-        const url = `https://catalog.roblox.com/v1/search/items/details?Category=${encodeURIComponent(
-          category
-        )}&Keyword=${encodeURIComponent(query)}&Limit=${fetchLimit}&SortType=Relevance`;
-        const r = await fetch(url, {
-          headers: { "User-Agent": "BloxSmith/1.0", Accept: "application/json" },
-        });
-        if (!r.ok) return { error: `Catalog HTTP ${r.status}`, items: [] };
-        const j: any = await r.json();
-        let items = (j.data ?? []).map((x: any) => ({
-          assetId: x.id,
-          name: x.name,
-          creator: x.creatorName,
-          creatorId: x.creatorTargetId,
-          creatorType: x.creatorType, // 1=User, 2=Group
-          verified: !!x.creatorHasVerifiedBadge || x.creatorTargetId === 1,
-          assetType: x.assetType,
-          price: x.price ?? 0,
-          favorites: x.favoriteCount ?? 0,
-        }));
-        if (verifiedOnly) {
-          items = items.filter((i: any) => i.verified === true && (i.price ?? 0) === 0);
-        }
-        items = items.slice(0, limit);
-        return { count: items.length, verifiedOnly, items };
-      } catch (e: any) {
-        return { error: String(e?.message ?? e), items: [] };
-      }
+      const items = await searchRobloxAssets(query, category, limit, { verifiedOnly });
+      return { count: items.length, verifiedOnly, items };
     },
   }),
 
