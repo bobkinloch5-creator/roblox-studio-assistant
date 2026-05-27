@@ -2532,6 +2532,14 @@ function ProjectEditor() {
                     >
                       <ImagePlus className="h-4 w-4" />
                     </button>
+                    <button
+                      type="button"
+                      onClick={() => setWebSearch((v) => !v)}
+                      title={webSearch ? "Web search ON — AI will research before answering" : "Enable web search (AI will look things up)"}
+                      className={`h-8 w-8 grid place-items-center rounded-lg transition ${webSearch ? "text-sky-300 bg-sky-500/15" : "text-muted-foreground hover:text-foreground hover:bg-surface"}`}
+                    >
+                      <Globe className="h-4 w-4" />
+                    </button>
                   </div>
                   {aiBusy ? (
                     <button
