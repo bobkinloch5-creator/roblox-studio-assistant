@@ -1672,18 +1672,36 @@ export const Route = createFileRoute("/api/assistant/execute")({
                 if (convoRow?.id) {
                   const { data: msgs } = await supabaseUser
                     .from("agent_messages")
-                    .select("role,content,created_at")
+                    .select("role,content,created_at,actions")
                     .eq("conversation_id", convoRow.id)
                     .order("created_at", { ascending: false })
                     .limit(20);
                   history = (msgs ?? [])
                     .reverse()
                     .filter((m: any) => m.role === "user" || m.role === "assistant")
-                    .map((m: any) => ({
-                      role: m.role as "user" | "assistant",
-                      content: String(m.content ?? ""),
-                    }));
+                    .map((m: any) => {
+                      // Multi-step build memory: prepend a compact build-outcome
+                      // summary to prior assistant turns so the next turn knows
+                      // exactly what was already built / queued / reverted. Keeps
+                      // the AI from re-creating files it already produced.
+                      let content = String(m.content ?? "");
+                      if (m.role === "assistant" && m.actions && typeof m.actions === "object") {
+                        const a: any = m.actions;
+                        const parts: string[] = [];
+                        if (typeof a.files === "number" && a.files > 0) parts.push(`${a.files} file${a.files === 1 ? "" : "s"}`);
+                        if (typeof a.actions === "number" && a.actions > 0) parts.push(`${a.actions} studio action${a.actions === 1 ? "" : "s"}`);
+                        if (a.reverted === true) parts.push("REVERTED by user");
+                        if (parts.length > 0) {
+                          const snap: any[] = Array.isArray(a.snapshot) ? a.snapshot : [];
+                          const paths = snap.slice(0, 6).map((s: any) => s?.path).filter((p: any) => typeof p === "string");
+                          const pathHint = paths.length ? ` [${paths.join(", ")}${snap.length > 6 ? `, +${snap.length - 6} more` : ""}]` : "";
+                          content = `[Built: ${parts.join(", ")}${pathHint}] ${content}`;
+                        }
+                      }
+                      return { role: m.role as "user" | "assistant", content };
+                    });
                 }
+
 
 
                 const keywords = extractKeywords(prompt);
