@@ -157,25 +157,7 @@ export async function resolveAiGateway(opts: {
   kind: ModelKind;
   thinking?: boolean;
 }): Promise<ResolvedGateway> {
-  const fallback = (): ResolvedGateway => {
-    const groqKey = process.env.GROQ_API_KEY;
-    if (!groqKey) throw new Error("AI gateway not configured — GROQ_API_KEY missing.");
-    const gw = createGroqProvider(groqKey);
-    const m =
-      opts.kind === "large"
-        ? BLOXSMITH_LARGE_MODEL
-        : opts.kind === "fast"
-          ? BLOXSMITH_FAST_MODEL
-          : opts.thinking
-            ? BLOXSMITH_THINK_MODEL
-            : BLOXSMITH_MODEL;
-    return {
-      source: "mcp",
-      provider: "groq",
-      modelName: m,
-      model: gw(m),
-    };
-  };
+  const fallback = (): ResolvedGateway => resolveBuiltInGateway(opts);
 
   if (!opts.projectId) return fallback();
 
