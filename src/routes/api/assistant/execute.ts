@@ -1573,10 +1573,11 @@ export const Route = createFileRoute("/api/assistant/execute")({
                     lastErr = err;
                     const msg = String(err?.message ?? err);
                     const isTooLarge = /too large|context length|token|tpm|413/i.test(msg);
+                    const isAbort = err?.name === "AbortError" || /aborted|abort|timeout/i.test(msg);
                     console.error(
-                      `[ai-execute] attempt ${i} failed (tooLarge=${isTooLarge}): ${msg.slice(0, 300)}`,
+                      `[ai-execute] attempt ${i} failed (tooLarge=${isTooLarge}, abort=${isAbort}): ${msg.slice(0, 300)}`,
                     );
-                    if (!isTooLarge && rawText && gateway) {
+                    if (!isTooLarge && !isAbort && rawText && gateway) {
                       try {
                         result = normalizeResult(
                           await repairJsonWithGroq(rawText, gateway, gateway(BLOXSMITH_LARGE_MODEL)),
@@ -1587,10 +1588,17 @@ export const Route = createFileRoute("/api/assistant/execute")({
                         // fall through
                       }
                     }
-                    // Only escalate to the next attempt when the failure was a
-                    // token / context-size error. Unrelated errors (network, JSON
-                    // parse, model 500) don't benefit from a 2nd slow round-trip.
-                    if (isTooLarge && i < attempts.length - 1) continue;
+                    // Retry on token-size errors AND on aborts/timeouts — a 2nd
+                    // attempt with a smaller context and slim prompt usually fits
+                    // inside the wall-clock budget. Other errors (network, JSON
+                    // parse, model 500) don't benefit from a retry.
+                    if ((isTooLarge || isAbort) && i < attempts.length - 1) continue;
+                    // Friendlier final message for aborts so the user knows to retry.
+                    if (isAbort) {
+                      lastErr = new Error(
+                        "The AI took too long to finish this build in one shot. Try a shorter, more focused request (e.g. 'shop UI only — open/close button and 3 items') or run it again.",
+                      );
+                    }
                     break;
                   }
                 }
