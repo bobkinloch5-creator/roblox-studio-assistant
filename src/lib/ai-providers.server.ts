@@ -53,7 +53,7 @@ export const PROVIDER_DEFAULT_MODEL: Record<ProviderId, string> = {
   anthropic: "claude-sonnet-4-5",
   google: "gemini-2.5-flash",
   groq: BLOXSMITH_MODEL,
-  neokens: "gpt-5.3-codex",
+  neokens: "gemini-3-flash",
 };
 
 function providerEndpoint(provider: ProviderId): { name: string; baseURL: string } {
