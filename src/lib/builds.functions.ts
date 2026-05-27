@@ -59,6 +59,7 @@ export const getBuildHistory = createServerFn({ method: "POST" })
       const files = typeof a.files === "number" ? a.files : 0;
       const actions = typeof a.actions === "number" ? a.actions : 0;
       if (files === 0 && actions === 0) continue;
+      const snap: any[] = Array.isArray(a.snapshot) ? a.snapshot : [];
       items.push({
         id: m.id,
         conversation_id: m.conversation_id,
@@ -69,9 +70,12 @@ export const getBuildHistory = createServerFn({ method: "POST" })
         actions,
         generationId: a.generationId ?? null,
         reverted: a.reverted === true,
-        snapshotCount: Array.isArray(a.snapshot) ? a.snapshot.length : 0,
+        snapshotCount: snap.length,
         dangerCount: Array.isArray(a.dangers) ? a.dangers.length : 0,
         creditsUsed: null,
+        snapshotPaths: snap
+          .filter((s) => s && typeof s.path === "string")
+          .map((s) => ({ path: s.path as string, existed: s.existed === true })),
       });
       if (items.length >= limit) break;
     }
