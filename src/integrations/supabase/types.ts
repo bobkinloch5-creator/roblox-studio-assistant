@@ -102,6 +102,39 @@ export type Database = {
         }
         Relationships: []
       }
+      build_plans: {
+        Row: {
+          created_at: string
+          id: string
+          plan: Json
+          project_id: string
+          prompt: string
+          status: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          plan: Json
+          project_id: string
+          prompt: string
+          status?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          plan?: Json
+          project_id?: string
+          prompt?: string
+          status?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       credit_transactions: {
         Row: {
           amount: number
@@ -724,6 +757,75 @@ export type Database = {
           },
         ]
       }
+      project_scans: {
+        Row: {
+          created_at: string
+          id: string
+          project_id: string
+          report: Json
+          score: number
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          project_id: string
+          report: Json
+          score?: number
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          project_id?: string
+          report?: Json
+          score?: number
+          user_id?: string
+        }
+        Relationships: []
+      }
+      project_tasks: {
+        Row: {
+          created_at: string
+          id: string
+          kind: string
+          payload: Json | null
+          plan_id: string | null
+          position: number
+          project_id: string
+          status: string
+          title: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          kind?: string
+          payload?: Json | null
+          plan_id?: string | null
+          position?: number
+          project_id: string
+          status?: string
+          title: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          kind?: string
+          payload?: Json | null
+          plan_id?: string | null
+          position?: number
+          project_id?: string
+          status?: string
+          title?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       projects: {
         Row: {
           ai_rules: string | null
@@ -904,6 +1006,84 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      template_installs: {
+        Row: {
+          created_at: string
+          credits_charged: number
+          id: string
+          project_id: string
+          template_id: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          credits_charged?: number
+          id?: string
+          project_id: string
+          template_id: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          credits_charged?: number
+          id?: string
+          project_id?: string
+          template_id?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      templates: {
+        Row: {
+          active: boolean
+          build_spec: Json
+          category: string
+          created_at: string
+          credits_cost: number
+          description: string
+          difficulty: string
+          features: Json
+          id: string
+          install_count: number
+          name: string
+          slug: string
+          thumbnail_url: string | null
+          updated_at: string
+        }
+        Insert: {
+          active?: boolean
+          build_spec: Json
+          category: string
+          created_at?: string
+          credits_cost?: number
+          description: string
+          difficulty?: string
+          features?: Json
+          id?: string
+          install_count?: number
+          name: string
+          slug: string
+          thumbnail_url?: string | null
+          updated_at?: string
+        }
+        Update: {
+          active?: boolean
+          build_spec?: Json
+          category?: string
+          created_at?: string
+          credits_cost?: number
+          description?: string
+          difficulty?: string
+          features?: Json
+          id?: string
+          install_count?: number
+          name?: string
+          slug?: string
+          thumbnail_url?: string | null
+          updated_at?: string
+        }
+        Relationships: []
       }
       user_mcp_servers: {
         Row: {

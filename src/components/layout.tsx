@@ -30,6 +30,12 @@ export function Header() {
         </Link>
         <nav className="hidden md:flex items-center gap-5 lg:gap-6 text-sm text-muted-foreground ml-4 shrink-0">
 
+          <Link to="/templates" className="hover:text-foreground">
+            Templates
+          </Link>
+          <Link to="/ideas" className="hover:text-foreground">
+            Ideas
+          </Link>
           <Link to="/pricing" className="hover:text-foreground">
             Pricing
           </Link>
