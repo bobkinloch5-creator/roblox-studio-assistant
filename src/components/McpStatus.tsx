@@ -1,9 +1,12 @@
 import { Link } from "@tanstack/react-router";
-import { Server, Loader2, CheckCircle2, XCircle } from "lucide-react";
+import { useServerFn } from "@tanstack/react-start";
+import { Server, Loader2, CheckCircle2, XCircle, RefreshCw } from "lucide-react";
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth-context";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { retestAllMcpServers } from "@/lib/mcp-test.functions";
+import { toast } from "sonner";
 
 type Row = {
   id: string;
@@ -20,6 +23,27 @@ type Row = {
 export function McpStatus({ compact = false }: { compact?: boolean }) {
   const { user } = useAuth();
   const [rows, setRows] = useState<Row[] | null>(null);
+  const [rechecking, setRechecking] = useState(false);
+  const retestAll = useServerFn(retestAllMcpServers);
+
+  const handleRecheckAll = async () => {
+    if (rechecking) return;
+    setRechecking(true);
+    try {
+      const r = await retestAll();
+      if (r.tested === 0) {
+        toast.info("No enabled MCP servers to test.");
+      } else {
+        toast.success(
+          `Rechecked ${r.tested} server${r.tested === 1 ? "" : "s"} — ${r.ok} ok, ${r.failed} failed · avg ${r.avgLatencyMs}ms`,
+        );
+      }
+    } catch (e: any) {
+      toast.error(e?.message ?? "Recheck failed");
+    } finally {
+      setRechecking(false);
+    }
+  };
 
   useEffect(() => {
     if (!user) {
@@ -122,19 +146,36 @@ export function McpStatus({ compact = false }: { compact?: boolean }) {
         </button>
       </PopoverTrigger>
       <PopoverContent align="end" className="w-80 p-0">
-        <div className="p-3 border-b border-border flex items-center justify-between">
-          <div>
+        <div className="p-3 border-b border-border flex items-center justify-between gap-2">
+          <div className="min-w-0">
             <div className="text-sm font-semibold">MCP connections</div>
-            <div className="text-xs text-muted-foreground">
+            <div className="text-xs text-muted-foreground truncate">
               {enabled.length} enabled · {totalTools} tool{totalTools === 1 ? "" : "s"} ready
             </div>
           </div>
-          <Link
-            to="/mcp-servers"
-            className="text-xs text-primary hover:underline shrink-0"
-          >
-            Manage
-          </Link>
+          <div className="inline-flex items-center gap-2 shrink-0">
+            {enabled.length > 0 && (
+              <button
+                onClick={handleRecheckAll}
+                disabled={rechecking}
+                title="Re-test every enabled MCP server"
+                className="inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition disabled:opacity-50"
+              >
+                {rechecking ? (
+                  <Loader2 className="h-3 w-3 animate-spin" />
+                ) : (
+                  <RefreshCw className="h-3 w-3" />
+                )}
+                Recheck
+              </button>
+            )}
+            <Link
+              to="/mcp-servers"
+              className="text-xs text-primary hover:underline"
+            >
+              Manage
+            </Link>
+          </div>
         </div>
         <div className="max-h-72 overflow-y-auto">
           {(rows ?? []).length === 0 ? (

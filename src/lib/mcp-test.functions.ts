@@ -31,11 +31,6 @@ function isOwnMcpUrl(url: string): boolean {
   }
 }
 
-/**
- * If the user wired their own MCP server to point at this BloxSmith
- * deployment but the auth header is missing/invalid, mint a fresh token via
- * the admin client (RLS-bypassing) so the Test button always works.
- */
 async function ensureOwnToken(userId: string): Promise<string> {
   const token = "bsmcp_" + randomToken(32);
   const hash = await sha256(token);
@@ -45,10 +40,112 @@ async function ensureOwnToken(userId: string): Promise<string> {
       { user_id: userId, token_hash: hash, updated_at: new Date().toISOString() },
       { onConflict: "user_id" },
     );
-  if (error) {
-    throw new Error(`Could not mint MCP token: ${error.message}`);
-  }
+  if (error) throw new Error(`Could not mint MCP token: ${error.message}`);
   return token;
+}
+
+// Shared core so both single-test and bulk-retest reuse the same logic.
+// Also captures latency (ms) for advanced diagnostics.
+export async function runMcpHealthCheck(
+  supabase: any,
+  userId: string,
+  serverId: string,
+): Promise<
+  | { ok: true; toolCount: number; tools: Array<{ name: string; description: string }>; latencyMs: number }
+  | { ok: false; error: string; latencyMs: number }
+> {
+  const started = Date.now();
+  const { data: server, error } = await supabase
+    .from("user_mcp_servers")
+    .select("id,name,url,auth_header")
+    .eq("id", serverId)
+    .maybeSingle();
+  if (error || !server) {
+    return { ok: false, error: "Server not found", latencyMs: Date.now() - started };
+  }
+
+  let authHeader = (server.auth_header ?? "").trim();
+  if (authHeader && !/^(Bearer|Basic|Token)\s+/i.test(authHeader)) {
+    authHeader = `Bearer ${authHeader}`;
+  }
+
+  const pointsAtUs = isOwnMcpUrl(server.url);
+  if (pointsAtUs) {
+    const adminSecret = process.env.MCP_SECRET;
+    if (adminSecret) authHeader = `Bearer ${adminSecret}`;
+    else authHeader = `Bearer ${await ensureOwnToken(userId)}`;
+  }
+
+  const headers: Record<string, string> = {
+    "Content-Type": "application/json",
+    Accept: "application/json, text/event-stream",
+  };
+  if (authHeader) headers["Authorization"] = authHeader;
+
+  const rpc = async (method: string, params: any, id: number) => {
+    const r = await fetch(server.url, {
+      method: "POST",
+      headers,
+      body: JSON.stringify({ jsonrpc: "2.0", id, method, params }),
+    });
+    if (!r.ok) {
+      if (r.status === 401) {
+        throw new Error(
+          pointsAtUs
+            ? "401 from our own MCP server — token sync failed. Try again."
+            : "401 Unauthorized — the Authorization header for this server is missing or invalid.",
+        );
+      }
+      throw new Error(`HTTP ${r.status} ${r.statusText}`);
+    }
+    const ct = r.headers.get("content-type") ?? "";
+    if (ct.includes("text/event-stream")) {
+      const text = await r.text();
+      const line = text.split("\n").map((l) => l.trim()).find((l) => l.startsWith("data:"));
+      if (!line) throw new Error("Empty SSE stream");
+      const parsed = JSON.parse(line.slice(5).trim());
+      if (parsed.error) throw new Error(parsed.error.message);
+      return parsed.result;
+    }
+    const parsed = await r.json();
+    if (parsed.error) throw new Error(parsed.error.message);
+    return parsed.result;
+  };
+
+  try {
+    await rpc("initialize", {
+      protocolVersion: "2025-06-18",
+      capabilities: {},
+      clientInfo: { name: "bloxsmith", version: "1.0.0" },
+    }, 1);
+    const list = await rpc("tools/list", {}, 2);
+    const tools = (list?.tools ?? []) as Array<{ name: string; description?: string }>;
+    const trimmed = tools.slice(0, 20).map((t) => ({ name: t.name, description: t.description ?? "" }));
+    const latencyMs = Date.now() - started;
+    await supabase
+      .from("user_mcp_servers")
+      .update({
+        last_tested_at: new Date().toISOString(),
+        last_test_ok: true,
+        last_test_error: null,
+        tool_count: tools.length,
+        tools_cache: trimmed,
+      })
+      .eq("id", serverId);
+    return { ok: true, toolCount: tools.length, tools: trimmed, latencyMs };
+  } catch (e: any) {
+    const msg = e?.message ?? String(e);
+    const latencyMs = Date.now() - started;
+    await supabase
+      .from("user_mcp_servers")
+      .update({
+        last_tested_at: new Date().toISOString(),
+        last_test_ok: false,
+        last_test_error: msg,
+      })
+      .eq("id", serverId);
+    return { ok: false, error: msg, latencyMs };
+  }
 }
 
 export const testMcpServer = createServerFn({ method: "POST" })
@@ -58,98 +155,48 @@ export const testMcpServer = createServerFn({ method: "POST" })
   )
   .handler(async ({ data, context }) => {
     const { supabase, userId } = context;
-    const { data: server, error } = await supabase
+    return runMcpHealthCheck(supabase, userId, data.serverId);
+  });
+
+/**
+ * Re-tests every enabled MCP server for the user in parallel (capped).
+ * Returns a per-server result plus aggregate counts + average latency.
+ */
+export const retestAllMcpServers = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .handler(async ({ context }) => {
+    const { supabase, userId } = context;
+    const { data: servers, error } = await supabase
       .from("user_mcp_servers")
-      .select("id,name,url,auth_header")
-      .eq("id", data.serverId)
-      .maybeSingle();
-    if (error || !server) throw new Error("Server not found");
-
-    // Normalize the user-supplied auth header.
-    let authHeader = (server.auth_header ?? "").trim();
-    if (authHeader && !/^(Bearer|Basic|Token)\s+/i.test(authHeader)) {
-      authHeader = `Bearer ${authHeader}`;
+      .select("id,name")
+      .eq("user_id", userId)
+      .eq("enabled", true);
+    if (error) throw new Error(error.message);
+    const list = servers ?? [];
+    if (list.length === 0) {
+      return { tested: 0, ok: 0, failed: 0, avgLatencyMs: 0, results: [] as any[] };
     }
 
-    // If pointing at our own MCP endpoint, prefer the server-side admin
-    // secret (always valid). Fall back to minting a per-user token.
-    const pointsAtUs = isOwnMcpUrl(server.url);
-    if (pointsAtUs) {
-      const adminSecret = process.env.MCP_SECRET;
-      if (adminSecret) {
-        authHeader = `Bearer ${adminSecret}`;
-      } else {
-        const token = await ensureOwnToken(userId);
-        authHeader = `Bearer ${token}`;
+    // Bound concurrency to 4 to avoid hammering remote MCP hosts.
+    const results: Array<{ id: string; name: string; ok: boolean; latencyMs: number; error?: string; toolCount?: number }> = [];
+    const queue = [...list];
+    const workers = Array.from({ length: Math.min(4, queue.length) }, async () => {
+      while (queue.length > 0) {
+        const s = queue.shift()!;
+        const r = await runMcpHealthCheck(supabase, userId, s.id);
+        results.push({
+          id: s.id,
+          name: s.name,
+          ok: r.ok,
+          latencyMs: r.latencyMs,
+          ...(r.ok ? { toolCount: r.toolCount } : { error: r.error }),
+        });
       }
-    }
+    });
+    await Promise.all(workers);
 
-    const headers: Record<string, string> = {
-      "Content-Type": "application/json",
-      Accept: "application/json, text/event-stream",
-    };
-    if (authHeader) headers["Authorization"] = authHeader;
-
-    const rpc = async (method: string, params: any, id: number) => {
-      const r = await fetch(server.url, {
-        method: "POST",
-        headers,
-        body: JSON.stringify({ jsonrpc: "2.0", id, method, params }),
-      });
-      if (!r.ok) {
-        if (r.status === 401) {
-          throw new Error(
-            pointsAtUs
-              ? "401 from our own MCP server — token sync failed. Try again."
-              : "401 Unauthorized — the Authorization header for this server is missing or invalid. Open Account → MCP Tokens (or your provider's dashboard) and paste a valid token here.",
-          );
-        }
-        throw new Error(`HTTP ${r.status} ${r.statusText}`);
-      }
-      const ct = r.headers.get("content-type") ?? "";
-      if (ct.includes("text/event-stream")) {
-        const text = await r.text();
-        const line = text.split("\n").map((l) => l.trim()).find((l) => l.startsWith("data:"));
-        if (!line) throw new Error("Empty SSE stream");
-        const parsed = JSON.parse(line.slice(5).trim());
-        if (parsed.error) throw new Error(parsed.error.message);
-        return parsed.result;
-      }
-      const parsed = await r.json();
-      if (parsed.error) throw new Error(parsed.error.message);
-      return parsed.result;
-    };
-
-    try {
-      await rpc("initialize", {
-        protocolVersion: "2025-06-18",
-        capabilities: {},
-        clientInfo: { name: "bloxsmith", version: "1.0.0" },
-      }, 1);
-      const list = await rpc("tools/list", {}, 2);
-      const tools = (list?.tools ?? []) as Array<{ name: string; description?: string }>;
-      const trimmed = tools.slice(0, 20).map((t) => ({ name: t.name, description: t.description ?? "" }));
-      await supabase
-        .from("user_mcp_servers")
-        .update({
-          last_tested_at: new Date().toISOString(),
-          last_test_ok: true,
-          last_test_error: null,
-          tool_count: tools.length,
-          tools_cache: trimmed,
-        })
-        .eq("id", data.serverId);
-      return { ok: true as const, toolCount: tools.length, tools: trimmed };
-    } catch (e: any) {
-      const msg = e?.message ?? String(e);
-      await supabase
-        .from("user_mcp_servers")
-        .update({
-          last_tested_at: new Date().toISOString(),
-          last_test_ok: false,
-          last_test_error: msg,
-        })
-        .eq("id", data.serverId);
-      return { ok: false as const, error: msg };
-    }
+    const ok = results.filter((r) => r.ok).length;
+    const failed = results.length - ok;
+    const avg = Math.round(results.reduce((n, r) => n + r.latencyMs, 0) / results.length);
+    return { tested: results.length, ok, failed, avgLatencyMs: avg, results };
   });
