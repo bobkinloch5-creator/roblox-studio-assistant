@@ -834,6 +834,10 @@ export type Database = {
           game_type: string
           id: string
           name: string
+          roblox_last_published_at: string | null
+          roblox_last_version: number | null
+          roblox_place_id: string | null
+          roblox_universe_id: string | null
           status: string
           updated_at: string
           user_id: string
@@ -845,6 +849,10 @@ export type Database = {
           game_type: string
           id?: string
           name: string
+          roblox_last_published_at?: string | null
+          roblox_last_version?: number | null
+          roblox_place_id?: string | null
+          roblox_universe_id?: string | null
           status?: string
           updated_at?: string
           user_id: string
@@ -856,6 +864,10 @@ export type Database = {
           game_type?: string
           id?: string
           name?: string
+          roblox_last_published_at?: string | null
+          roblox_last_version?: number | null
+          roblox_place_id?: string | null
+          roblox_universe_id?: string | null
           status?: string
           updated_at?: string
           user_id?: string

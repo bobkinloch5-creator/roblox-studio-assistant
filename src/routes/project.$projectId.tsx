@@ -61,6 +61,7 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { downloadRbxmx } from "@/lib/rbxmx-export";
+import { PublishToRobloxButton } from "@/components/PublishToRobloxButton";
 import { PluginStatus } from "@/components/PluginStatus";
 import { PushPreview, type PreviewPayload } from "@/components/PushPreview";
 import { ChatSettings } from "@/components/ChatSettings";
@@ -1550,6 +1551,14 @@ function ProjectEditor() {
               <Download className="h-3.5 w-3.5" />{" "}
               <span className="hidden sm:inline">Download</span>
             </button>
+            <PublishToRobloxButton
+              projectId={project.id}
+              initialUniverseId={(project as any).roblox_universe_id ?? null}
+              initialPlaceId={(project as any).roblox_place_id ?? null}
+              lastPublishedAt={(project as any).roblox_last_published_at ?? null}
+              lastVersion={(project as any).roblox_last_version ?? null}
+              disabled={!files.length}
+            />
             <Link
               to="/plugin"
               className="rounded-lg bg-primary px-2 sm:px-3 py-1.5 text-xs font-semibold text-primary-foreground"
