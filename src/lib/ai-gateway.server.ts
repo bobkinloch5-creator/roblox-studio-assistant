@@ -37,15 +37,11 @@ export const createGroqProvider = (groqApiKey: string) =>
 
 
 // Model picks for the Groq backend.
-// Default = strong 120B model so BloxSmith actually follows the long system
-// prompt and ships complete multi-action builds (scenes, GUIs, systems).
-// The previous llama-3.1-8b default was too small to reliably emit valid
-// JSON for big scenes — it would skip actions or invent classes.
-// Thinking = same strong model for harder plans.
-// Fast = lightweight model only for quick plan outlines / cheap calls.
-export const BLOXSMITH_MODEL = "llama-3.3-70b-versatile";
+// Default/fast now prioritize low-latency responses; thinking/large keep the
+// stronger model available for explicitly complex builds and fallbacks.
+export const BLOXSMITH_MODEL = "llama-3.1-8b-instant";
 export const BLOXSMITH_THINK_MODEL = "llama-3.3-70b-versatile";
-export const BLOXSMITH_FAST_MODEL = "llama-3.3-70b-versatile";
+export const BLOXSMITH_FAST_MODEL = "llama-3.1-8b-instant";
 // Large-context fallback when the request is still too big. Same family,
 // max headroom (~128k context window on Groq).
 export const BLOXSMITH_LARGE_MODEL = "llama-3.3-70b-versatile";
