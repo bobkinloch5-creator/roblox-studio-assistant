@@ -111,11 +111,11 @@ function buildContextBlock(level: 0 | 1 | 2 | 3, inp: ContextInputs): {
   filesIncluded: number;
 } {
   // level 3 = ultra-minimal: just the user's prompt + studio status.
-  const liveCharBudget = level === 0 ? 6000 : level === 1 ? 1500 : 0;
-  const maxFiles = level === 0 ? 6 : level === 1 ? 3 : 0;
-  const perFileChars = level === 0 ? 800 : level === 1 ? 400 : 0;
-  const historyTurns = level === 0 ? 6 : level === 1 ? 2 : 0;
-  const historyChars = level === 0 ? 600 : 200;
+  const liveCharBudget = level === 0 ? 3000 : level === 1 ? 1000 : 0;
+  const maxFiles = level === 0 ? 4 : level === 1 ? 2 : 0;
+  const perFileChars = level === 0 ? 500 : level === 1 ? 300 : 0;
+  const historyTurns = level === 0 ? 4 : level === 1 ? 2 : 0;
+  const historyChars = level === 0 ? 400 : 200;
   if (level === 3) {
     const contextBlock =
       `Studio plugin status: ${inp.studioConnected ? "connected" : "not connected"}.\n\n` +
