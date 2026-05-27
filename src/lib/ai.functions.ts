@@ -89,7 +89,15 @@ export const generateWithAI = createServerFn({ method: "POST" })
       .from("project_files")
       .select("path,file_type,service_location,content")
       .eq("project_id", projectId)
-      .limit(80);
+      .limit(200);
+
+    // FULL PROJECT AWARENESS: a compact tree of every file (path + type +
+    // location) so the model always knows what exists, even if the content
+    // isn't loaded. Cheap (~40 chars/file) and prevents duplicates.
+    const projectMap = (allFiles ?? [])
+      .map((f) => `  • ${f.path} [${f.file_type} @ ${f.service_location}]`)
+      .join("\n")
+      .slice(0, 6000);
 
     // Keyword-based relevance: score each file on prompt-token overlap and
     // include only the top ~6. Always include any explicitly-named file.
@@ -132,14 +140,14 @@ export const generateWithAI = createServerFn({ method: "POST" })
 
     let result: { message: string; files: GenFile[]; actions: GenAction[] };
     try {
-      const fullPrompt = `${liveBlock}\n\nRelevant project files:\n${filesBlock || "(none indexed)"}\n\nUser request:\n${prompt}\n\nRules:\n- Place server Scripts in ServerScriptService, LocalScripts in StarterPlayerScripts or StarterGui, GUIs in StarterGui, RemoteEvents/RemoteFunctions in ReplicatedStorage, Tools in StarterPack, physical/world objects in Workspace.\n- For ground/landscape requests (grass, sand, snow, water, hills, islands, mountains, caves, roads), use real Roblox Terrain via the \`terrainFill\` action (Workspace.Terrain with Enum.Material.Grass / Sand / Snow / Water / Rock / Asphalt / etc.) or \`terrainGenerate\` for biomes. NEVER generate grass/ground by spawning hundreds of thin Parts or mesh blades — that looks like spikes, not grass. A grass field = ONE terrainFill action with material=Grass over a flat region (e.g. size 512x4x512 at y=-2). Add detail with Lighting (ColorCorrection, Atmosphere) and optional Decals, not by spamming parts.\n- Do NOT claim success in your message — the Studio plugin reports actual placement. Phrase the message as "Queued for Studio…" not "Created…".\n- If the request is a casual question (no code changes), reply naturally in 'message' with empty 'files' and 'actions'.\n- Use tools (web_search, roblox_asset_*, fetch_url) only when you genuinely need fresh info.\n\nReturn the JSON object as specified.`;
+      const fullPrompt = `${liveBlock}\n\nFULL PROJECT FILE MAP (${(allFiles ?? []).length} files — every file your project has, by location):\n${projectMap || "  (no files yet)"}\n\nRelevant project files (with content preview):\n${filesBlock || "(none indexed)"}\n\nUser request:\n${prompt}\n\nRules:\n- You have FULL AWARENESS of the project above. Reference real files by path. NEVER duplicate something that already exists — MODIFY it.\n- Organize new files into clean subfolders by feature (e.g. ServerScriptService/Combat/HitService, ReplicatedStorage/Modules/Config, StarterPlayerScripts/UI/Hud). Do NOT dump everything at the root of a service.\n- Place server Scripts in ServerScriptService, LocalScripts in StarterPlayerScripts or StarterGui, GUIs in StarterGui, RemoteEvents/RemoteFunctions in ReplicatedStorage/Remotes, ModuleScripts in ReplicatedStorage/Modules (shared) or ServerStorage/Modules (server-only), Tools in StarterPack, physical/world objects in Workspace.\n- For ground/landscape requests (grass, sand, snow, water, hills, islands), use real Roblox Terrain via the \`terrainFill\` action. NEVER spawn hundreds of thin Parts.\n- Do NOT claim success — phrase as "Queued for Studio…".\n- If the request is a casual question (no code changes), reply naturally in 'message' with empty 'files' and 'actions'.\n- Use tools (web_search, roblox_asset_*, fetch_url) ONLY when you genuinely need fresh info — every tool call slows you down.\n\nReturn the JSON object as specified.`;
       const { generateTextWithToolFallback } = await import("./ai-retry.server");
       const { text: rawText } = await generateTextWithToolFallback(generateText, {
         model,
         system: SYSTEM_PROMPT,
         prompt: fullPrompt,
         tools: { ...buildBloxSmithTools({ userId }), ...(await (await import("./mcp-client.server")).buildUserMcpTools(userId)) } as any,
-        stopWhen: stepCountIs(isComplex ? 30 : 12),
+        stopWhen: stepCountIs(isComplex ? 18 : 6),
       }, "generateWithAI");
       // Parse JSON from the raw text response
       const jsonMatch = rawText.match(/\{[\s\S]*\}/);
