@@ -33,7 +33,14 @@ export const Route = createFileRoute("/mcp-servers")({
         content:
           "Connect any MCP server (Notion, Linear, GitHub, custom) so the BloxSmith AI can use its tools when building your Roblox games.",
       },
+      { property: "og:title", content: "Your MCP Servers — BloxSmith" },
+      {
+        property: "og:description",
+        content: "Hook up Notion, Linear, GitHub or any custom MCP server to the BloxSmith AI.",
+      },
+      { property: "og:url", content: "https://bloxsmith.pro/mcp-servers" },
     ],
+    links: [{ rel: "canonical", href: "https://bloxsmith.pro/mcp-servers" }],
   }),
 });
 

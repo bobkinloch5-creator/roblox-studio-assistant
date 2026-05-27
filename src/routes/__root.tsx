@@ -47,6 +47,7 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
       { property: "og:title", content: "BloxSmith — Build Roblox Games With AI" },
       { property: "og:description", content: "Describe your Roblox game, generate scripts and systems, then sync directly into Roblox Studio." },
       { property: "og:type", content: "website" },
+      { property: "og:url", content: "https://bloxsmith.pro" },
       { name: "twitter:card", content: "summary_large_image" },
       { name: "twitter:title", content: "BloxSmith — Build Roblox Games With AI" },
       { name: "twitter:description", content: "Describe your Roblox game, generate scripts and systems, then sync directly into Roblox Studio." },
