@@ -1,6 +1,8 @@
 import { useEffect, useState } from "react";
+import { Link } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
-import { Loader2, Key, Server, Check, X, Eye, EyeOff } from "lucide-react";
+import { Loader2, Key, Server, Check, X, Eye, EyeOff, Plug, ExternalLink, AlertCircle } from "lucide-react";
+import { supabase } from "@/integrations/supabase/client";
 import {
   getProjectAiConfig,
   saveProjectAiSettings,
@@ -10,6 +12,16 @@ import {
 
 type ProviderId = "openai" | "anthropic" | "google" | "groq" | "neokens";
 type Mode = "mcp" | "api_key";
+
+type McpRow = {
+  id: string;
+  name: string;
+  url: string;
+  enabled: boolean;
+  last_test_ok: boolean | null;
+  tool_count: number | null;
+};
+
 
 const PROVIDER_LABELS: Record<ProviderId, string> = {
   openai: "OpenAI",
