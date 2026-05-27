@@ -39,16 +39,15 @@ export const generateGameIdeas = createServerFn({ method: "POST" })
       if (error) throw new Error("Not enough credits to brainstorm ideas.");
     }
 
-    const apiKey = process.env.GROQ_API_KEY;
-    if (!apiKey) {
-      if (!isOwner) await supabase.rpc("refund_credits", { _amount: COST, _reason: "no ai key" });
-      throw new Error("AI gateway not configured.");
-    }
-
     const { generateText } = await import("ai");
-    const { createGroqProvider, BLOXSMITH_FAST_MODEL } = await import("./ai-gateway.server");
-    const gateway = createGroqProvider(apiKey);
-    const model = gateway(BLOXSMITH_FAST_MODEL);
+    const { resolveBuiltInGateway } = await import("./ai-providers.server");
+    let model;
+    try {
+      model = resolveBuiltInGateway({ kind: "fast" }).model;
+    } catch (e) {
+      if (!isOwner) await supabase.rpc("refund_credits", { _amount: COST, _reason: "no ai key" });
+      throw e;
+    }
 
     const catLine = data.category ? `Category: ${data.category}.` : "Any popular Roblox category.";
     const system = `You are a Roblox game-idea generator. Output ${data.count} fresh, ORIGINAL ideas that real players would actually play. Strictly return JSON only (no markdown), shaped:
