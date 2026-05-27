@@ -4,7 +4,7 @@ import { useAuth } from "@/lib/auth-context";
 import { toast } from "sonner";
 import { Copy, Gift, Users } from "lucide-react";
 
-export const DISCORD_INVITE = "https://discord.gg/ypjzApsz3S";
+export const DISCORD_INVITE = "https://discord.gg/J9TU7syJCr";
 
 export function DiscordRewards() {
   const { user, profile, refresh } = useAuth();

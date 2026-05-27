@@ -75,7 +75,7 @@ function SignupPage() {
           </p>
         )}
         <a
-          href="https://discord.gg/ypjzApsz3S"
+          href="https://discord.gg/J9TU7syJCr"
           target="_blank"
           rel="noopener noreferrer"
           className="mt-3 block text-center text-xs rounded-lg bg-[#5865F2]/10 border border-[#5865F2]/30 text-[#a3b1ff] hover:bg-[#5865F2]/20 py-2 font-semibold transition"

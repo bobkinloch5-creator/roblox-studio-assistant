@@ -55,7 +55,7 @@ function McpPage() {
           <p className="text-sm">
             Need help or want to share what you're building?{" "}
             <a
-              href="https://discord.gg/ypjzApsz3S"
+              href="https://discord.gg/J9TU7syJCr"
               target="_blank"
               rel="noopener noreferrer"
               className="underline font-medium"
