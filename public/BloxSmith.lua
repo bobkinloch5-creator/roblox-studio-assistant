@@ -1285,15 +1285,36 @@ function Actions.select(a)
 	return true
 end
 
+-- Try multiple ways to load an asset by ID. Returns (containerModel, errorString).
+-- 1) InsertService:LoadAsset (needs asset to be owned/public to the game creator)
+-- 2) game:GetObjects("rbxassetid://ID") (plugin-only, works for any asset the logged-in Studio user can access — including most toolbox models)
+local function tryLoadAssetById(assetId)
+	local InsertService = game:GetService("InsertService")
+	local ok, modelOrErr = pcall(function() return InsertService:LoadAsset(assetId) end)
+	if ok and modelOrErr then return modelOrErr, nil end
+	local firstErr = tostring(modelOrErr)
+	-- Fallback: plugin-privileged GetObjects works for assets owned by the Studio user
+	local ok2, objs = pcall(function() return game:GetObjects("rbxassetid://" .. tostring(assetId)) end)
+	if ok2 and objs and #objs > 0 then
+		local wrapper = Instance.new("Model")
+		for _, o in ipairs(objs) do o.Parent = wrapper end
+		return wrapper, nil
+	end
+	local hint = ""
+	if firstErr:find("not authorized") or firstErr:find("Authorized") then
+		hint = " (asset is private or not owned by the game creator — try a public/free model, or take the model into your inventory first)"
+	end
+	return nil, "LoadAsset failed: " .. firstErr .. hint
+end
+
 -- Insert a Roblox free model / mesh / decal / animation from the toolbox by assetId.
 function Actions.insertAsset(a)
 	local parent = resolvePath(a.parent or "Workspace", true)
 	if not parent then return false, "bad parent" end
 	local assetId = tonumber(a.assetId)
 	if not assetId then return false, "missing assetId" end
-	local InsertService = game:GetService("InsertService")
-	local ok, model = pcall(function() return InsertService:LoadAsset(assetId) end)
-	if not ok or not model then return false, "LoadAsset failed: " .. tostring(model) end
+	local model, err = tryLoadAssetById(assetId)
+	if not model then return false, err end
 	local moved = {}
 	for _, child in ipairs(model:GetChildren()) do
 		if a.name and #model:GetChildren() == 1 then child.Name = a.name end
@@ -1317,9 +1338,9 @@ function Actions.insert_toolbox_asset(a)
 	local assetId = tonumber(a.assetId)
 	if not assetId then return false, "missing assetId" end
 	
-	local InsertService = game:GetService("InsertService")
-	local ok, model = pcall(function() return InsertService:LoadAsset(assetId) end)
-	if not ok or not model then return false, "LoadAsset failed: " .. tostring(model) end
+	local model, err = tryLoadAssetById(assetId)
+	if not model then return false, err end
+	local ok = true
 	
 	-- Scan for scripts
 	local scriptsFound = {}
