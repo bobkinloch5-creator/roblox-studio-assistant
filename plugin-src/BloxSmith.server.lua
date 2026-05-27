@@ -2718,6 +2718,18 @@ task.spawn(function()
 	end
 end)
 
+-- Credits refresh loop: poll the lightweight /credits endpoint every 20s so
+-- the on-plugin balance stays accurate after promo claims, daily rewards, or
+-- credits spent by web-side builds.
+task.spawn(function()
+	while true do
+		task.wait(20)
+		if connected then
+			pcall(refreshCredits, true)
+		end
+	end
+end)
+
 -- React to user-side changes so AI stays in sync
 Workspace.DescendantAdded:Connect(function()
 	if connected then lastContextSentAt = 0 end
