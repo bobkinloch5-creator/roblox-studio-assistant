@@ -1,6 +1,12 @@
 import { useEffect, useState } from "react";
 import { useServerFn } from "@tanstack/react-start";
-import { getBuildHistory, revertBuild, type BuildHistoryItem } from "@/lib/builds.functions";
+import {
+  getBuildHistory,
+  revertBuild,
+  getBuildDiff,
+  type BuildHistoryItem,
+  type BuildDiffFile,
+} from "@/lib/builds.functions";
 import { toast } from "sonner";
 import {
   History,
@@ -17,6 +23,7 @@ import {
   ChevronRight,
   Plus,
   Pencil,
+  GitCompare,
 } from "lucide-react";
 
 function timeAgo(iso: string) {
@@ -41,11 +48,36 @@ export function BuildHistoryDrawer({
 }) {
   const load = useServerFn(getBuildHistory);
   const revert = useServerFn(revertBuild);
+  const fetchDiff = useServerFn(getBuildDiff);
   const [items, setItems] = useState<BuildHistoryItem[]>([]);
   const [loading, setLoading] = useState(false);
   const [err, setErr] = useState<string | null>(null);
   const [expanded, setExpanded] = useState<Record<string, boolean>>({});
   const [revertingId, setRevertingId] = useState<string | null>(null);
+  const [diffOpen, setDiffOpen] = useState<Record<string, boolean>>({});
+  const [diffData, setDiffData] = useState<Record<string, BuildDiffFile[]>>({});
+  const [diffLoading, setDiffLoading] = useState<string | null>(null);
+
+  const toggleDiff = async (it: BuildHistoryItem) => {
+    const isOpen = diffOpen[it.id] === true;
+    if (isOpen) {
+      setDiffOpen((p) => ({ ...p, [it.id]: false }));
+      return;
+    }
+    if (!diffData[it.id]) {
+      setDiffLoading(it.id);
+      try {
+        const res = await fetchDiff({ data: { projectId, messageId: it.id } });
+        setDiffData((p) => ({ ...p, [it.id]: res.files }));
+      } catch (e: any) {
+        toast.error(e?.message ?? "Failed to load diff");
+        setDiffLoading(null);
+        return;
+      }
+      setDiffLoading(null);
+    }
+    setDiffOpen((p) => ({ ...p, [it.id]: true }));
+  };
 
   useEffect(() => {
     if (!open) return;
@@ -192,14 +224,29 @@ export function BuildHistoryDrawer({
                 </button>
 
                 {it.snapshotCount > 0 && (
-                  <div className="border-t border-border/60 px-3 py-1.5 flex items-center justify-between gap-2">
-                    <button
-                      onClick={() => setExpanded((p) => ({ ...p, [it.id]: !isOpen }))}
-                      className="inline-flex items-center gap-1 text-[11px] text-muted-foreground hover:text-foreground transition"
-                    >
-                      {isOpen ? <ChevronDown className="h-3 w-3" /> : <ChevronRight className="h-3 w-3" />}
-                      View changes ({it.snapshotCount})
-                    </button>
+                  <div className="border-t border-border/60 px-3 py-1.5 flex items-center justify-between gap-2 flex-wrap">
+                    <div className="inline-flex items-center gap-2">
+                      <button
+                        onClick={() => setExpanded((p) => ({ ...p, [it.id]: !isOpen }))}
+                        className="inline-flex items-center gap-1 text-[11px] text-muted-foreground hover:text-foreground transition"
+                      >
+                        {isOpen ? <ChevronDown className="h-3 w-3" /> : <ChevronRight className="h-3 w-3" />}
+                        View changes ({it.snapshotCount})
+                      </button>
+                      <button
+                        onClick={() => toggleDiff(it)}
+                        disabled={diffLoading === it.id}
+                        className="inline-flex items-center gap-1 text-[11px] text-muted-foreground hover:text-primary-glow transition disabled:opacity-50"
+                        title="Show before/after for each file"
+                      >
+                        {diffLoading === it.id ? (
+                          <Loader2 className="h-3 w-3 animate-spin" />
+                        ) : (
+                          <GitCompare className="h-3 w-3" />
+                        )}
+                        {diffOpen[it.id] ? "Hide diff" : "View diff"}
+                      </button>
+                    </div>
                     {canRevert && (
                       <button
                         onClick={() => handleRevert(it)}
@@ -234,6 +281,38 @@ export function BuildHistoryDrawer({
                           {s.path}
                         </span>
                       </div>
+                    ))}
+                  </div>
+                )}
+
+                {diffOpen[it.id] && diffData[it.id] && (
+                  <div className="px-3 pb-3 pt-1 space-y-2 border-t border-border/40">
+                    {diffData[it.id].length === 0 && (
+                      <div className="text-[11px] text-muted-foreground italic">No diffable files in this build.</div>
+                    )}
+                    {diffData[it.id].map((f, i) => (
+                      <details
+                        key={`${f.path}-${i}`}
+                        className="rounded-md border border-border/60 bg-background/40 overflow-hidden"
+                      >
+                        <summary className="cursor-pointer list-none flex items-center justify-between gap-2 px-2 py-1.5 text-[11px] hover:bg-surface-elevated/50">
+                          <span className="font-mono truncate" title={f.path}>{f.path}</span>
+                          <span className="inline-flex items-center gap-2 shrink-0">
+                            {f.added > 0 && <span className="text-emerald-400">+{f.added}</span>}
+                            {f.removed > 0 && <span className="text-rose-400">−{f.removed}</span>}
+                            {f.after == null && <span className="text-rose-400">deleted</span>}
+                            {!f.existed && f.after != null && <span className="text-emerald-400">new</span>}
+                          </span>
+                        </summary>
+                        <div className="grid grid-cols-2 gap-px bg-border/60 text-[10px] font-mono">
+                          <pre className="bg-background/60 p-2 overflow-x-auto max-h-48 whitespace-pre text-rose-200/80">
+                            {f.before ?? "(did not exist)"}
+                          </pre>
+                          <pre className="bg-background/60 p-2 overflow-x-auto max-h-48 whitespace-pre text-emerald-200/80">
+                            {f.after ?? "(deleted)"}
+                          </pre>
+                        </div>
+                      </details>
                     ))}
                   </div>
                 )}
