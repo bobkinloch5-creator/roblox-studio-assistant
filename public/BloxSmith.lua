@@ -1365,7 +1365,10 @@ end
 
 -- Spawn point helper
 function Actions.spawn(a)
+	ensureMapStructureIfNeeded()
 	local pos = coerceValue(a.position or { __t="Vector3", x=0, y=10, z=0 })
+	if typeof(pos) == "Vector3" and pos.Y < 4 then pos = Vector3.new(pos.X, 6, pos.Z) end
+	local parent = resolvePath(a.parent or "Workspace/Map", true) or Workspace
 	local sp = Instance.new("SpawnLocation")
 	sp.Anchored = true; sp.CanCollide = true
 	sp.Size = Vector3.new(12, 1, 12)
@@ -1374,8 +1377,10 @@ function Actions.spawn(a)
 	sp.Material = Enum.Material.Neon
 	sp.BrickColor = BrickColor.new("Electric blue")
 	sp.Name = a.name or "SpawnLocation"
-	sp.Parent = Workspace
-	return true
+	sp.Neutral = true
+	sp.AllowTeamChangeOnTouch = false
+	sp.Parent = parent
+	return true, nil, sp
 end
 
 -- Select an instance in Studio (so the user sees what AI just built)
@@ -1409,6 +1414,7 @@ end
 
 -- Insert a Roblox free model / mesh / decal / animation from the toolbox by assetId.
 function Actions.insertAsset(a)
+	normalizePersistentParent(a)
 	local parent = resolvePath(a.parent or "Workspace", true)
 	if not parent then return false, "bad parent" end
 	local assetId = tonumber(a.assetId)
@@ -1416,9 +1422,17 @@ function Actions.insertAsset(a)
 	local model, err = tryLoadAssetById(assetId)
 	if not model then return false, err end
 	local moved = {}
-	for _, child in ipairs(model:GetChildren()) do
+	local children = model:GetChildren()
+	local targetParent = parent
+	if a.name and #children > 1 then
+		targetParent = Instance.new("Model")
+		targetParent.Name = a.name
+		targetParent.Parent = parent
+	end
+	for _, child in ipairs(children) do
 		if a.name and #model:GetChildren() == 1 then child.Name = a.name end
-		child.Parent = parent
+		child.Parent = targetParent
+		stabilizeGeneratedInstance(child)
 		table.insert(moved, child)
 	end
 	model:Destroy()
@@ -1428,7 +1442,8 @@ function Actions.insertAsset(a)
 	elseif a.position and moved[1] and moved[1]:IsA("BasePart") then
 		moved[1].CFrame = CFrame.new(coerceValue(a.position))
 	end
-	return true
+	if typeof(targetParent) == "Instance" and targetParent ~= parent then stabilizeGeneratedInstance(targetParent); return true, nil, targetParent end
+	return true, nil, moved[1]
 end
 
 -- Insert a safe free toolbox model by ID with safety scan & consent flow
