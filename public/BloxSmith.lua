@@ -1340,7 +1340,7 @@ function Actions.insert_toolbox_asset(a)
 	
 	local model, err = tryLoadAssetById(assetId)
 	if not model then return false, err end
-	local ok = true
+	
 	
 	-- Scan for scripts
 	local scriptsFound = {}
