@@ -105,4 +105,80 @@ function ShowcaseDetail() {
       <main className="mx-auto max-w-5xl px-4 sm:px-6 py-10">
         <Link
           to="/showcase"
-          className="inline-flex items-center gap-1.
+          className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground mb-6"
+        >
+          <ArrowLeft className="h-4 w-4" /> Back to showcase
+        </Link>
+
+        <div className="rounded-2xl overflow-hidden border border-border bg-surface-elevated">
+          <div className="aspect-video bg-gradient-to-br from-primary/20 to-accent/10 grid place-items-center">
+            {data.showcase_thumbnail_url ? (
+              <img
+                src={data.showcase_thumbnail_url}
+                alt={title}
+                className="w-full h-full object-cover"
+              />
+            ) : (
+              <Sparkles className="h-14 w-14 text-primary-glow/60" />
+            )}
+          </div>
+          <div className="p-6 sm:p-8">
+            <div className="flex flex-wrap items-start gap-3 justify-between">
+              <div>
+                <h1 className="text-2xl sm:text-3xl font-bold">{title}</h1>
+                <span className="mt-2 inline-block rounded-full bg-primary/10 px-2.5 py-0.5 text-xs text-primary-glow">
+                  {data.game_type}
+                </span>
+              </div>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => {
+                    if (!user) {
+                      toast.info("Sign in to like projects");
+                      nav({ to: "/login" });
+                      return;
+                    }
+                    likeMut.mutate();
+                  }}
+                  disabled={likeMut.isPending}
+                  className={`inline-flex items-center gap-1.5 rounded-lg border px-3 py-2 text-sm transition ${
+                    liked
+                      ? "bg-red-500/10 border-red-500/40 text-red-400"
+                      : "border-border hover:border-red-500/40 hover:text-red-400"
+                  }`}
+                >
+                  <Heart className={`h-4 w-4 ${liked ? "fill-current" : ""}`} />
+                  {data.showcase_likes_count}
+                </button>
+                <button
+                  onClick={() => {
+                    if (!user) {
+                      toast.info("Sign in to remix");
+                      nav({ to: "/login" });
+                      return;
+                    }
+                    remixMut.mutate();
+                  }}
+                  disabled={remixMut.isPending}
+                  className="inline-flex items-center gap-1.5 rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground hover:bg-primary/90 disabled:opacity-60"
+                >
+                  {remixMut.isPending ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <GitFork className="h-4 w-4" />
+                  )}
+                  Remix ({data.showcase_remix_count})
+                </button>
+              </div>
+            </div>
+
+            <p className="mt-6 text-foreground/90 whitespace-pre-wrap leading-relaxed">
+              {desc}
+            </p>
+          </div>
+        </div>
+      </main>
+      <Footer />
+    </div>
+  );
+}
