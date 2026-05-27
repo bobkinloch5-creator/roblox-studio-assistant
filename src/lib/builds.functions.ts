@@ -18,6 +18,7 @@ export type BuildHistoryItem = {
   reverted: boolean;
   snapshotCount: number;
   dangerCount: number;
+  creditsUsed: number | null;
 };
 
 export const getBuildHistory = createServerFn({ method: "POST" })
