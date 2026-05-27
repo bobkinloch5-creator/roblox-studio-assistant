@@ -2827,6 +2827,11 @@ function ProjectEditor() {
           </div>
         </div>
       )}
+      <BuildHistoryDrawer
+        projectId={projectId}
+        open={showBuildHistory}
+        onClose={() => setShowBuildHistory(false)}
+      />
     </div>
   );
 }
