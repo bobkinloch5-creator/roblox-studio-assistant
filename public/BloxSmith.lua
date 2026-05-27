@@ -1261,8 +1261,25 @@ function Actions.create(a)
 	normalizePersistentParent(a)
 	local parent = resolvePath(a.parent or "Workspace", true)
 	if not parent then return false, "bad parent" end
-	local inst = Instance.new(a.className or "Part")
-	inst.Name = a.name or (a.className or "Part")
+	local desiredClass = a.className or "Part"
+	local desiredName = a.name or desiredClass
+	-- If a placeholder (usually an auto-created Folder from resolvePath) already
+	-- exists at this name but is the wrong class, replace it with the requested
+	-- class and re-parent its existing children so we don't end up with a Folder
+	-- masquerading as a ScreenGui / Tool / Model.
+	local existing = parent:FindFirstChild(desiredName)
+	local inst
+	if existing and not existing:IsA(desiredClass) then
+		inst = Instance.new(desiredClass)
+		inst.Name = desiredName
+		for _, child in ipairs(existing:GetChildren()) do
+			child.Parent = inst
+		end
+		existing:Destroy()
+	else
+		inst = Instance.new(desiredClass)
+		inst.Name = desiredName
+	end
 	applyProps(inst, a.properties)
 	applyVisibleDefaults(inst, a.properties)
 	inst.Parent = parent
@@ -1274,6 +1291,7 @@ function Actions.create(a)
 	end
 	return true, nil, inst
 end
+
 
 -- Create a part with helper mapping for size, position, color, material, anchored properties
 function Actions.create_part(a)
