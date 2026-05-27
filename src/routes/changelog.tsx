@@ -3,16 +3,6 @@ import { Header, Footer } from "@/components/layout";
 import { Cpu, ShieldCheck, Play, FolderKanban, FileCode, CheckCircle, RefreshCw, KeyRound, Server, Megaphone, Bot } from "lucide-react";
 
 export const Route = createFileRoute("/changelog")({
-  head: () => ({
-    meta: [
-      { title: "Changelog — BloxSmith" },
-      { name: "description", content: "Latest BloxSmith releases: AI improvements, Roblox Studio plugin updates, security fixes, and new features." },
-      { property: "og:title", content: "Changelog — BloxSmith" },
-      { property: "og:description", content: "Latest BloxSmith releases, plugin updates, and security fixes." },
-      { property: "og:url", content: "https://bloxsmith.pro/changelog" },
-    ],
-    links: [{ rel: "canonical", href: "https://bloxsmith.pro/changelog" }],
-  }),
   component: () => {
     const changelogItems = [
       {
