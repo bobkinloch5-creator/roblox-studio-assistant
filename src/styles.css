@@ -1068,6 +1068,7 @@ html.halloween .hero-bg-img, html.christmas .hero-bg-img, html.winter .hero-bg-i
 
 /* Click ripple feedback */
 .click-ripple {
+  pointer-events: none;
   position: absolute;
   width: 14px;
   height: 14px;
@@ -1109,6 +1110,7 @@ summary:active {
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .click-ripple { animation: none; opacity: 0; }
+  .click-ripple {
+  pointer-events: none; animation: none; opacity: 0; }
   button:active, a:active, [role="button"]:active { transform: none; }
 }
