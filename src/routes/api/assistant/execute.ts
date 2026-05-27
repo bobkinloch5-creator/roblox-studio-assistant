@@ -1492,8 +1492,8 @@ export const Route = createFileRoute("/api/assistant/execute")({
                         system: systemWithRules,
                         messages,
                         tools: pickFastTools(prompt, { projectId, userId }) as any,
-                        stopWhen: stepCountIs(thinking ? 30 : 20),
-                        maxOutputTokens: thinking ? 8000 : 6000,
+                        stopWhen: stepCountIs(thinking ? 40 : 28),
+                        maxOutputTokens: thinking ? 24000 : 16000,
                         abortSignal: request.signal,
                       }, `ai-execute attempt#${i} src=${resolved.source} model=${att.modelId} slim=${useSlim}`),
                     );
