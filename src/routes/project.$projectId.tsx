@@ -64,6 +64,8 @@ import { ChatSettings } from "@/components/ChatSettings";
 import { SyncValidationDrawer } from "@/components/SyncValidationDrawer";
 import { TeamChat } from "@/components/TeamChat";
 import { AssistantMessage } from "@/components/AssistantMessage";
+import { BuildHistoryDrawer } from "@/components/BuildHistoryDrawer";
+import { OrganizeProjectButton } from "@/components/OrganizeProjectButton";
 import { MessagesSquare } from "lucide-react";
 
 export const Route = createFileRoute("/project/$projectId")({
