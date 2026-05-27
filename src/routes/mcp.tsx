@@ -5,7 +5,7 @@ export const Route = createFileRoute("/mcp")({
   component: McpPage,
   head: () => ({
     meta: [
-      { title: "BloxSmith MCP — Build Roblox games from Claude, Codex & Antigravity" },
+      { title: "BloxSmith MCP — Connect any AI to Roblox Studio" },
       {
         name: "description",
         content:
