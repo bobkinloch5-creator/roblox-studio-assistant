@@ -66,7 +66,8 @@ import { TeamChat } from "@/components/TeamChat";
 import { AssistantMessage } from "@/components/AssistantMessage";
 import { BuildHistoryDrawer } from "@/components/BuildHistoryDrawer";
 import { OrganizeProjectButton } from "@/components/OrganizeProjectButton";
-import { MessagesSquare } from "lucide-react";
+import { TaskBoard } from "@/components/TaskBoard";
+import { MessagesSquare, Kanban } from "lucide-react";
 
 export const Route = createFileRoute("/project/$projectId")({
   component: ProjectEditor,
@@ -399,6 +400,7 @@ function ProjectEditor() {
   const [revertedByMsg, setRevertedByMsg] = useState<Record<string, boolean>>({});
   const [revertingMsg, setRevertingMsg] = useState<string | null>(null);
   const [showBuildHistory, setShowBuildHistory] = useState(false);
+  const [showTaskBoard, setShowTaskBoard] = useState(false);
 
   const revertMessage = async (m: Msg) => {
     const snap: any[] = m.actions?.snapshot ?? [];
@@ -1967,6 +1969,13 @@ function ProjectEditor() {
                   <Trash2 className="h-3.5 w-3.5" />
                 </button>
                 <button
+                  onClick={() => setShowTaskBoard(true)}
+                  title="Task Board — Plan → Build → Test → Fix"
+                  className="h-7 w-7 grid place-items-center rounded-md text-muted-foreground hover:text-primary-glow hover:bg-primary/10 transition"
+                >
+                  <Kanban className="h-3.5 w-3.5" />
+                </button>
+                <button
                   onClick={() => setShowBuildHistory(true)}
                   title="Build history — every AI batch with files/actions"
                   className="h-7 w-7 grid place-items-center rounded-md text-muted-foreground hover:text-primary-glow hover:bg-primary/10 transition"
@@ -2831,6 +2840,17 @@ function ProjectEditor() {
         projectId={projectId}
         open={showBuildHistory}
         onClose={() => setShowBuildHistory(false)}
+      />
+      <TaskBoard
+        projectId={projectId}
+        open={showTaskBoard}
+        onClose={() => setShowTaskBoard(false)}
+        onBuildTask={(t, brief) => {
+          setPrompt(
+            `Build the task: ${t.title}\n\nBrief from project manager:\n${brief}\n\nGenerate the scripts and queue Studio actions to insert them.`,
+          );
+          toggleChat(true);
+        }}
       />
     </div>
   );
