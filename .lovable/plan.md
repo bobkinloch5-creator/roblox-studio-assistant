@@ -1,64 +1,83 @@
-## Goal
+# BloxSmith.pro Pro Features Roadmap
 
-Let each project pick its AI source independently:
-- **MCP mode** — chat/build is driven by external MCP clients (Codex, Claude, etc.) calling the BloxSmith MCP endpoint
-- **API key mode** — chat/build calls a provider directly using the user's own pasted API key (OpenAI, Anthropic, Google, or Groq)
+This is a large scope (17+ features). I'll ship it in **3 phases** so you get value fast and can steer between phases. Each phase ends with a working preview you can test in Studio.
 
-The composer indicator and all chat/build server functions read the active mode and switch seamlessly with no app restart.
+## Phase 1 — Core agent + trust (ship first)
 
-## Database (one migration)
+The "must-have" set you ranked highest. Makes BloxSmith feel like a real builder, not a chatbot.
 
-1. `user_provider_keys` — stores each user's pasted API keys
-   - `user_id`, `provider` (`openai|anthropic|google|groq`), `api_key` (text), `label`, timestamps
-   - PK: `(user_id, provider)`. RLS: owner only.
+1. **Build Agent mode** — new toggle in the project chat. AI returns a structured plan (scripts, folders, RemoteEvents, DataStore, UI, monetization) + a **Build This In Studio** button that queues all `plugin_actions` at once.
+2. **AI Task Board** — plan items render as cards with Build / Edit / Skip / Regenerate buttons. Backed by a new `project_tasks` table.
+3. **Studio Sync Status panel** — top-of-project widget showing plugin connection, place name, Studio mode, last sync, MCP status, credits. Extends existing `plugin_connections` + `plugin_context`.
+4. **"See It In Studio" preview** — after each generation, show a tree of what was inserted and where, with a "How to test it" snippet. Derived from existing `actions` snapshots.
+5. **Fix Console Errors** — paste-box on project page. AI analyzes, locates the file in `project_files`, proposes a fix, queues a sync. Logs to `studio_errors`.
+6. **Version History + Rollback** — promote the existing per-message Revert into a full version timeline page. Uses existing `agent_messages.actions.snapshot`.
 
-2. `project_ai_settings` — per-project active source
-   - `project_id` (PK), `user_id`, `mode` (`mcp|api_key`, default `mcp`), `provider` (nullable), `model` (nullable), timestamps
-   - RLS: project members read, owner writes.
+## Phase 2 — Content & monetization
 
-Both tables get GRANTs to authenticated + service_role.
+Features that pull users in and help them ship games.
 
-## Settings UI
+7. **Game Idea Generator** — category-filtered AI page returning name, loop, features, monetization, difficulty, **Build** button (feeds Build Agent).
+8. **Template Store** — new `/templates` route + `templates` table. Seed with 12 starter kits (free + credit-gated). One-click clone into a new project.
+9. **Monetization Builder** — guided UI generating Gamepass / DevProduct / VIP scaffolds with full Lua + insertion plan.
+10. **Script Placement Checker** — lint pass on every AI output and on demand: flags wrong Script/LocalScript, wrong service location, missing RemoteEvents.
+11. **Prompt Enhancer** — "✨ Improve" button next to the chat input. Rewrites short prompts into rich specs, asks before sending.
 
-New "AI Source" section inside the existing project settings drawer (`src/routes/project.$projectId.tsx`):
+## Phase 3 — Premium / depth
 
-- Segmented toggle: **MCP server** | **My API key**
-- MCP branch: lists user's enabled MCP servers with the active one highlighted
-- API-key branch: provider dropdown (OpenAI / Anthropic / Google / Groq), model dropdown (filtered to provider), password-style key input with Save/Clear and a "Test" button that pings the provider's `/models` endpoint
-- Saving writes to `project_ai_settings` and (for keys) `user_provider_keys`
+Differentiators vs. generic AI chat.
 
-## Server functions
+12. **AI Game Doctor** — full project scan: broken scripts, security holes (RemoteEvents without checks), DataStore misuse, exploit risks, performance flags. Output as a report page.
+13. **Game Analytics Helper** — paste stats form → AI diagnosis with concrete fixes.
+14. **Update Generator** — Create Update button: patch notes, new content idea, Discord post, Roblox page update, all in one.
+15. **Roblox Page Writer** — title/description/tags/badges/gamepass/social copy generator.
+16. **Marketplace** — extension of Template Store for individual systems (coin, pet, shop, sword, admin, NPC dialogue).
+17. **Team Projects polish** — existing collaborators get shared chat (already partial), permissions UI, build history.
 
-New `src/lib/project-ai.functions.ts`:
-- `getProjectAiConfig({projectId})` — returns active mode/provider/model + whether a key is on file (never returns the key itself)
-- `saveProjectAiSettings({...})` — upserts `project_ai_settings`
-- `saveProviderKey({provider, apiKey})` — upserts `user_provider_keys`; validates by calling provider's `/models`
-- `clearProviderKey({provider})`
+## Technical notes (skip if not interested)
 
-Refactor existing chat/build server functions (`chatWithAI`, `planBuild`, `runBuild` in `src/lib/`) to:
-1. Load the project's `project_ai_settings`
-2. If `mode === 'api_key'`, resolve the user's key from `user_provider_keys` and dispatch to a small provider adapter (`callOpenAI`, `callAnthropic`, `callGoogle`, `callGroq`) instead of the hardcoded Groq path
-3. If `mode === 'mcp'`, keep current behavior (Groq + MCP tool surface)
+```text
+DB additions (Phase 1):
+  project_tasks(id, project_id, user_id, plan_id, title, kind,
+                status, payload, position, created_at, updated_at)
+  build_plans(id, project_id, user_id, prompt, plan jsonb,
+              status, created_at)
+  Phase 2 adds: templates, template_installs
+  Phase 3 adds: project_scans, game_analytics_reports
 
-Provider adapters share a common `{messages, model, stream}` interface and live in `src/lib/ai-providers/`.
+Server fns (new in src/lib/):
+  build-agent.functions.ts     plan()/buildAll()/buildTask()
+  tasks.functions.ts           CRUD + reorder
+  errors.functions.ts          analyzeError()/fixError()
+  templates.functions.ts       list/clone
+  monetization.functions.ts    generateMonetization()
+  scanner.functions.ts         scanProject()
+  analytics.functions.ts       analyzeStats()
+  enhance.functions.ts         enhancePrompt()
 
-## Composer indicator
+Reused infra:
+  - Lovable AI Gateway (already wired in ai.functions.ts)
+  - existing plugin_actions queue → Studio sync (unchanged contract)
+  - existing spend_credits_atomic for paid actions
+  - existing agent_messages.actions.snapshot for version history
+  - Build Agent uses tool calling (createFile/editFile/queueInsert)
+    with stopWhen: stepCountIs(50)
 
-Update the badge in `project.$projectId.tsx` to reflect the active source:
-- API key mode → `OpenAI · gpt-5-codex` (or whichever provider/model is saved), no MCP suffix
-- MCP mode → keep current `<external client> · <model> · MCP: <servers>` text driven by `mcp_tokens.last_client`
+New routes:
+  /project/$id  → adds BuildAgentPanel, TaskBoard, SyncStatus,
+                  ErrorFixer, VersionTimeline tabs
+  /templates    → store
+  /ideas        → idea generator
+  /tools/doctor /tools/analytics /tools/page-writer (Phase 3)
 
-Live-subscribes to `project_ai_settings` so toggling in settings updates the badge immediately.
+Credit costs (suggested, configurable):
+  Build Agent plan        2
+  Build Agent execute     5 + 1/task
+  Fix error               1
+  Doctor scan             5
+  Template clone          0 (free) or 10 (premium kits)
+```
 
-## Technical notes
+## What I need from you
 
-- API keys are sensitive but stored encrypted-at-rest by Supabase and protected by RLS (`user_id = auth.uid()`). Server functions resolve keys with `supabaseAdmin` only after verifying the requesting user owns the project.
-- Provider model lists are hardcoded constants in `src/lib/ai-providers/models.ts` (kept small: 3–5 popular models per provider).
-- No changes to the public MCP endpoint or `MCP_SECRET` — the switch is purely about which path the in-app composer uses.
-- Existing projects default to `mode = 'mcp'`, so nothing breaks for current users.
-
-## Out of scope
-
-- Streaming UI changes (existing SSE handler already provider-agnostic)
-- Per-message override (toggle is per project, per the chosen answer)
-- Sharing API keys across collaborators (each user keeps their own keys; project setting just remembers provider+model)
+**Approve this plan and I'll start Phase 1 right away.** Phase 1 ships as one preview build. Want me to start there, or re-order anything?
