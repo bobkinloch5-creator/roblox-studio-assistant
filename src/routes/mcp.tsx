@@ -11,7 +11,14 @@ export const Route = createFileRoute("/mcp")({
         content:
           "Connect Claude Code, ChatGPT Codex, Antigravity, or any MCP-compatible AI to BloxSmith and build Roblox games using your account credits.",
       },
+      { property: "og:title", content: "BloxSmith MCP — Connect any AI to Roblox Studio" },
+      { property: "og:description", content: "Use Claude, Codex, Cursor, or Antigravity to build Roblox games through the BloxSmith MCP server." },
+      { property: "og:url", content: "https://bloxsmith.pro/mcp" },
+      { property: "og:type", content: "website" },
+      { name: "twitter:title", content: "BloxSmith MCP — Connect any AI to Roblox Studio" },
+      { name: "twitter:description", content: "Use Claude, Codex, Cursor, or Antigravity to build Roblox games through the BloxSmith MCP server." },
     ],
+    links: [{ rel: "canonical", href: "https://bloxsmith.pro/mcp" }],
   }),
 });
 
