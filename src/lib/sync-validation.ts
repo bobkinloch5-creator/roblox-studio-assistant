@@ -167,11 +167,42 @@ function extractServiceRefs(src: string): string[] {
   return out;
 }
 
+// Auto-normalize: fix obvious misplacement BEFORE validation rejects it,
+// and nest loose scripts under a feature folder so Roblox Studio's Explorer
+// stays organized instead of being one giant flat list at the service root.
+function autoOrganize(files: GenFile[]): GenFile[] {
+  return files.map((f) => {
+    const out = { ...f };
+    const root = rootOf(out.service_location);
+
+    // Heal wrong containers based on file_type.
+    if (out.file_type === "LocalScript" && !LOCAL_CONTAINERS.includes(root)) {
+      out.service_location = "StarterPlayer/StarterPlayerScripts";
+    } else if (out.file_type === "Script" && !SERVER_CONTAINERS.includes(root)) {
+      out.service_location = "ServerScriptService";
+    } else if (out.file_type === "ModuleScript" && root !== "ReplicatedStorage" && root !== "ServerStorage" && root !== "ServerScriptService") {
+      out.service_location = "ReplicatedStorage/Modules";
+    }
+
+    // If the file path is a single segment (just the script name), nest it
+    // under a sensible default subfolder so Explorer stays tidy.
+    if (!out.path.includes("/")) {
+      const folder =
+        out.file_type === "ModuleScript" ? "Modules" :
+        out.file_type === "LocalScript" ? "Client" :
+        "Server";
+      out.path = `${folder}/${out.path}`;
+    }
+    return out;
+  });
+}
+
 export function validateGenerated(
   files: GenFile[],
   actions: GenAction[],
   existingFiles: Pick<GenFile, "path">[] = []
 ): ValidationResult {
+  files = autoOrganize(files);
   const errors: ValidationIssue[] = [];
   const warnings: ValidationIssue[] = [];
   const keptFiles: GenFile[] = [];
