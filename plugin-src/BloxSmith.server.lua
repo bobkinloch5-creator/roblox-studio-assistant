@@ -133,18 +133,20 @@ end
 -- UI (polished)
 ----------------------------------------------------------------
 local C = {
-	bg        = Color3.fromRGB(10, 10, 14),
-	panel     = Color3.fromRGB(17, 17, 22),
-	stroke    = Color3.fromRGB(38, 38, 48),
-	primary   = Color3.fromRGB(120, 110, 240),
-	primaryHi = Color3.fromRGB(142, 132, 250),
-	disconnect= Color3.fromRGB(38, 38, 48),
-	text      = Color3.fromRGB(240, 240, 245),
-	textDim   = Color3.fromRGB(160, 160, 175),
-	textMute  = Color3.fromRGB(100, 100, 115),
-	accent    = Color3.fromRGB(170, 160, 250),
-	success   = Color3.fromRGB(90, 220, 160),
-	idle      = Color3.fromRGB(110, 110, 130),
+	bg        = Color3.fromRGB(8, 9, 13),
+	panel     = Color3.fromRGB(20, 21, 28),
+	panelHi   = Color3.fromRGB(28, 29, 38),
+	stroke    = Color3.fromRGB(42, 44, 56),
+	strokeHi  = Color3.fromRGB(62, 64, 80),
+	primary   = Color3.fromRGB(124, 110, 248),
+	primaryHi = Color3.fromRGB(150, 138, 255),
+	disconnect= Color3.fromRGB(34, 36, 46),
+	text      = Color3.fromRGB(245, 246, 252),
+	textDim   = Color3.fromRGB(170, 174, 192),
+	textMute  = Color3.fromRGB(110, 114, 132),
+	accent    = Color3.fromRGB(180, 170, 255),
+	success   = Color3.fromRGB(74, 222, 168),
+	idle      = Color3.fromRGB(110, 114, 132),
 }
 
 local UI_Elements = {
@@ -214,12 +216,16 @@ end
 
 local scroll = Instance.new("ScrollingFrame", widget)
 scroll.Size = UDim2.fromScale(1,1)
-scroll.BackgroundTransparency = 1
+scroll.BackgroundColor3 = C.bg
+scroll.BackgroundTransparency = 0
 scroll.BorderSizePixel = 0
 scroll.ScrollBarThickness = 3
+scroll.ScrollBarImageColor3 = C.strokeHi
+scroll.ScrollBarImageTransparency = 0.3
 scroll.CanvasSize = UDim2.fromScale(0,0)
 scroll.AutomaticCanvasSize = Enum.AutomaticSize.Y
-padAll(scroll, 10)
+padAll(scroll, 14)
+register(scroll, "bg")
 
 local root = Instance.new("Frame", scroll)
 root.Size = UDim2.new(1,0,0,0)
@@ -228,36 +234,37 @@ root.BackgroundTransparency = 1
 root.BorderSizePixel = 0
 
 local list = Instance.new("UIListLayout", root)
-list.Padding = UDim.new(0,8)
+list.Padding = UDim.new(0,10)
 list.SortOrder = Enum.SortOrder.LayoutOrder
 
 -- Header: logo + title + status pill
 local header = Instance.new("Frame", root)
 header.LayoutOrder = 1
 header.BackgroundTransparency = 1
-header.Size = UDim2.new(1,0,0,24)
+header.Size = UDim2.new(1,0,0,32)
 
 local logo = Instance.new("Frame", header)
-logo.Size = UDim2.fromOffset(22, 22)
-logo.Position = UDim2.new(0,0,0.5,-11)
+logo.Size = UDim2.fromOffset(28, 28)
+logo.Position = UDim2.new(0,0,0.5,-14)
 logo.BackgroundColor3 = C.primary
 logo.BorderSizePixel = 0
-corner(logo, 6)
-gradient(logo, Color3.fromRGB(140, 120, 255), Color3.fromRGB(88, 70, 230), 125)
+corner(logo, 8)
+gradient(logo, Color3.fromRGB(160, 142, 255), Color3.fromRGB(96, 78, 240), 130)
 local logoGlow = Instance.new("UIStroke", logo)
-logoGlow.Color = Color3.fromRGB(150, 135, 255)
+logoGlow.Color = Color3.fromRGB(170, 152, 255)
 logoGlow.Thickness = 1
-logoGlow.Transparency = 0.5
+logoGlow.Transparency = 0.4
+shadow(logo, 0.78, 6)
 local logoText = Instance.new("TextLabel", logo)
 logoText.BackgroundTransparency = 1; logoText.Size = UDim2.fromScale(1,1)
-logoText.Font = Enum.Font.GothamBold; logoText.TextSize = 12
+logoText.Font = Enum.Font.BuilderSansBold; logoText.TextSize = 15
 logoText.TextColor3 = Color3.new(1,1,1); logoText.Text = "B"
 
 local title = Instance.new("TextLabel", header)
 title.BackgroundTransparency = 1
-title.Position = UDim2.new(0,28,0,0)
-title.Size = UDim2.new(1,-126,1,0)
-title.Font = Enum.Font.GothamBold; title.TextSize = 12
+title.Position = UDim2.new(0,38,0,0)
+title.Size = UDim2.new(1,-138,1,0)
+title.Font = Enum.Font.BuilderSansBold; title.TextSize = 14
 title.TextColor3 = C.text
 register(title, "text")
 title.Text = "BloxSmith AI"
@@ -267,29 +274,29 @@ title.TextYAlignment = Enum.TextYAlignment.Center
 local pill = Instance.new("Frame", header)
 pill.AnchorPoint = Vector2.new(1, 0.5)
 pill.Position = UDim2.new(1, 0, 0.5, 0)
-pill.Size = UDim2.fromOffset(86, 20)
+pill.Size = UDim2.fromOffset(96, 24)
 pill.BackgroundColor3 = C.panel
 register(pill, "panel")
 pill.BorderSizePixel = 0
-corner(pill, 10)
+corner(pill, 12)
 stroke(pill, C.stroke, 1)
 
 local pillDot = Instance.new("Frame", pill)
-pillDot.Size = UDim2.fromOffset(5,5)
-pillDot.Position = UDim2.new(0, 10, 0.5, -2)
+pillDot.Size = UDim2.fromOffset(6,6)
+pillDot.Position = UDim2.new(0, 12, 0.5, -3)
 pillDot.BackgroundColor3 = C.idle
 pillDot.BorderSizePixel = 0
 corner(pillDot, 3)
 local pillDotGlow = Instance.new("UIStroke", pillDot)
 pillDotGlow.Color = C.idle
 pillDotGlow.Thickness = 2
-pillDotGlow.Transparency = 0.6
+pillDotGlow.Transparency = 0.55
 
 local pillText = Instance.new("TextLabel", pill)
 pillText.BackgroundTransparency = 1
-pillText.Position = UDim2.new(0, 20, 0, 0)
-pillText.Size = UDim2.new(1, -26, 1, 0)
-pillText.Font = Enum.Font.GothamMedium; pillText.TextSize = 9
+pillText.Position = UDim2.new(0, 24, 0, 0)
+pillText.Size = UDim2.new(1, -30, 1, 0)
+pillText.Font = Enum.Font.BuilderSansMedium; pillText.TextSize = 11
 pillText.TextColor3 = C.textDim
 pillText.Text = "Offline"
 pillText.TextXAlignment = Enum.TextXAlignment.Left
@@ -297,8 +304,8 @@ pillText.TextXAlignment = Enum.TextXAlignment.Left
 local subtitle = Instance.new("TextLabel", root)
 subtitle.LayoutOrder = 2
 subtitle.BackgroundTransparency = 1
-subtitle.Size = UDim2.new(1,0,0,12)
-subtitle.Font = Enum.Font.Gotham; subtitle.TextSize = 10
+subtitle.Size = UDim2.new(1,0,0,14)
+subtitle.Font = Enum.Font.BuilderSans; subtitle.TextSize = 11
 subtitle.TextColor3 = C.textMute
 register(subtitle, "textMute")
 subtitle.Text = "Build Roblox games with AI"
@@ -308,8 +315,8 @@ subtitle.TextXAlignment = Enum.TextXAlignment.Left
 local tokenLabel = Instance.new("TextLabel", root)
 tokenLabel.LayoutOrder = 3
 tokenLabel.BackgroundTransparency = 1
-tokenLabel.Size = UDim2.new(1,0,0,14)
-tokenLabel.Font = Enum.Font.GothamMedium; tokenLabel.TextSize = 10
+tokenLabel.Size = UDim2.new(1,0,0,16)
+tokenLabel.Font = Enum.Font.BuilderSansBold; tokenLabel.TextSize = 10
 tokenLabel.TextColor3 = C.textDim
 register(tokenLabel, "textDim")
 tokenLabel.Text = "PLUGIN TOKEN"
@@ -317,23 +324,23 @@ tokenLabel.TextXAlignment = Enum.TextXAlignment.Left
 
 local tokenWrap = Instance.new("Frame", root)
 tokenWrap.LayoutOrder = 4
-tokenWrap.Size = UDim2.new(1,0,0,30)
+tokenWrap.Size = UDim2.new(1,0,0,36)
 tokenWrap.BackgroundColor3 = C.panel
 register(tokenWrap, "panel")
 tokenWrap.BorderSizePixel = 0
-corner(tokenWrap, 6)
+corner(tokenWrap, 10)
 local tokenStroke = stroke(tokenWrap, C.stroke, 1)
 
 local tokenBox = Instance.new("TextBox", tokenWrap)
-tokenBox.Size = UDim2.new(1,-18,1,0)
-tokenBox.Position = UDim2.new(0,9,0,0)
+tokenBox.Size = UDim2.new(1,-24,1,0)
+tokenBox.Position = UDim2.new(0,12,0,0)
 tokenBox.BackgroundTransparency = 1
 tokenBox.TextColor3 = C.text
 register(tokenBox, "text")
 tokenBox.Text = getToken()
 tokenBox.PlaceholderText = "Paste your plugin token"
 tokenBox.PlaceholderColor3 = C.textMute
-tokenBox.Font = Enum.Font.Code; tokenBox.TextSize = 11
+tokenBox.Font = Enum.Font.Code; tokenBox.TextSize = 12
 tokenBox.ClearTextOnFocus = false
 tokenBox.TextXAlignment = Enum.TextXAlignment.Left
 tokenBox.Focused:Connect(function() tokenStroke.Color = C.primary; tokenStroke.Thickness = 1.5 end)
@@ -342,30 +349,30 @@ tokenBox.FocusLost:Connect(function() tokenStroke.Color = C.stroke; tokenStroke.
 -- Primary button
 local connectBtn = Instance.new("TextButton", root)
 connectBtn.LayoutOrder = 5
-connectBtn.Size = UDim2.new(1,0,0,32)
+connectBtn.Size = UDim2.new(1,0,0,38)
 connectBtn.BackgroundColor3 = C.primary
 connectBtn.TextColor3 = Color3.new(1,1,1)
 connectBtn.Text = "Connect"
-connectBtn.Font = Enum.Font.GothamBold; connectBtn.TextSize = 12
+connectBtn.Font = Enum.Font.BuilderSansBold; connectBtn.TextSize = 13
 connectBtn.BorderSizePixel = 0
 connectBtn.AutoButtonColor = false
-corner(connectBtn, 7)
-shadow(connectBtn, 0.75, 8)
+corner(connectBtn, 10)
+shadow(connectBtn, 0.7, 10)
 local connectGrad = gradient(connectBtn,
-	Color3.fromRGB(132, 118, 255), Color3.fromRGB(92, 78, 232), 115)
+	Color3.fromRGB(140, 124, 255), Color3.fromRGB(96, 80, 240), 115)
 connectBtn:SetAttribute("Base", "primary")
 connectBtn.MouseEnter:Connect(function()
 	if connectBtn:GetAttribute("Base") == "primary" then
 		connectGrad.Color = ColorSequence.new(
-			Color3.fromRGB(150, 138, 255), Color3.fromRGB(108, 94, 248))
+			Color3.fromRGB(160, 146, 255), Color3.fromRGB(116, 100, 250))
 	else
-		connectBtn.BackgroundColor3 = C.disconnect
+		connectBtn.BackgroundColor3 = C.strokeHi
 	end
 end)
 connectBtn.MouseLeave:Connect(function()
 	if connectBtn:GetAttribute("Base") == "primary" then
 		connectGrad.Color = ColorSequence.new(
-			Color3.fromRGB(132, 118, 255), Color3.fromRGB(92, 78, 232))
+			Color3.fromRGB(140, 124, 255), Color3.fromRGB(96, 80, 240))
 	else
 		connectBtn.BackgroundColor3 = C.disconnect
 	end
@@ -374,36 +381,36 @@ end)
 -- Info card
 local card = Instance.new("Frame", root)
 card.LayoutOrder = 6
-card.Size = UDim2.new(1,0,0,118)
+card.Size = UDim2.new(1,0,0,132)
 card.BackgroundColor3 = C.panel
 register(card, "panel")
 card.BorderSizePixel = 0
-corner(card, 8)
+corner(card, 12)
 stroke(card, C.stroke, 1)
 sheen(card)
-padAll(card, 10)
-local cardList = Instance.new("UIListLayout", card); cardList.Padding = UDim.new(0,5)
+padAll(card, 14)
+local cardList = Instance.new("UIListLayout", card); cardList.Padding = UDim.new(0,7)
 
 local function infoRow(order, labelText)
 	local row = Instance.new("Frame", card)
 	row.LayoutOrder = order
 	row.BackgroundTransparency = 1
-	row.Size = UDim2.new(1,0,0,14)
+	row.Size = UDim2.new(1,0,0,16)
 	local lbl = Instance.new("TextLabel", row)
 	lbl.BackgroundTransparency = 1
-	lbl.Size = UDim2.new(0,58,1,0)
-	lbl.Font = Enum.Font.GothamMedium; lbl.TextSize = 9
+	lbl.Size = UDim2.new(0,64,1,0)
+	lbl.Font = Enum.Font.BuilderSansBold; lbl.TextSize = 10
 	lbl.TextColor3 = C.textMute
 	register(lbl, "textMute")
 	lbl.Text = labelText
 	lbl.TextXAlignment = Enum.TextXAlignment.Left
 	local val = Instance.new("TextLabel", row)
 	val.BackgroundTransparency = 1
-	val.Position = UDim2.new(0,62,0,0)
-	val.Size = UDim2.new(1,-62,1,0)
-	val.Font = Enum.Font.Gotham; val.TextSize = 10
-	val.TextColor3 = C.textDim
-	register(val, "textDim")
+	val.Position = UDim2.new(0,70,0,0)
+	val.Size = UDim2.new(1,-70,1,0)
+	val.Font = Enum.Font.BuilderSans; val.TextSize = 11
+	val.TextColor3 = C.text
+	register(val, "text")
 	val.Text = "—"
 	val.TextXAlignment = Enum.TextXAlignment.Left
 	val.TextTruncate = Enum.TextTruncate.AtEnd
@@ -457,8 +464,8 @@ end)
 local footer = Instance.new("TextLabel", root)
 footer.LayoutOrder = 7
 footer.BackgroundTransparency = 1
-footer.Size = UDim2.new(1,0,0,26)
-footer.Font = Enum.Font.Gotham; footer.TextSize = 9
+footer.Size = UDim2.new(1,0,0,32)
+footer.Font = Enum.Font.BuilderSans; footer.TextSize = 10
 footer.TextColor3 = C.textMute
 register(footer, "textMute")
 footer.Text = "bloxsmith.pro · sends script source + workspace snapshot to BloxSmith's AI. You can pause or disconnect at any time. All changes are undoable (Ctrl+Z)."
@@ -470,8 +477,8 @@ footer.TextYAlignment = Enum.TextYAlignment.Top
 local apiLabel = Instance.new("TextLabel", root)
 apiLabel.LayoutOrder = 8
 apiLabel.BackgroundTransparency = 1
-apiLabel.Size = UDim2.new(1,0,0,12)
-apiLabel.Font = Enum.Font.GothamMedium; apiLabel.TextSize = 9
+apiLabel.Size = UDim2.new(1,0,0,14)
+apiLabel.Font = Enum.Font.BuilderSansBold; apiLabel.TextSize = 10
 apiLabel.TextColor3 = C.textDim
 register(apiLabel, "textDim")
 apiLabel.Text = "API URL (advanced — leave default)"
@@ -479,21 +486,21 @@ apiLabel.TextXAlignment = Enum.TextXAlignment.Left
 
 local apiWrap = Instance.new("Frame", root)
 apiWrap.LayoutOrder = 9
-apiWrap.Size = UDim2.new(1,0,0,26)
+apiWrap.Size = UDim2.new(1,0,0,32)
 apiWrap.BackgroundColor3 = C.panel
 register(apiWrap, "panel")
 apiWrap.BorderSizePixel = 0
-corner(apiWrap, 6)
+corner(apiWrap, 10)
 stroke(apiWrap, C.stroke, 1)
 local apiBox = Instance.new("TextBox", apiWrap)
-apiBox.Size = UDim2.new(1,-18,1,0); apiBox.Position = UDim2.new(0,9,0,0)
+apiBox.Size = UDim2.new(1,-24,1,0); apiBox.Position = UDim2.new(0,12,0,0)
 apiBox.BackgroundTransparency = 1
 apiBox.TextColor3 = C.textDim
 register(apiBox, "textDim")
 apiBox.Text = getApiBase()
 apiBox.PlaceholderText = DEFAULT_API
 apiBox.PlaceholderColor3 = C.textMute
-apiBox.Font = Enum.Font.Code; apiBox.TextSize = 9
+apiBox.Font = Enum.Font.Code; apiBox.TextSize = 10
 apiBox.ClearTextOnFocus = false
 apiBox.TextXAlignment = Enum.TextXAlignment.Left
 apiBox.FocusLost:Connect(function() setApiBase(apiBox.Text or "") end)
@@ -501,16 +508,16 @@ apiBox.FocusLost:Connect(function() setApiBase(apiBox.Text or "") end)
 -- Pause/resume toggle (lets the user stop incoming actions without losing the token)
 local pauseBtn = Instance.new("TextButton", root)
 pauseBtn.LayoutOrder = 10
-pauseBtn.Size = UDim2.new(1,0,0,24)
+pauseBtn.Size = UDim2.new(1,0,0,30)
 pauseBtn.BackgroundColor3 = C.panel
 register(pauseBtn, "panel")
 pauseBtn.TextColor3 = C.textDim
 register(pauseBtn, "textDim")
 pauseBtn.Text = getPaused() and "▶  Resume sync" or "⏸  Pause sync"
-pauseBtn.Font = Enum.Font.GothamMedium; pauseBtn.TextSize = 10
+pauseBtn.Font = Enum.Font.BuilderSansMedium; pauseBtn.TextSize = 11
 pauseBtn.BorderSizePixel = 0
 pauseBtn.AutoButtonColor = false
-corner(pauseBtn, 6)
+corner(pauseBtn, 10)
 stroke(pauseBtn, C.stroke, 1)
 pauseBtn.MouseButton1Click:Connect(function()
 	setPaused(not getPaused())
@@ -520,7 +527,7 @@ end)
 local utilityRow = Instance.new("Frame", root)
 utilityRow.LayoutOrder = 11
 utilityRow.BackgroundTransparency = 1
-utilityRow.Size = UDim2.new(1,0,0,24)
+utilityRow.Size = UDim2.new(1,0,0,30)
 local utilityList = Instance.new("UIListLayout", utilityRow)
 utilityList.FillDirection = Enum.FillDirection.Horizontal
 utilityList.Padding = UDim.new(0,6)
@@ -535,12 +542,14 @@ local function utilityButton(parent, text, widthScale, order)
 	b.TextColor3 = C.textDim
 	register(b, "textDim")
 	b.Text = text
-	b.Font = Enum.Font.GothamMedium
-	b.TextSize = 9
+	b.Font = Enum.Font.BuilderSansMedium
+	b.TextSize = 10
 	b.BorderSizePixel = 0
 	b.AutoButtonColor = false
-	corner(b, 6)
-	stroke(b, C.stroke, 1)
+	corner(b, 8)
+	local s = stroke(b, C.stroke, 1)
+	b.MouseEnter:Connect(function() s.Color = C.strokeHi; b.BackgroundColor3 = C.panelHi end)
+	b.MouseLeave:Connect(function() s.Color = C.stroke; b.BackgroundColor3 = C.panel end)
 	return b
 end
 
@@ -556,7 +565,7 @@ local testConnBtn     = utilityButton(utilityRow, "Test",         0.2, 5)
 local previewRow = Instance.new("Frame", root)
 previewRow.LayoutOrder = 12
 previewRow.BackgroundTransparency = 1
-previewRow.Size = UDim2.new(1,0,0,24)
+previewRow.Size = UDim2.new(1,0,0,30)
 local previewList = Instance.new("UIListLayout", previewRow)
 previewList.FillDirection = Enum.FillDirection.Horizontal
 previewList.Padding = UDim.new(0,6)
@@ -581,7 +590,7 @@ refreshPreviewToggleLabel()
 local clearRow = Instance.new("Frame", root)
 clearRow.LayoutOrder = 13
 clearRow.BackgroundTransparency = 1
-clearRow.Size = UDim2.new(1,0,0,24)
+clearRow.Size = UDim2.new(1,0,0,30)
 local clearList = Instance.new("UIListLayout", clearRow)
 clearList.FillDirection = Enum.FillDirection.Horizontal
 clearList.Padding = UDim.new(0,6)
@@ -612,7 +621,7 @@ end)
 local organizeRow = Instance.new("Frame", root)
 organizeRow.LayoutOrder = 14
 organizeRow.BackgroundTransparency = 1
-organizeRow.Size = UDim2.new(1,0,0,24)
+organizeRow.Size = UDim2.new(1,0,0,30)
 local organizeList = Instance.new("UIListLayout", organizeRow)
 organizeList.FillDirection = Enum.FillDirection.Horizontal
 organizeList.Padding = UDim.new(0,6)
@@ -659,8 +668,8 @@ end)
 local ignoreLabel = Instance.new("TextLabel", root)
 ignoreLabel.LayoutOrder = 15
 ignoreLabel.BackgroundTransparency = 1
-ignoreLabel.Size = UDim2.new(1,0,0,12)
-ignoreLabel.Font = Enum.Font.GothamMedium; ignoreLabel.TextSize = 9
+ignoreLabel.Size = UDim2.new(1,0,0,14)
+ignoreLabel.Font = Enum.Font.BuilderSansBold; ignoreLabel.TextSize = 10
 ignoreLabel.TextColor3 = C.textDim
 register(ignoreLabel, "textDim")
 ignoreLabel.Text = "IGNORE FILTERS  (comma-separated)"
@@ -668,16 +677,16 @@ ignoreLabel.TextXAlignment = Enum.TextXAlignment.Left
 
 local ignoreWrap = Instance.new("Frame", root)
 ignoreWrap.LayoutOrder = 16
-ignoreWrap.Size = UDim2.new(1,0,0,26)
+ignoreWrap.Size = UDim2.new(1,0,0,32)
 ignoreWrap.BackgroundColor3 = C.panel
 register(ignoreWrap, "panel")
 ignoreWrap.BorderSizePixel = 0
-corner(ignoreWrap, 6)
+corner(ignoreWrap, 10)
 local ignoreStroke = stroke(ignoreWrap, C.stroke, 1)
 
 local ignoreBox = Instance.new("TextBox", ignoreWrap)
-ignoreBox.Size = UDim2.new(1,-18,1,0)
-ignoreBox.Position = UDim2.new(0,9,0,0)
+ignoreBox.Size = UDim2.new(1,-24,1,0)
+ignoreBox.Position = UDim2.new(0,12,0,0)
 ignoreBox.BackgroundTransparency = 1
 ignoreBox.TextColor3 = C.text
 register(ignoreBox, "text")
