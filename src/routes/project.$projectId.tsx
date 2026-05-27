@@ -2094,8 +2094,13 @@ function ProjectEditor() {
               return (
                 <div key={m.id} className={`flex gap-2.5 animate-fade-in ${isUser ? "justify-end" : "justify-start"}`}>
                   {!isUser && (
-                    <div className="shrink-0 mt-1 h-7 w-7 rounded-full bg-gradient-to-br from-primary to-primary-glow flex items-center justify-center shadow-lg shadow-primary/20 ring-1 ring-primary/30">
-                      <Sparkles className="h-3.5 w-3.5 text-primary-foreground" />
+                    <div className="shrink-0 mt-1 h-8 w-8 rounded-full bg-gradient-to-br from-primary to-primary-glow flex items-center justify-center shadow-lg shadow-primary/30 ring-1 ring-primary/40 overflow-hidden">
+                      <img
+                        src="/logo.png"
+                        alt="BloxSmith AI"
+                        className="h-full w-full object-cover"
+                        loading="lazy"
+                      />
                     </div>
                   )}
                   <div className={`flex flex-col gap-2 max-w-[88%] ${isUser ? "items-end" : "items-start"}`}>
