@@ -336,6 +336,8 @@ export function AiSourceSettings({
                     Stored encrypted in your account. Only used by your projects.
                   </p>
                 </div>
+                )}
+
               </div>
             )}
 
