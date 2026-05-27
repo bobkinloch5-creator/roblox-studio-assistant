@@ -1486,6 +1486,22 @@ export const Route = createFileRoute("/api/assistant/execute")({
                       ? `${baseSystem}\n\n=== PROJECT-SPECIFIC RULES (override defaults) ===\n${projectRules}`
                       : baseSystem) + (modeAddendum ? `\n\n${modeAddendum}` : "");
                     const { generateTextWithToolFallback, extractToolActivity } = await import("@/lib/ai-retry.server");
+                    // Per-model output-token cap. Each provider/model family has a
+                    // hard max_completion_tokens. Asking for more than the cap
+                    // either errors (Groq 400) or is silently clamped. Asking for
+                    // too little truncates large builds (the "ran out of room"
+                    // error). Map known models to their real ceilings, then pick
+                    // a generous but safe target inside that cap.
+                    const id = String(att.modelId).toLowerCase();
+                    let hardCap = 8192; // conservative default for unknown models
+                    if (id.includes("gemini-3") || id.includes("gemini-2.5-pro") || id.includes("gemini-2.5-flash")) hardCap = 65000;
+                    else if (id.includes("gpt-5") || id.includes("gpt-image")) hardCap = 32000;
+                    else if (id.includes("gpt-4o") || id.includes("gpt-4.1")) hardCap = 16000;
+                    else if (id.includes("llama-3.3-70b") || id.includes("llama3-70b") || id.includes("70b-versatile")) hardCap = 32000;
+                    else if (id.includes("llama-3.1-8b") || id.includes("8b-instant")) hardCap = 8000;
+                    else if (id.includes("mixtral") || id.includes("gemma")) hardCap = 8000;
+                    const target = thinking ? 24000 : 16000;
+                    const maxOut = Math.min(target, hardCap);
                     const textRes = await withRateLimitRetry("ai-execute", () =>
                       generateTextWithToolFallback(generateText, {
                         model,
@@ -1493,9 +1509,9 @@ export const Route = createFileRoute("/api/assistant/execute")({
                         messages,
                         tools: pickFastTools(prompt, { projectId, userId }) as any,
                         stopWhen: stepCountIs(thinking ? 40 : 28),
-                        maxOutputTokens: thinking ? 24000 : 16000,
+                        maxOutputTokens: maxOut,
                         abortSignal: request.signal,
-                      }, `ai-execute attempt#${i} src=${resolved.source} model=${att.modelId} slim=${useSlim}`),
+                      }, `ai-execute attempt#${i} src=${resolved.source} model=${att.modelId} slim=${useSlim} maxOut=${maxOut}`),
                     );
                     rawText = textRes.text;
                     // Capture tool calls so the UI can show the user what the AI did.
