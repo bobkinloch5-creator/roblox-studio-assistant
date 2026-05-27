@@ -96,6 +96,7 @@ function RootShell({ children }: { children: React.ReactNode }) {
 
 function RootComponent() {
   const { queryClient } = Route.useRouteContext();
+  useUnlockAudio();
   return (
     <ThemeProvider>
       <QueryClientProvider client={queryClient}>
