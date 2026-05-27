@@ -1070,25 +1070,26 @@ function getSoundTemplate(prompt: string): ExecuteResult {
 
 function getFocusedFallbackTemplate(prompt: string): ExecuteResult {
   const lower = prompt.toLowerCase();
+  // Only return a template when the prompt clearly asks for that specific thing.
+  // Otherwise return an honest error — never dump random grass/trees/maps the user did NOT ask for.
   if (/\b(gun|pistol|rifle|shotgun|sniper|smg|ak|m4|weapon|blaster|firearm)\b/.test(lower)) return getGunTemplate(prompt);
   if (/\bloading\s*screen|splash\s*screen|intro\s*screen|title\s*screen\b/.test(lower)) return getLoadingScreenTemplate(prompt);
   if (/\b(sound|sfx|audio|music|bgm|soundtrack|noise)\b/.test(lower)) return getSoundTemplate(prompt);
   if (/\bshop|store\b/.test(lower)) return getShopTemplate() as ExecuteResult;
-  if (/\bobby|obby|parkour\b/.test(lower)) return getObbyTemplate() as ExecuteResult;
+  if (/\bobby|parkour\b/.test(lower)) return getObbyTemplate() as ExecuteResult;
   if (/\btycoon\b/.test(lower)) return getTycoonTemplate() as ExecuteResult;
   if (/\bcoin|coins|currency\b/.test(lower)) return getCoinsTemplate() as ExecuteResult;
-  if (/\bnpc|character|dummy\b/.test(lower)) return getNpcTemplate() as ExecuteResult;
+  if (/\bnpc|dummy\b/.test(lower)) return getNpcTemplate() as ExecuteResult;
   if (/\btree|forest\b/.test(lower)) return getTreesTemplate() as ExecuteResult;
   if (/\bgrass\b/.test(lower)) return getGrassTemplate() as ExecuteResult;
-  // If the prompt is clearly UI/gameplay (not a map), don't dump a grass plane — return an honest error so the user retries.
-  if (/\bui|gui|hud|menu|button|inventory|settings|panel|screen|tool\b/.test(lower)) {
-    return {
-      message: "The AI timed out before finishing this build. Try again, or break it into a smaller step (e.g. 'just the open/close button').",
-      files: [],
-      actions: [],
-    };
-  }
-  return getMapStarterTemplate(prompt);
+  if (/\b(map|baseplate|starter\s*map|terrain|world)\b/.test(lower)) return getMapStarterTemplate(prompt);
+  // No reliable match — refuse to invent random content. Tell the user honestly.
+  return {
+    message:
+      "The AI couldn't finish this build in time and I won't drop random parts into your game. Please try again, or break the request into a smaller step (e.g. 'just the main menu button', 'just the sword tool').",
+    files: [],
+    actions: [],
+  };
 }
 
 function pickFastTools(prompt: string, ctx: { projectId: string; userId: string }) {
