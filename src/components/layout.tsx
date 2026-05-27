@@ -4,6 +4,7 @@ import logo from "@/assets/logo.png";
 import { useState } from "react";
 import { Menu, X, User, Settings, CreditCard, LogOut, ChevronDown } from "lucide-react";
 import { PluginStatus } from "@/components/PluginStatus";
+import { McpStatus } from "@/components/McpStatus";
 import { LanguageSwitcher } from "@/components/LanguageSwitcher";
 import { ThemeToggle } from "@/components/ThemeToggle";
 
@@ -81,6 +82,7 @@ export function Header() {
           {user ? (
             <>
               <PluginStatus />
+              <McpStatus />
               <Link
                 to="/pricing"
                 className="inline-flex items-center gap-1.5 rounded-full bg-primary/10 border border-primary/20 px-3 py-1 text-xs font-semibold text-primary-glow hover:bg-primary/20 transition"
