@@ -2375,8 +2375,8 @@ function ProjectEditor() {
                     "Validating against Roblox",
                     "Finalizing the build",
                   ];
-              // step roughly every 6s, clamp to last
-              const stepIdx = Math.min(steps.length - 1, Math.floor(aiBusyElapsed / 6));
+              // step roughly every 3.5s for a livelier feel, clamp to last
+              const stepIdx = Math.min(steps.length - 1, Math.floor(aiBusyElapsed / 3.5));
               const mm = String(Math.floor(aiBusyElapsed / 60)).padStart(1, "0");
               const ss = String(aiBusyElapsed % 60).padStart(2, "0");
               return (
