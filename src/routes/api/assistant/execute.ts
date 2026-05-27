@@ -1092,6 +1092,37 @@ function getFocusedFallbackTemplate(prompt: string): ExecuteResult {
   };
 }
 
+function getInstantTemplateForPrompt(cleanedPrompt: string): ExecuteResult | null {
+  const simple = cleanedPrompt.length <= 80 && !/\b(custom|advanced|complex|complete|full game|entire game)\b/.test(cleanedPrompt);
+  if (!simple) return null;
+
+  if (/^(add|make|create|build|give me)\s+(a\s+|an\s+)?(basic\s+|simple\s+)?grass\b/.test(cleanedPrompt)) {
+    return getGrassTemplate() as ExecuteResult;
+  }
+  if (/^(add|make|create|build|give me)\s+(a\s+|an\s+)?(basic\s+|simple\s+)?trees?\b/.test(cleanedPrompt)) {
+    return getTreesTemplate() as ExecuteResult;
+  }
+  if (/^(add|make|create|build|give me)\s+(a\s+|an\s+)?(basic\s+|simple\s+)?coins?\b/.test(cleanedPrompt)) {
+    return getCoinsTemplate() as ExecuteResult;
+  }
+  if (/^(add|make|create|build|give me)\s+(a\s+|an\s+)?(basic\s+|simple\s+)?(shop|store|shop gui|store gui)\b/.test(cleanedPrompt)) {
+    return getShopTemplate() as ExecuteResult;
+  }
+  if (/^(add|make|create|build|give me)\s+(a\s+|an\s+)?(basic\s+|simple\s+)?npc\b/.test(cleanedPrompt)) {
+    return getNpcTemplate() as ExecuteResult;
+  }
+  if (/^(add|make|create|build|give me)\s+(a\s+|an\s+)?(basic\s+|simple\s+)?obby\b/.test(cleanedPrompt)) {
+    return getObbyTemplate() as ExecuteResult;
+  }
+  if (/^(add|make|create|build|give me)\s+(a\s+|an\s+)?(basic\s+|simple\s+)?tycoon\b/.test(cleanedPrompt)) {
+    return getTycoonTemplate() as ExecuteResult;
+  }
+  if (/^(add|make|create|build|give me)\s+(a\s+|an\s+)?(basic\s+|simple\s+)?leaderstats\b/.test(cleanedPrompt)) {
+    return getLeaderstatsTemplate() as ExecuteResult;
+  }
+  return null;
+}
+
 function pickFastTools(prompt: string, ctx: { projectId: string; userId: string }) {
   const allTools = buildBloxSmithTools(ctx) as Record<string, any>;
   const lower = prompt.toLowerCase();
@@ -1110,8 +1141,10 @@ function pickFastTools(prompt: string, ctx: { projectId: string; userId: string 
   if (/thumbnail|icon|logo|decal|artwork|poster|banner|loading screen/i.test(prompt)) {
     add("generate_image");
   }
-  if (/game|map|world|lobby|shop|weapon|vehicle|car|character|npc|enemy|boss|pet|tower|obby|tycoon|simulator|horror|rpg|tree|foliage|building|prop|toolbox|creator store|free model|asset|model id|skybox|music|sound/i.test(lower)) {
+  if (/\b(toolbox|creator store|free model|asset|model id|insert model|use a model|marketplace|map asset|lobby asset|prop|skybox|music|sound)\b/i.test(lower)) {
     add("roblox_asset_search");
+  }
+  if (/\b(asset info|asset details|verify asset|thumbnail|preview|safe model|scan scripts?)\b/i.test(lower)) {
     add("roblox_asset_info");
     add("roblox_asset_thumbnail");
   }
@@ -1414,6 +1447,9 @@ ${badJson}`;
   const { text } = await generateText({
     model,
     prompt: repairPrompt,
+    maxRetries: 0,
+    maxOutputTokens: 3000,
+    timeout: { totalMs: 8000 },
   });
 
   const jsonMatch = text.match(/\{[\s\S]*\}/);
@@ -1603,37 +1639,25 @@ export const Route = createFileRoute("/api/assistant/execute")({
           let aiActivity: Array<{ tool: string; summary: string; ok: boolean }> = [];
           const cleanedPrompt = prompt.toLowerCase().trim();
 
-          if (
-            cleanedPrompt === "add grass" ||
-            cleanedPrompt === "grass" ||
-            cleanedPrompt.includes("add grass around my baseplate")
-          ) {
-            result = getGrassTemplate();
-          } else if (
-            cleanedPrompt === "add trees" ||
-            cleanedPrompt === "add tree" ||
-            cleanedPrompt === "trees" ||
-            cleanedPrompt === "tree"
-          ) {
-            result = getTreesTemplate();
-          } else if (
-            cleanedPrompt === "add coins" ||
-            cleanedPrompt === "add coin" ||
-            cleanedPrompt === "coins" ||
-            cleanedPrompt === "coin"
-          ) {
-            result = getCoinsTemplate();
-          } else if (cleanedPrompt === "add shop" || cleanedPrompt === "shop") {
-            result = getShopTemplate();
-          } else if (cleanedPrompt === "add npc" || cleanedPrompt === "npc") {
-            result = getNpcTemplate();
-          } else if (cleanedPrompt === "make obby" || cleanedPrompt === "obby") {
-            result = getObbyTemplate();
-          } else if (cleanedPrompt === "make tycoon" || cleanedPrompt === "tycoon") {
-            result = getTycoonTemplate();
-          } else if (cleanedPrompt === "leaderstats" || cleanedPrompt === "add leaderstats") {
-            result = getLeaderstatsTemplate();
-          }
+          result =
+            getInstantTemplateForPrompt(cleanedPrompt) ??
+            (cleanedPrompt === "grass" || cleanedPrompt.includes("add grass around my baseplate")
+              ? getGrassTemplate()
+              : cleanedPrompt === "tree" || cleanedPrompt === "trees"
+                ? getTreesTemplate()
+                : cleanedPrompt === "coin" || cleanedPrompt === "coins"
+                  ? getCoinsTemplate()
+                  : cleanedPrompt === "shop"
+                    ? getShopTemplate()
+                    : cleanedPrompt === "npc"
+                      ? getNpcTemplate()
+                      : cleanedPrompt === "obby"
+                        ? getObbyTemplate()
+                        : cleanedPrompt === "tycoon"
+                          ? getTycoonTemplate()
+                          : cleanedPrompt === "leaderstats"
+                            ? getLeaderstatsTemplate()
+                            : null);
 
           // If no instant template, call AI through the resolved gateway
           // (per-project setting: built-in Groq, or user's own API key for
@@ -1664,26 +1688,30 @@ export const Route = createFileRoute("/api/assistant/execute")({
               try {
                 const gateway = apiKey ? createGroqProvider(apiKey) : null;
 
-                const { data: liveContext } = await supabaseUser
-                  .from("plugin_context")
-                  .select("context,instance_count,updated_at")
-                  .eq("project_id", projectId)
-                  .maybeSingle();
-
-                const { data: existingFiles } = await supabaseUser
-                  .from("project_files")
-                  .select("path,file_type,service_location,content")
-                  .eq("project_id", projectId)
-                  .limit(60);
+                const [liveContextResult, existingFilesResult, convoRowResult] = await Promise.all([
+                  supabaseUser
+                    .from("plugin_context")
+                    .select("context,instance_count,updated_at")
+                    .eq("project_id", projectId)
+                    .maybeSingle(),
+                  supabaseUser
+                    .from("project_files")
+                    .select("path,file_type,service_location,content")
+                    .eq("project_id", projectId)
+                    .limit(60),
+                  supabaseUser
+                    .from("agent_conversations")
+                    .select("id")
+                    .eq("project_id", projectId)
+                    .order("created_at", { ascending: true })
+                    .limit(1)
+                    .maybeSingle(),
+                ]);
+                const liveContext = liveContextResult.data;
+                const existingFiles = existingFilesResult.data;
+                const convoRow = convoRowResult.data;
 
                 // Pull recent chat history.
-                const { data: convoRow } = await supabaseUser
-                  .from("agent_conversations")
-                  .select("id")
-                  .eq("project_id", projectId)
-                  .order("created_at", { ascending: true })
-                  .limit(1)
-                  .maybeSingle();
                 let history: { role: "user" | "assistant"; content: string }[] = [];
                 if (convoRow?.id) {
                   const { data: msgs } = await supabaseUser
@@ -1871,6 +1899,8 @@ export const Route = createFileRoute("/api/assistant/execute")({
                           // Fewer tool-loop steps = faster builds. Most builds need 2-3 steps.
                           stopWhen: stepCountIs(profile.stopSteps),
                           maxOutputTokens: maxOut,
+                          maxRetries: 0,
+                          timeout: { totalMs: perAttemptMs, stepMs: perAttemptMs, chunkMs: 12_000 },
                           abortSignal: combinedSignal,
                         }, `ai-execute attempt#${i} src=${resolved.source} model=${att.modelId} slim=${useSlim} maxOut=${maxOut} tools=${isRetry ? 0 : "fast"}`),
                       );

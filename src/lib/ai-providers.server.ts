@@ -141,9 +141,9 @@ export function getModelProfile(
   return {
     inputTokenBudget,
     maxOutputTokens,
-    chatOutputTokens: opts.thinking ? (isHuge ? 2_400 : 1_800) : isSmall ? 1_200 : 1_700,
+    chatOutputTokens: opts.thinking ? (isHuge ? 2_000 : 1_600) : isSmall ? 900 : 1_300,
     timeoutMs: opts.thinking ? 45_000 : opts.heavyBuild ? 42_000 : isSmall ? 22_000 : 30_000,
-    chatTimeoutMs: opts.thinking ? 45_000 : isSmall ? 18_000 : 25_000,
+    chatTimeoutMs: opts.thinking ? 40_000 : isSmall ? 12_000 : 18_000,
     stopSteps: opts.thinking ? 12 : isSmall ? 3 : 6,
     supportsTools: !opts.retry && !(provider === "groq" && id.includes("gemma")),
     supportsVision:

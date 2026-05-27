@@ -13,12 +13,12 @@ const checks = [
   {
     name: "Chat can use docs, web, and Roblox asset tools",
     file: "src/lib/ai.functions.ts",
-    must: [/roblox_docs_search/, /roblox_asset_search/, /recordProviderHealth/, /compactChatHistory/],
+    must: [/roblox_docs_search/, /roblox_asset_search/, /recordProviderHealth/, /compactChatHistory/, /pickChatTools/, /maxRetries:\s*0/],
   },
   {
     name: "Build path records provider health and uses model profiles",
     file: "src/routes/api/assistant/execute.ts",
-    must: [/recordProviderHealth/, /getModelProfile/, /classifyProviderError/, /roblox_docs_search/],
+    must: [/recordProviderHealth/, /getModelProfile/, /classifyProviderError/, /roblox_docs_search/, /Promise\.all/, /maxRetries:\s*0/],
   },
   {
     name: "Roblox safety validation blocks common backdoors",

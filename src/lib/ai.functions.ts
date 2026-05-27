@@ -624,6 +624,31 @@ const ChatInputSchema = z.object({
     .optional(),
 });
 
+function pickChatTools(prompt: string, allTools: Record<string, any>): Record<string, unknown> {
+  const lower = prompt.toLowerCase();
+  const picked: Record<string, unknown> = {};
+  const add = (name: string) => {
+    if (name in allTools) picked[name] = allTools[name];
+  };
+
+  if (/\b(datastore|remoteevent|remotefunction|marketplaceservice|pathfindingservice|tweenservice|runservice|animation|animator|humanoid|screen.?gui|luau|creator hub|api reference|docs|documentation)\b/i.test(lower)) {
+    add("roblox_docs_search");
+  }
+  if (/\b(search the web|web search|look up|current|latest|today|internet|url|https?:\/\/)\b/i.test(lower)) {
+    add("web_search");
+    add("fetch_url");
+  }
+  if (/\b(toolbox|creator store|free model|asset|model id|insert model|use a model|marketplace|skybox|music|sound|decal|image id)\b/i.test(lower)) {
+    add("roblox_asset_search");
+  }
+  if (/\b(asset info|asset details|verify asset|thumbnail|preview|safe model|scan scripts?)\b/i.test(lower)) {
+    add("roblox_asset_info");
+    add("roblox_asset_thumbnail");
+  }
+
+  return picked;
+}
+
 export const chatWithAI = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((input: unknown) => ChatInputSchema.parse(input))
@@ -701,11 +726,7 @@ ${ROBLOX_KNOWLEDGE_PROMPT}${includeProject ? projectBlock : ""}`;
     type ChatModel = Parameters<typeof generateText>[0]["model"];
     type ChatMessages = Array<{ role: "system" | "user" | "assistant"; content: string | Part[] }>;
     const allTools = buildBloxSmithTools({ userId, projectId });
-    const chatTools = Object.fromEntries(
-      ["roblox_docs_search", "web_search", "fetch_url", "roblox_asset_search", "roblox_asset_info", "roblox_asset_thumbnail"]
-        .filter((name) => name in allTools)
-        .map((name) => [name, (allTools as Record<string, unknown>)[name]]),
-    );
+    const chatTools = pickChatTools(prompt, allTools as Record<string, any>);
     const makeMessages = (opts: {
       includeProject: boolean;
       historyTurns: number;
@@ -760,6 +781,8 @@ ${ROBLOX_KNOWLEDGE_PROMPT}${includeProject ? projectBlock : ""}`;
           model,
           messages: messages as Parameters<typeof generateText>[0]["messages"],
           maxOutputTokens,
+          maxRetries: 0,
+          timeout: { totalMs: timeoutMs, stepMs: timeoutMs, chunkMs: 10_000 },
           ...(tools && Object.keys(tools).length > 0
             ? { tools: tools as any, stopWhen: stepCountIs(stopSteps) }
             : {}),
@@ -792,7 +815,7 @@ ${ROBLOX_KNOWLEDGE_PROMPT}${includeProject ? projectBlock : ""}`;
         ),
         timeoutMs: Math.min(
           getModelProfile(resolved.provider, resolved.modelName, { retry: true }).chatTimeoutMs,
-          20_000,
+          14_000,
         ),
       },
     ];
@@ -808,7 +831,7 @@ ${ROBLOX_KNOWLEDGE_PROMPT}${includeProject ? projectBlock : ""}`;
           historyChars: Math.min(builtInProfile.historyChars, 900),
           includeProject: false,
           maxOutputTokens: Math.min(builtInProfile.chatOutputTokens, thinking ? 2_200 : 1_400),
-          timeoutMs: Math.min(builtInProfile.chatTimeoutMs, thinking ? 40_000 : 22_000),
+          timeoutMs: Math.min(builtInProfile.chatTimeoutMs, thinking ? 32_000 : 16_000),
         });
       }
     } catch {
@@ -842,7 +865,7 @@ ${ROBLOX_KNOWLEDGE_PROMPT}${includeProject ? projectBlock : ""}`;
             messages,
             attempt.timeoutMs,
             attempt.maxOutputTokens,
-            Math.min(profile.stopSteps, thinking ? 6 : 4),
+            Math.min(profile.stopSteps, thinking ? 5 : 3),
             tools,
           );
           await recordProviderHealth({
