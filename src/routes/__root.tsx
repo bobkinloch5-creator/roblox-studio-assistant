@@ -5,6 +5,7 @@ import appCss from "../styles.css?url";
 import { AuthProvider } from "@/lib/auth-context";
 import { ThemeProvider } from "@/hooks/useTheme";
 import { useUnlockAudio } from "@/hooks/useSounds";
+import { ClickRipple } from "@/components/ClickRipple";
 
 function NotFoundComponent() {
   return (
