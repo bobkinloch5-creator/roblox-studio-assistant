@@ -1,6 +1,7 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { Header } from "@/components/layout";
 import { AiSourceSettings } from "@/components/AiSourceSettings";
+import { ModelPicker } from "@/components/ModelPicker";
 
 import { useAuth } from "@/lib/auth-context";
 import { useEffect, useRef, useState } from "react";
@@ -2605,6 +2606,13 @@ function ProjectEditor() {
                       );
                     })()}
                   </button>
+
+                  <ModelPicker
+                    projectId={projectId}
+                    provider={aiSettings.provider as "openai" | "anthropic" | "google" | "groq" | "neokens" | null}
+                    model={aiSettings.model}
+                    onChange={(p, m) => setAiSettings({ mode: "api_key", provider: p, model: m })}
+                  />
 
                   {aiUsage && !aiUsage.owner && (() => {
                     const pct5 = Math.min(100, Math.round((aiUsage.used_5h / aiUsage.limit_5h) * 100));

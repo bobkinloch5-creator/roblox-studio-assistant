@@ -1,22 +1,21 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef } from "react";
 
 /**
- * Premium custom cursor: a smooth glowing dot with a trailing ring that
- * morphs over interactive elements. Disabled on touch devices.
+ * Premium custom cursor: smooth glowing dot with trailing ring that morphs
+ * over interactive elements. Disabled on touch devices.
  */
 export function CustomCursor() {
   const dotRef = useRef<HTMLDivElement | null>(null);
   const ringRef = useRef<HTMLDivElement | null>(null);
-  const [enabled, setEnabled] = useState(false);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
-    const isTouch = window.matchMedia("(pointer: coarse)").matches;
-    if (isTouch) return;
-    setEnabled(true);
+    if (window.matchMedia("(pointer: coarse)").matches) return;
 
-    const dot = dotRef.current!;
-    const ring = ringRef.current!;
+    const dot = dotRef.current;
+    const ring = ringRef.current;
+    if (!dot || !ring) return;
+
     let mx = window.innerWidth / 2;
     let my = window.innerHeight / 2;
     let rx = mx;
@@ -40,9 +39,8 @@ export function CustomCursor() {
       const isText = !!target?.closest('input, textarea, [contenteditable="true"]');
       dot.dataset.state = isText ? "text" : "idle";
     };
-
-    const onDown = () => (ring.dataset.press = "1");
-    const onUp = () => (ring.dataset.press = "0");
+    const onDown = () => { ring.dataset.press = "1"; };
+    const onUp = () => { ring.dataset.press = "0"; };
     const onLeave = () => {
       hidden = true;
       dot.style.opacity = "0";
@@ -62,7 +60,6 @@ export function CustomCursor() {
     window.addEventListener("mousedown", onDown);
     window.addEventListener("mouseup", onUp);
     document.addEventListener("mouseleave", onLeave);
-
     document.documentElement.classList.add("has-custom-cursor");
 
     return () => {
@@ -74,8 +71,6 @@ export function CustomCursor() {
       document.documentElement.classList.remove("has-custom-cursor");
     };
   }, []);
-
-  if (!enabled) return null;
 
   return (
     <>
