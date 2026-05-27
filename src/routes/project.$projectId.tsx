@@ -2528,9 +2528,10 @@ function ProjectEditor() {
                           : "Attach image for AI to analyze"
                       }
                       disabled={attachments.length >= MAX_ATTACHMENTS}
-                      className={`h-8 w-8 grid place-items-center rounded-lg transition disabled:opacity-40 ${attachments.length > 0 ? "text-primary bg-primary/10" : "text-muted-foreground hover:text-foreground hover:bg-surface"}`}
+                      className={`inline-flex h-8 items-center gap-1 rounded-lg border px-2 transition disabled:opacity-40 ${attachments.length > 0 ? "border-primary/40 text-primary bg-primary/10" : "border-primary/30 text-primary/90 hover:bg-primary/10"}`}
                     >
                       <ImagePlus className="h-4 w-4" />
+                      <span className="text-[11px] font-medium">Image</span>
                     </button>
                     <button
                       type="button"
