@@ -1181,7 +1181,7 @@ export const Route = createFileRoute("/api/assistant/execute")({
           }
 
           const body = await request.json().catch(() => ({}));
-          const { projectId, prompt, autoExecute, studioConnected, thinking } = body;
+          const { projectId, prompt, autoExecute, studioConnected, thinking, aiMode } = body;
 
           if (!projectId || !prompt) {
             return new Response(JSON.stringify({ error: "Missing projectId or prompt" }), {
@@ -1189,6 +1189,10 @@ export const Route = createFileRoute("/api/assistant/execute")({
               headers: corsHeaders,
             });
           }
+
+          // Resolve optional AI mode addendum (Build/Fix/Debug/Polish/UI/etc.)
+          const { getAiModeAddendum } = await import("@/lib/ai-modes");
+          const modeAddendum = getAiModeAddendum(typeof aiMode === "string" ? aiMode : null);
 
           // RLS only returns projects the authenticated user can access.
           const { data: project, error: projectErr } = await supabaseUser
@@ -1431,9 +1435,9 @@ export const Route = createFileRoute("/api/assistant/execute")({
 
                   rawText = "";
                   try {
-                    const systemWithRules = projectRules
+                    const systemWithRules = (projectRules
                       ? `${baseSystem}\n\n=== PROJECT-SPECIFIC RULES (override defaults) ===\n${projectRules}`
-                      : baseSystem;
+                      : baseSystem) + (modeAddendum ? `\n\n${modeAddendum}` : "");
                     const { generateTextWithToolFallback, extractToolActivity } = await import("@/lib/ai-retry.server");
                     const textRes = await withRateLimitRetry("ai-execute", () =>
                       generateTextWithToolFallback(generateText, {
@@ -1685,6 +1689,9 @@ export const Route = createFileRoute("/api/assistant/execute")({
             }
           }
 
+          const { scoreGeneration } = await import("@/lib/ai-quality");
+          const quality = scoreGeneration(result.files as any, queued as any);
+
           return new Response(
             JSON.stringify({
               generationId,
@@ -1698,6 +1705,8 @@ export const Route = createFileRoute("/api/assistant/execute")({
                 errors: validation.errors,
                 warnings: validation.warnings,
               },
+              quality,
+              aiMode: typeof aiMode === "string" ? aiMode : null,
               queuedCount: queued.length,
               aiActivity,
             }),
