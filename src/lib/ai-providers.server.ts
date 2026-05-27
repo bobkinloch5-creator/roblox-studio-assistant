@@ -8,7 +8,7 @@ import {
   createGroqProvider,
 } from "./ai-gateway.server";
 
-export type ProviderId = "openai" | "anthropic" | "google" | "groq";
+export type ProviderId = "openai" | "anthropic" | "google" | "groq" | "neokens";
 export type ModelKind = "chat" | "build" | "fast" | "large";
 
 export const PROVIDER_LABELS: Record<ProviderId, string> = {
@@ -16,6 +16,7 @@ export const PROVIDER_LABELS: Record<ProviderId, string> = {
   anthropic: "Anthropic",
   google: "Google Gemini",
   groq: "Groq",
+  neokens: "Neokens (multi-model)",
 };
 
 // Curated model lists per provider. Keep the lists short — only models that
@@ -35,6 +36,16 @@ export const PROVIDER_MODELS: Record<ProviderId, string[]> = {
     "gemini-3-flash-preview",
   ],
   groq: ["llama-3.1-8b-instant", "openai/gpt-oss-120b", "llama-3.3-70b-versatile"],
+  // Neokens proxies many models behind a single key — see neokens.com/docs.
+  neokens: [
+    "gpt-5.3-codex",
+    "gpt-5.1",
+    "claude-opus-4-7-thinking",
+    "claude-sonnet-4-6-thinking",
+    "claude-haiku-4-5-20251001",
+    "gemini-3.1-pro",
+    "gemini-3-flash",
+  ],
 };
 
 export const PROVIDER_DEFAULT_MODEL: Record<ProviderId, string> = {
@@ -42,6 +53,7 @@ export const PROVIDER_DEFAULT_MODEL: Record<ProviderId, string> = {
   anthropic: "claude-sonnet-4-5",
   google: "gemini-2.5-flash",
   groq: BLOXSMITH_MODEL,
+  neokens: "gpt-5.3-codex",
 };
 
 function providerEndpoint(provider: ProviderId): { name: string; baseURL: string } {
@@ -58,6 +70,9 @@ function providerEndpoint(provider: ProviderId): { name: string; baseURL: string
         name: "google",
         baseURL: "https://generativelanguage.googleapis.com/v1beta/openai",
       };
+    case "neokens":
+      // Neokens credits gateway — OpenAI-compatible, one key for many models.
+      return { name: "neokens", baseURL: "https://api.quatarly.cloud/v1" };
   }
 }
 
