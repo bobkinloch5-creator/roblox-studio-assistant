@@ -1681,6 +1681,19 @@ export const Route = createFileRoute("/api/assistant/execute")({
           const lowerPrompt = prompt.toLowerCase();
           const wantsMap = /\b(map|world|lobby|arena|city|town|village|island|dungeon|level|scene|environment)\b/.test(lowerPrompt);
           const hasInsert = mappedActions.some((a: any) => a?.type === "insert_toolbox_asset" || a?.type === "insertAsset");
+          if (wantsMap) {
+            const hasSpawn = mappedActions.some((a: any) => a?.type === "spawn" || (a?.type === "create" && a?.className === "SpawnLocation"));
+            const mapFolders = ["Map", "Buildings", "Roads", "Trees", "Props", "Zones"].map((name) => ({
+              type: "create",
+              className: "Folder",
+              name,
+              parent: name === "Map" ? "Workspace" : "Workspace/Map",
+            }));
+            mappedActions.unshift(...mapFolders);
+            if (!hasSpawn) {
+              mappedActions.push({ type: "spawn", name: "BloxsmithSpawn", parent: "Workspace/Map", position: { __t: "Vector3", x: 0, y: 6, z: 0 } });
+            }
+          }
           if (wantsMap && !hasInsert) {
             try {
               const { searchRobloxAssets } = await import("@/lib/ai-tools.server");
@@ -1693,7 +1706,7 @@ export const Route = createFileRoute("/api/assistant/execute")({
                   type: "insert_toolbox_asset",
                   assetId: items[0].assetId,
                   name: items[0].name || "ToolboxMap",
-                  parent: "Workspace",
+                  parent: "Workspace/Map",
                   position: [0, 0, 0],
                   scanScripts: true,
                   removeUnsafeScripts: true,
