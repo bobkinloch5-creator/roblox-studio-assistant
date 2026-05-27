@@ -484,6 +484,7 @@ Keep it under ~400 words. Be specific to the user's request and existing project
         model,
         system: planSystem,
         prompt: planUserText,
+        maxOutputTokens: 1200,
       });
       text = out;
     } catch (err: any) {
@@ -619,7 +620,7 @@ CHAT MODE RULES — never break these:
 
     let text = "";
     try {
-      const { text: out } = await generateText({ model, messages: messages as any });
+      const { text: out } = await generateText({ model, messages: messages as any, maxOutputTokens: 1600 });
       text = out;
     } catch (err: any) {
       if (!isOwner)

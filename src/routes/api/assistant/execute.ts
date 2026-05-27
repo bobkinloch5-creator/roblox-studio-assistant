@@ -800,6 +800,34 @@ end)
   };
 }
 
+function pickFastTools(prompt: string, ctx: { projectId: string; userId: string }) {
+  const allTools = buildBloxSmithTools(ctx) as Record<string, any>;
+  const lower = prompt.toLowerCase();
+  const picked: Record<string, any> = {};
+  const add = (name: string) => {
+    if (allTools[name]) picked[name] = allTools[name];
+  };
+  if (/\[web search enabled\]|search the web|look up|current|docs|documentation|api/i.test(prompt)) {
+    add("web_search");
+    add("fetch_url");
+  }
+  if (/thumbnail|icon|logo|decal|artwork|poster|banner|loading screen/i.test(prompt)) {
+    add("generate_image");
+  }
+  if (/game|map|world|lobby|shop|weapon|vehicle|car|character|npc|enemy|boss|pet|tower|obby|tycoon|simulator|horror|rpg|tree|foliage|building|prop|toolbox|creator store|free model|asset|model id|skybox|music|sound/i.test(lower)) {
+    add("roblox_asset_search");
+    add("roblox_asset_info");
+    add("roblox_asset_thumbnail");
+  }
+  if (/\bmcp\b|bsmcp_|mcp server|mcp token/i.test(prompt)) {
+    add("list_mcp_servers");
+    add("add_mcp_server");
+    add("update_mcp_server");
+    add("remove_mcp_server");
+  }
+  return picked;
+}
+
 // Map Groq returned actions to plugin-expected actions
 function coerceActionValue(key: string, val: any): any {
   if (Array.isArray(val)) {
@@ -1463,8 +1491,10 @@ export const Route = createFileRoute("/api/assistant/execute")({
                         model,
                         system: systemWithRules,
                         messages,
-                        tools: buildBloxSmithTools({ projectId, userId }) as any,
-                        stopWhen: stepCountIs(thinking ? 60 : 45),
+                        tools: pickFastTools(prompt, { projectId, userId }) as any,
+                        stopWhen: stepCountIs(thinking ? 60 : 50),
+                        maxOutputTokens: thinking ? 9000 : 6000,
+                        abortSignal: request.signal,
                       }, `ai-execute attempt#${i} src=${resolved.source} model=${att.modelId} slim=${useSlim}`),
                     );
                     rawText = textRes.text;

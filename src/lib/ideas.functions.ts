@@ -50,13 +50,13 @@ export const generateGameIdeas = createServerFn({ method: "POST" })
     }
 
     const catLine = data.category ? `Category: ${data.category}.` : "Any popular Roblox category.";
-    const system = `You are a Roblox game-idea generator. Output ${data.count} fresh, ORIGINAL ideas that real players would actually play. Strictly return JSON only (no markdown), shaped:
+    const system = `You are a Roblox game-idea generator. Output ${data.count} fresh, ORIGINAL ideas that real players would actually play. Keep every field concise. Strictly return JSON only (no markdown), shaped:
 {"ideas":[{"name":"...","category":"...","loop":"...","features":["...","..."],"monetization":["...","..."],"difficulty":"beginner|intermediate|advanced","build_prompt":"..."}]}
-"build_prompt" must be a single detailed sentence that BloxSmith's Build Agent can execute (services, scripts, data persistence, UI).`;
+"build_prompt" must be one executable sentence. Use exactly 3 short features and 2 short monetization ideas per idea.`;
 
     let text = "";
     try {
-      const out = await generateText({ model, system, prompt: catLine });
+      const out = await generateText({ model, system, prompt: catLine, maxOutputTokens: 1400 });
       text = out.text;
     } catch (err) {
       if (!isOwner) await supabase.rpc("refund_credits", { _amount: COST, _reason: "ideas failed" });

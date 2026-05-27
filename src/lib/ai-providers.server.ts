@@ -56,10 +56,10 @@ export const PROVIDER_DEFAULT_MODEL: Record<ProviderId, string> = {
 };
 
 const NEOKENS_MODEL_BY_KIND: Record<ModelKind, string> = {
-  chat: "gpt-5.3-codex",
-  build: "gpt-5.3-codex",
-  fast: "gpt-5.3-codex",
-  large: "gpt-5.3-codex",
+  chat: "gemini-3-flash",
+  build: "gemini-3-flash",
+  fast: "gemini-3-flash",
+  large: "gemini-3.1-pro",
 };
 
 const sanitizingFetch: typeof fetch = async (input, init) => {

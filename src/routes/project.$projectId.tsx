@@ -159,8 +159,11 @@ function ProjectEditor() {
 
   // Stop button for in-flight AI generations
   const stopRequested = useRef(false);
+  const aiAbortRef = useRef<AbortController | null>(null);
   const stopGeneration = () => {
     stopRequested.current = true;
+    aiAbortRef.current?.abort();
+    aiAbortRef.current = null;
     setAiBusy(false);
     setAutoBusy(false);
     setFixBusy(false);
@@ -1009,6 +1012,9 @@ function ProjectEditor() {
       return;
     }
     setAiBusy(true);
+    stopRequested.current = false;
+    const controller = new AbortController();
+    aiAbortRef.current = controller;
     const imgs = opts?.images ?? [];
     if (!opts?.skipUserBubble) {
       const bubble = imgs.length
@@ -1020,6 +1026,7 @@ function ProjectEditor() {
     try {
       response = await fetch("/api/assistant/execute", {
         method: "POST",
+        signal: controller.signal,
         headers: {
           "Content-Type": "application/json",
           Authorization: `Bearer ${session?.access_token || ""}`,
@@ -1136,6 +1143,10 @@ function ProjectEditor() {
         }));
       }
     } catch (e: any) {
+      if (stopRequested.current || e?.name === "AbortError") {
+        await pushMsg("assistant", "Stopped the request before it finished.");
+        return;
+      }
       const msg = String(e?.message ?? "Failed");
       let friendly = /insufficient credits|Not enough credits/i.test(msg)
         ? "Out of credits. Buy more on the Pricing page or wait for the daily refill at midnight UTC."
@@ -1157,6 +1168,7 @@ function ProjectEditor() {
       toast.error(friendly);
       await pushMsg("assistant", friendly);
     } finally {
+      if (aiAbortRef.current === controller) aiAbortRef.current = null;
       setAiBusy(false);
       refreshCredits();
       refreshAiContext();
