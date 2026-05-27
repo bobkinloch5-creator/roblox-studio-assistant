@@ -1448,6 +1448,7 @@ end
 
 -- Insert a safe free toolbox model by ID with safety scan & consent flow
 function Actions.insert_toolbox_asset(a)
+	normalizePersistentParent(a)
 	local parent = resolvePath(a.parent or "Workspace", true)
 	if not parent then return false, "bad parent" end
 	local assetId = tonumber(a.assetId)
@@ -1540,9 +1541,17 @@ function Actions.insert_toolbox_asset(a)
 	end
 
 	local moved = {}
-	for _, child in ipairs(model:GetChildren()) do
+	local children = model:GetChildren()
+	local targetParent = parent
+	if a.name and #children > 1 then
+		targetParent = Instance.new("Model")
+		targetParent.Name = a.name
+		targetParent.Parent = parent
+	end
+	for _, child in ipairs(children) do
 		if a.name and #model:GetChildren() == 1 then child.Name = a.name end
-		child.Parent = parent
+		child.Parent = targetParent
+		stabilizeGeneratedInstance(child)
 		table.insert(moved, child)
 	end
 	model:Destroy()
@@ -1557,7 +1566,8 @@ function Actions.insert_toolbox_asset(a)
 	end
 
 	task.defer(pushSnapshot)
-	return true
+	if typeof(targetParent) == "Instance" and targetParent ~= parent then stabilizeGeneratedInstance(targetParent); return true, nil, targetParent end
+	return true, nil, moved[1]
 end
 
 -- Update source code of an existing script
