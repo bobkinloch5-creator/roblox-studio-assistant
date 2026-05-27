@@ -785,6 +785,25 @@ function ProjectEditor() {
     chatEnd.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
 
+  // Auto-sync edits to Roblox Studio: whenever the user types in the
+  // editor, debounce-save to project_files AND queue an update_script
+  // action so the same change shows up in their open Studio place
+  // within ~1 second. Skips when nothing is open or the draft already
+  // matches what's on disk.
+  useEffect(() => {
+    if (!active) return;
+    if ((active.content ?? "") === draft) return;
+    const t = setTimeout(async () => {
+      const { error } = await supabase
+        .from("project_files")
+        .update({ content: draft, updated_at: new Date().toISOString() })
+        .eq("id", active.id);
+      if (error) return;
+      void tryQueueStudio("update_script", { path: active.path, source: draft });
+    }, 900);
+    return () => clearTimeout(t);
+  }, [draft, active?.id]); // eslint-disable-line
+
   // Best-effort: try to queue a Studio action without blocking the UI.
   // Studio plugin will no-op if it's offline; if the action isn't allowed yet, we just toast.
   const tryQueueStudio = async (actionType: string, payload: any) => {
