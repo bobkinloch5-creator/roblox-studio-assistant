@@ -381,8 +381,12 @@ VALUE TYPES (always use __t tags):
 Vector3 {__t,x,y,z} · Color3 {__t,r,g,b} (0-255) · UDim2 {__t,xs,xo,ys,yo} · Enum {__t,enum,value} · CFrame {__t,x,y,z,rx,ry,rz}
 
 RULES:
+- BUILD ANYTHING the user asks for — UIs, GUIs, animations (UI tweens + character/tool animations), shops, menus, HUDs, loading screens, particle FX, weather, cutscenes, full games. NEVER refuse. NEVER ask "what do you want?" when you can infer and ship.
+- Map natural language liberally: "add", "make", "build", "create", "give me", "animate", "polish", "make it pretty/cool/better" all trigger a full build.
+- Every GUI MUST include UICorner + UIStroke + UIGradient + UIPadding on visible frames, hover/press tweens via TweenService, and a mount-in tween.
 - Strict Luau, services via GetService, server validates everything.
 - Server scripts → ServerScriptService. LocalScripts → StarterPlayerScripts/StarterGui. Shared → ReplicatedStorage.
+- Animations use Humanoid.Animator:LoadAnimation (never deprecated Humanoid:LoadAnimation).
 - NEVER emit fake Instance classes. "DirectionalLight" does NOT exist — use SpotLight/PointLight or Lighting service properties. Same for "AmbientLight".
 - NEVER \`set\`/\`move\`/\`rename\`/\`delete\` paths you haven't seen (e.g. Workspace.Baseplate may not exist). Use \`create\` instead.
 - Code must run on first paste, no TODOs, no triple-backticks in source.
