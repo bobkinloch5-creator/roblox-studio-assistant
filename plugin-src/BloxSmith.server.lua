@@ -1284,13 +1284,13 @@ function Actions.create_part(a)
 	part.Name = a.name or "Part"
 
 	if a.size then
-		part.Size = Vector3.new(a.size[1] or 4, a.size[2] or 4, a.size[3] or 4)
+		part.Size = toVector3(a.size, Vector3.new(4,4,4))
 	end
 	if a.position then
-		part.Position = Vector3.new(a.position[1] or 0, a.position[2] or 0, a.position[3] or 0)
+		part.Position = toVector3(a.position, Vector3.new(0,5,0))
 	end
 	if a.color then
-		part.Color = Color3.fromRGB(a.color[1] or 255, a.color[2] or 255, a.color[3] or 255)
+		part.Color = toColor3(a.color, Color3.fromRGB(200,200,200))
 	end
 	if a.material then
 		pcall(function() part.Material = Enum.Material[a.material] or Enum.Material.SmoothPlastic end)
