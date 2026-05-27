@@ -395,6 +395,63 @@ function ProjectEditor() {
   const FIX_COST = 2;
   const [revertedByMsg, setRevertedByMsg] = useState<Record<string, boolean>>({});
   const [revertingMsg, setRevertingMsg] = useState<string | null>(null);
+
+  const revertMessage = async (m: Msg) => {
+    const snap: any[] = m.actions?.snapshot ?? [];
+    if (!snap.length) return;
+    if (!confirm(`Revert ${snap.length} file change${snap.length === 1 ? "" : "s"} from this AI response?\n\nThis restores old file contents, deletes anything new, and queues Studio to remove the new instances on next sync.`)) return;
+    setRevertingMsg(m.id);
+    try {
+      let restored = 0;
+      let removed = 0;
+      const queueDeletes: string[] = [];
+      for (const s of snap) {
+        const cur = files.find((x) => x.path === s.path);
+        if (s.existed) {
+          if (cur) {
+            await supabase
+              .from("project_files")
+              .update({
+                content: s.content ?? "",
+                file_type: s.file_type ?? cur.file_type,
+                service_location: s.service_location ?? cur.service_location,
+              })
+              .eq("id", cur.id);
+            restored++;
+          }
+        } else {
+          if (cur) {
+            await supabase.from("project_files").delete().eq("id", cur.id);
+          }
+          queueDeletes.push(s.path);
+          removed++;
+        }
+      }
+      // Tell Studio to delete the newly-created scripts/instances on next sync.
+      for (const path of queueDeletes) {
+        try {
+          await runQueuePluginAction({
+            data: {
+              projectId,
+              actionType: "delete",
+              payload: { type: "delete", path },
+            } as any,
+          });
+        } catch (err) {
+          // Non-fatal — DB is already reverted; surface in toast only.
+          console.warn("Failed to queue Studio delete for", path, err);
+        }
+      }
+      setRevertedByMsg((p) => ({ ...p, [m.id]: true }));
+      toast.success(
+        `Reverted — restored ${restored}, removed ${removed}${queueDeletes.length ? `, queued ${queueDeletes.length} Studio delete${queueDeletes.length === 1 ? "" : "s"}` : ""}.`,
+      );
+    } catch (e: any) {
+      toast.error(e?.message ?? "Revert failed");
+    } finally {
+      setRevertingMsg(null);
+    }
+  };
   const AUTOPILOT_COST = 10;
   const [showAuto, setShowAuto] = useState(false);
   const [autoDesc, setAutoDesc] = useState("");
