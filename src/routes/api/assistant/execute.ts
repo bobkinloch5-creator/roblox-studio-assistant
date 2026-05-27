@@ -1510,9 +1510,10 @@ export const Route = createFileRoute("/api/assistant/execute")({
                     const target = thinking ? 8000 : 3500;
                     const maxOut = Math.min(target, hardCap);
                     // Per-attempt wall-clock cap. Cloudflare workers will 502 if a
-                    // single request hangs. Give each attempt at most ~18s so a
-                    // 2-attempt chain still fits inside the 50s response window.
-                    const perAttemptMs = thinking ? 30000 : 18000;
+                    // single request hangs. UI/system builds (shop, inventory, menu,
+                    // settings, tycoon, simulator) need more room than simple part edits.
+                    const heavyBuild = /\b(shop|inventory|menu|settings|tycoon|simulator|gui|ui|system|leaderboard|quest|admin|hud|panel|dashboard)\b/i.test(prompt);
+                    const perAttemptMs = thinking ? 38000 : (heavyBuild ? 32000 : 22000);
                     const attemptCtl = new AbortController();
                     const timeoutId = setTimeout(() => attemptCtl.abort(), perAttemptMs);
                     const combinedSignal: AbortSignal = (AbortSignal as any).any
@@ -1572,10 +1573,11 @@ export const Route = createFileRoute("/api/assistant/execute")({
                     lastErr = err;
                     const msg = String(err?.message ?? err);
                     const isTooLarge = /too large|context length|token|tpm|413/i.test(msg);
+                    const isAbort = err?.name === "AbortError" || /aborted|abort|timeout/i.test(msg);
                     console.error(
-                      `[ai-execute] attempt ${i} failed (tooLarge=${isTooLarge}): ${msg.slice(0, 300)}`,
+                      `[ai-execute] attempt ${i} failed (tooLarge=${isTooLarge}, abort=${isAbort}): ${msg.slice(0, 300)}`,
                     );
-                    if (!isTooLarge && rawText && gateway) {
+                    if (!isTooLarge && !isAbort && rawText && gateway) {
                       try {
                         result = normalizeResult(
                           await repairJsonWithGroq(rawText, gateway, gateway(BLOXSMITH_LARGE_MODEL)),
@@ -1586,10 +1588,17 @@ export const Route = createFileRoute("/api/assistant/execute")({
                         // fall through
                       }
                     }
-                    // Only escalate to the next attempt when the failure was a
-                    // token / context-size error. Unrelated errors (network, JSON
-                    // parse, model 500) don't benefit from a 2nd slow round-trip.
-                    if (isTooLarge && i < attempts.length - 1) continue;
+                    // Retry on token-size errors AND on aborts/timeouts — a 2nd
+                    // attempt with a smaller context and slim prompt usually fits
+                    // inside the wall-clock budget. Other errors (network, JSON
+                    // parse, model 500) don't benefit from a retry.
+                    if ((isTooLarge || isAbort) && i < attempts.length - 1) continue;
+                    // Friendlier final message for aborts so the user knows to retry.
+                    if (isAbort) {
+                      lastErr = new Error(
+                        "The AI took too long to finish this build in one shot. Try a shorter, more focused request (e.g. 'shop UI only — open/close button and 3 items') or run it again.",
+                      );
+                    }
                     break;
                   }
                 }
