@@ -1499,7 +1499,9 @@ export const Route = createFileRoute("/api/assistant/execute")({
                     else if (id.includes("llama-3.3-70b") || id.includes("llama3-70b") || id.includes("70b-versatile")) hardCap = 32000;
                     else if (id.includes("llama-3.1-8b") || id.includes("8b-instant")) hardCap = 8000;
                     else if (id.includes("mixtral") || id.includes("gemma")) hardCap = 8000;
-                    const target = thinking ? 24000 : 16000;
+                    // Speed-tuned output cap: most builds emit < 4k tokens of JSON.
+                    // Huge caps slow Groq + Gemini dramatically without improving quality.
+                    const target = thinking ? 10000 : 5000;
                     const maxOut = Math.min(target, hardCap);
                     const textRes = await withRateLimitRetry("ai-execute", () =>
                       generateTextWithToolFallback(generateText, {
@@ -1507,7 +1509,8 @@ export const Route = createFileRoute("/api/assistant/execute")({
                         system: systemWithRules,
                         messages,
                         tools: pickFastTools(prompt, { projectId, userId }) as any,
-                        stopWhen: stepCountIs(thinking ? 40 : 28),
+                        // Fewer tool-loop steps = faster builds. Most builds need 2-4 steps.
+                        stopWhen: stepCountIs(thinking ? 16 : 8),
                         maxOutputTokens: maxOut,
                         abortSignal: request.signal,
                       }, `ai-execute attempt#${i} src=${resolved.source} model=${att.modelId} slim=${useSlim} maxOut=${maxOut}`),
