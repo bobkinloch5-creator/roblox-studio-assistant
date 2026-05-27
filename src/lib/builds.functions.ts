@@ -18,6 +18,7 @@ export type BuildHistoryItem = {
   reverted: boolean;
   snapshotCount: number;
   dangerCount: number;
+  creditsUsed: number | null;
 };
 
 export const getBuildHistory = createServerFn({ method: "POST" })
@@ -67,9 +68,28 @@ export const getBuildHistory = createServerFn({ method: "POST" })
         reverted: a.reverted === true,
         snapshotCount: Array.isArray(a.snapshot) ? a.snapshot.length : 0,
         dangerCount: Array.isArray(a.dangers) ? a.dangers.length : 0,
+        creditsUsed: null,
       });
       if (items.length >= limit) break;
     }
+
+    // Hydrate creditsUsed from generations table (single batch query).
+    const genIds = items.map((it) => it.generationId).filter((x): x is string => !!x);
+    if (genIds.length > 0) {
+      const { data: gens } = await supabase
+        .from("generations")
+        .select("id,credits_used")
+        .in("id", genIds);
+      if (gens) {
+        const costMap = new Map(gens.map((g) => [g.id, g.credits_used]));
+        for (const it of items) {
+          if (it.generationId && costMap.has(it.generationId)) {
+            it.creditsUsed = costMap.get(it.generationId) ?? null;
+          }
+        }
+      }
+    }
+
     return { items };
   });
 

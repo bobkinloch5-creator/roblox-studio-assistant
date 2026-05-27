@@ -5,7 +5,7 @@ import { useServerFn } from "@tanstack/react-start";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth-context";
 import { toggleShowcaseLike, remixShowcaseProject } from "@/lib/showcase.functions";
-import { Heart, GitFork, Sparkles, Loader2, ArrowLeft } from "lucide-react";
+import { Heart, GitFork, Sparkles, Loader2, ArrowLeft, Share2 } from "lucide-react";
 import { toast } from "sonner";
 
 export const Route = createFileRoute("/showcase/$projectId")({
@@ -149,6 +149,26 @@ function ShowcaseDetail() {
                 >
                   <Heart className={`h-4 w-4 ${liked ? "fill-current" : ""}`} />
                   {data.showcase_likes_count}
+                </button>
+                <button
+                  onClick={async () => {
+                    const url = typeof window !== "undefined" ? window.location.href : "";
+                    try {
+                      if (navigator.share) {
+                        await navigator.share({ title, text: desc.slice(0, 140), url });
+                      } else {
+                        await navigator.clipboard.writeText(url);
+                        toast.success("Share link copied!");
+                      }
+                    } catch {
+                      /* user cancelled share */
+                    }
+                  }}
+                  className="inline-flex items-center gap-1.5 rounded-lg border border-border hover:border-primary/40 hover:text-primary-glow px-3 py-2 text-sm transition"
+                  title="Share this build"
+                >
+                  <Share2 className="h-4 w-4" />
+                  Share
                 </button>
                 <button
                   onClick={() => {

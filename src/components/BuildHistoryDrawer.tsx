@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { useServerFn } from "@tanstack/react-start";
 import { getBuildHistory, type BuildHistoryItem } from "@/lib/builds.functions";
-import { History, X, FileCode, Zap, AlertTriangle, Loader2, CheckCircle2, Clock } from "lucide-react";
+import { History, X, FileCode, Zap, AlertTriangle, Loader2, CheckCircle2, Clock, Coins } from "lucide-react";
 
 function timeAgo(iso: string) {
   const d = new Date(iso).getTime();
@@ -109,6 +109,11 @@ export function BuildHistoryDrawer({
                 {it.dangerCount > 0 && (
                   <span className="inline-flex items-center gap-1 rounded-full bg-amber-500/10 border border-amber-500/20 px-1.5 py-0.5 text-[10px] text-amber-300">
                     <AlertTriangle className="h-2.5 w-2.5" /> {it.dangerCount}
+                  </span>
+                )}
+                {it.creditsUsed != null && it.creditsUsed > 0 && (
+                  <span className="inline-flex items-center gap-1 rounded-full bg-yellow-500/10 border border-yellow-500/20 px-1.5 py-0.5 text-[10px] text-yellow-300">
+                    <Coins className="h-2.5 w-2.5" /> {it.creditsUsed} cr
                   </span>
                 )}
               </div>
