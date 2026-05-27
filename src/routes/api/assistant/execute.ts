@@ -852,7 +852,10 @@ function getGunTemplate(prompt: string): ExecuteResult {
     files: [
       {
         path: "ServerScriptService/Systems/GunHandler.server.lua",
+        file_type: "Script",
+        service_location: "ServerScriptService",
         content: `-- BloxSmith starter gun: raycast + tracer + damage
+
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Debris = game:GetService("Debris")
 
