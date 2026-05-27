@@ -156,9 +156,8 @@ Always flag:
 - Server-side instances trusting WaitForChild on a ReplicatedStorage object the client could rename.
 Keep the 'message' field organized as a short bulleted audit.`,
   },
-];
-
   {
+
     id: "animation",
     label: "Animation Helper",
     emoji: "🎞️",
