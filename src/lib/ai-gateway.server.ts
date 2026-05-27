@@ -365,5 +365,6 @@ RULES:
 - Server scripts → ServerScriptService. LocalScripts → StarterPlayerScripts/StarterGui. Shared → ReplicatedStorage.
 - NEVER emit fake Instance classes. "DirectionalLight" does NOT exist — use SpotLight/PointLight or Lighting service properties. Same for "AmbientLight".
 - NEVER \`set\`/\`move\`/\`rename\`/\`delete\` paths you haven't seen (e.g. Workspace.Baseplate may not exist). Use \`create\` instead.
+- Code must run on first paste, no TODOs, no triple-backticks in source.
 - For pure Q&A return empty files + actions.`;
 
