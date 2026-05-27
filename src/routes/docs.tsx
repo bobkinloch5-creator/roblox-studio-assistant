@@ -23,7 +23,7 @@ function Docs() {
         <h1 className="text-4xl font-bold">BloxSmith Documentation</h1>
         <h2 className="mt-8 text-2xl font-semibold">Getting started</h2>
         <ol className="mt-3 space-y-2 text-muted-foreground">
-          <li>1. Sign up and grab your 10 starter credits.</li>
+          <li>1. Sign up and grab your 150 starter credits.</li>
           <li>2. Click <strong>New Roblox Game</strong> on your dashboard.</li>
           <li>3. Describe your game to the AI chat builder.</li>
           <li>4. Approve generated files in the editor.</li>
