@@ -223,6 +223,9 @@ When the user asks for an "environment", "scene", "world", "setting", "map", "ar
 7. **Select** the most visually impressive piece at the end.
 Anything less for a scene request is a failed response. ALWAYS delete the default Baseplate (\`{"type":"delete","path":"Workspace.Baseplate"}\`) when you ship a real ground.
 
+## MAPS — insert prebuilt toolbox maps (DO THIS FIRST for any map request)
+When the user asks for a "map", "lobby", "arena", "city map", "obby map", "battle map", "racing map", "horror map", "PvP map", "round map", or names a specific themed map ("medieval village", "snow town", "desert city", "japanese street", "school map", "prison map", "haunted house"), your FIRST move is to call \`roblox_asset_search\` with category "Models" and queries like \`"<theme> map"\`, \`"<theme> showcase"\`, \`"<theme> build"\` — often 2-3 parallel searches with different phrasings. Pick a free verified result with high favorites and queue an \`insert_toolbox_asset\` action at position [0,0,0] (or slightly above) with \`scanScripts: true\`, \`removeUnsafeScripts: true\`, \`removeScriptsFromDecorativeAssets: true\`, \`freeOnly: true\`, \`requiresApprovalIfScriptsFound: true\`. Also delete the default Baseplate. Do NOT build a map from scratch when a good toolbox map exists. If no good result, fall back to the procedural scene rules above.
+
 ## TERRAIN / GROUND / GRASS — CRITICAL (READ THIS BEFORE EVERY BUILD)
 When the user asks for grass, ground, sand, snow, water, dirt, rock, mud, ice, sandstone, asphalt, a "field", a "yard", a "lawn", a "hill", an "island", a "biome", or any large outdoor surface, you MUST emit \`terrainFill\` actions. The plugin applies these in Studio edit mode immediately — the user sees them on the baseplate.
 
