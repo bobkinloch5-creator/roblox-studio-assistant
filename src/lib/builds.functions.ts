@@ -6,6 +6,8 @@ import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 // Build History — aggregated view of every AI batch that produced files or
 // actions across all conversations in a project. Powers the History drawer.
 // ---------------------------------------------------------------------------
+export type BuildSnapshotEntry = { path: string; existed: boolean };
+
 export type BuildHistoryItem = {
   id: string;
   conversation_id: string;
@@ -19,6 +21,7 @@ export type BuildHistoryItem = {
   snapshotCount: number;
   dangerCount: number;
   creditsUsed: number | null;
+  snapshotPaths: BuildSnapshotEntry[];
 };
 
 export const getBuildHistory = createServerFn({ method: "POST" })
