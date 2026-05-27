@@ -13,7 +13,7 @@ import {
   BLOXSMITH_MODEL_TOKEN_BUDGET,
   BLOXSMITH_LARGE_MODEL_TOKEN_BUDGET,
 } from "@/lib/ai-gateway.server";
-import { resolveAiGateway } from "@/lib/ai-providers.server";
+import { getModelProfile, resolveAiGateway } from "@/lib/ai-providers.server";
 import { buildBloxSmithTools } from "@/lib/ai-tools.server";
 
 // ---------- Prompt-size protection helpers ----------
@@ -1725,20 +1725,27 @@ export const Route = createFileRoute("/api/assistant/execute")({
                   budget: number;
                   useResolved: boolean;
                 };
+                const resolvedBudget = getModelProfile(resolved.provider, resolved.modelName, {
+                  thinking: !!thinking,
+                }).inputTokenBudget;
+                const largeBudget = getModelProfile(resolved.provider, BLOXSMITH_LARGE_MODEL, {
+                  thinking: !!thinking,
+                  retry: true,
+                }).inputTokenBudget;
                 const attempts: Attempt[] = resolved.source === "api_key"
                   ? [
                       // Single attempt for user-key mode — the 2nd attempt nearly
                       // doubled wall time on every build. If level 1 errors with a
                       // too-large signal, the loop below escalates to level 3.
-                      { level: 1, modelId: resolved.modelName, budget: BLOXSMITH_LARGE_MODEL_TOKEN_BUDGET, useResolved: true },
-                      { level: 3, modelId: resolved.modelName, budget: BLOXSMITH_LARGE_MODEL_TOKEN_BUDGET, useResolved: true },
+                      { level: 1, modelId: resolved.modelName, budget: resolvedBudget, useResolved: true },
+                      { level: 3, modelId: resolved.modelName, budget: resolvedBudget, useResolved: true },
                     ]
                   : [
                       // Fast path: one attempt with the small model, one with the large
                       // model as a fallback. Four attempts blew past Cloudflare's
                       // worker wall-time and caused 502s.
-                      { level: 0, modelId: thinking ? BLOXSMITH_THINK_MODEL : BLOXSMITH_MODEL, budget: BLOXSMITH_MODEL_TOKEN_BUDGET, useResolved: true },
-                      { level: 2, modelId: BLOXSMITH_LARGE_MODEL, budget: BLOXSMITH_LARGE_MODEL_TOKEN_BUDGET, useResolved: false },
+                      { level: 0, modelId: thinking ? BLOXSMITH_THINK_MODEL : BLOXSMITH_MODEL, budget: resolvedBudget || BLOXSMITH_MODEL_TOKEN_BUDGET, useResolved: true },
+                      { level: 2, modelId: BLOXSMITH_LARGE_MODEL, budget: largeBudget || BLOXSMITH_LARGE_MODEL_TOKEN_BUDGET, useResolved: false },
                     ];
 
                 const systemTokens = estimateTokens(SYSTEM_PROMPT);
@@ -1807,14 +1814,6 @@ export const Route = createFileRoute("/api/assistant/execute")({
                     // too little truncates large builds (the "ran out of room"
                     // error). Map known models to their real ceilings, then pick
                     // a generous but safe target inside that cap.
-                    const id = String(att.modelId).toLowerCase();
-                    let hardCap = 8192; // conservative default for unknown models
-                    if (id.includes("gemini-3") || id.includes("gemini-2.5-pro") || id.includes("gemini-2.5-flash")) hardCap = 65000;
-                    else if (id.includes("gpt-5") || id.includes("gpt-image")) hardCap = 32000;
-                    else if (id.includes("gpt-4o") || id.includes("gpt-4.1")) hardCap = 16000;
-                    else if (id.includes("llama-3.3-70b") || id.includes("llama3-70b") || id.includes("70b-versatile")) hardCap = 32000;
-                    else if (id.includes("llama-3.1-8b") || id.includes("8b-instant")) hardCap = 8000;
-                    else if (id.includes("mixtral") || id.includes("gemma")) hardCap = 8000;
                     // Per-attempt wall-clock cap. Cloudflare workers will 502 if a
                     // single request hangs. UI/system builds (shop, inventory, menu,
                     // settings, tycoon, simulator) need more room than simple part edits.
@@ -1824,11 +1823,13 @@ export const Route = createFileRoute("/api/assistant/execute")({
                     const isRetry = i > 0;
                     // Give build JSON enough room to finish. The previous 3.5k cap
                     // was truncating maps/UI/system builds and producing empty results.
-                    const target = thinking ? 16000 : heavyBuild || isRetry ? 9000 : 6000;
-                    const maxOut = Math.min(target, hardCap);
-                    const perAttemptMs = isRetry
-                      ? 30000
-                      : thinking ? 45000 : (heavyBuild ? 42000 : 28000);
+                    const profile = getModelProfile(resolved.provider, att.modelId, {
+                      thinking: !!thinking,
+                      heavyBuild,
+                      retry: isRetry,
+                    });
+                    const maxOut = profile.maxOutputTokens;
+                    const perAttemptMs = isRetry ? Math.min(profile.timeoutMs, 30_000) : profile.timeoutMs;
                     const attemptCtl = new AbortController();
                     const timeoutId = setTimeout(() => attemptCtl.abort(), perAttemptMs);
                     const combinedSignal: AbortSignal = (AbortSignal as any).any
@@ -1836,7 +1837,9 @@ export const Route = createFileRoute("/api/assistant/execute")({
                       : attemptCtl.signal;
                     // Drop tools on retry attempts — they're the main source of latency
                     // and the model already has enough context to emit a JSON build directly.
-                    const attemptTools = isRetry ? {} : (pickFastTools(prompt, { projectId, userId }) as any);
+                    const attemptTools = profile.supportsTools
+                      ? (pickFastTools(prompt, { projectId, userId }) as any)
+                      : {};
                     let textRes: any;
                     try {
                       textRes = await withRateLimitRetry("ai-execute", () =>
@@ -1846,7 +1849,7 @@ export const Route = createFileRoute("/api/assistant/execute")({
                           messages,
                           tools: attemptTools,
                           // Fewer tool-loop steps = faster builds. Most builds need 2-3 steps.
-                          stopWhen: stepCountIs(thinking ? 12 : 5),
+                          stopWhen: stepCountIs(profile.stopSteps),
                           maxOutputTokens: maxOut,
                           abortSignal: combinedSignal,
                         }, `ai-execute attempt#${i} src=${resolved.source} model=${att.modelId} slim=${useSlim} maxOut=${maxOut} tools=${isRetry ? 0 : "fast"}`),

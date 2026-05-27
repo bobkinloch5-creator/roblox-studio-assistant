@@ -12,6 +12,19 @@ import { SITE_PROVIDER_DEFAULT_MODEL, SITE_PROVIDER_MODELS } from "./ai-models";
 export type ProviderId = "openai" | "anthropic" | "google" | "groq" | "neokens";
 export type ModelKind = "chat" | "build" | "fast" | "large";
 
+export type ModelProfile = {
+  inputTokenBudget: number;
+  maxOutputTokens: number;
+  chatOutputTokens: number;
+  timeoutMs: number;
+  chatTimeoutMs: number;
+  stopSteps: number;
+  supportsTools: boolean;
+  supportsVision: boolean;
+  historyTurns: number;
+  historyChars: number;
+};
+
 export const PROVIDER_LABELS: Record<ProviderId, string> = {
   openai: "OpenAI",
   anthropic: "Anthropic",
@@ -54,6 +67,58 @@ export const PROVIDER_DEFAULT_MODEL: Record<ProviderId, string> = {
   groq: SITE_PROVIDER_DEFAULT_MODEL.groq,
   neokens: SITE_PROVIDER_DEFAULT_MODEL.neokens,
 };
+
+export function getModelProfile(
+  provider: ProviderId,
+  modelName: string,
+  opts: { thinking?: boolean; heavyBuild?: boolean; retry?: boolean } = {},
+): ModelProfile {
+  const id = modelName.toLowerCase();
+  const isSmall =
+    id.includes("8b") ||
+    id.includes("9b") ||
+    id.includes("nano") ||
+    id.includes("flash-lite") ||
+    id.includes("haiku");
+  const isHuge =
+    id.includes("gemini-3.1") ||
+    id.includes("gemini-2.5-pro") ||
+    id.includes("claude-opus") ||
+    id.includes("gpt-5-codex") ||
+    id.includes("gpt-5.3") ||
+    id.includes("gpt-5.4") ||
+    id.includes("70b") ||
+    id.includes("sonnet");
+  const isGemini = provider === "google" || id.includes("gemini");
+  const isOpenAI = provider === "openai" || id.includes("gpt-");
+  const isClaude = provider === "anthropic" || id.includes("claude");
+
+  const inputTokenBudget = isHuge ? 100_000 : isSmall ? 12_000 : 32_000;
+  const maxOutputTokens = opts.thinking
+    ? isHuge ? 16_000 : 9_000
+    : opts.retry
+      ? isHuge ? 10_000 : 7_000
+      : opts.heavyBuild
+        ? isHuge ? 12_000 : 8_000
+        : isHuge ? 8_000 : 5_500;
+
+  return {
+    inputTokenBudget,
+    maxOutputTokens,
+    chatOutputTokens: opts.thinking ? (isHuge ? 2_400 : 1_800) : isSmall ? 1_200 : 1_700,
+    timeoutMs: opts.thinking ? 45_000 : opts.heavyBuild ? 42_000 : isSmall ? 22_000 : 30_000,
+    chatTimeoutMs: opts.thinking ? 45_000 : isSmall ? 18_000 : 25_000,
+    stopSteps: opts.thinking ? 12 : isSmall ? 3 : 6,
+    supportsTools: !opts.retry && !(provider === "groq" && id.includes("gemma")),
+    supportsVision:
+      isGemini ||
+      isClaude ||
+      (isOpenAI && !id.includes("nano")) ||
+      (provider === "neokens" && (id.includes("gemini") || id.includes("gpt-5"))),
+    historyTurns: opts.thinking ? (isHuge ? 8 : 5) : isSmall ? 3 : 6,
+    historyChars: opts.thinking ? (isHuge ? 1_800 : 1_200) : isSmall ? 700 : 1_200,
+  };
+}
 
 const NEOKENS_MODEL_BY_KIND: Record<ModelKind, string> = {
   chat: "gemini-3-flash",

@@ -24,6 +24,88 @@ type GenFile = {
 
 type GenAction = { type: string; [k: string]: any };
 
+function compactForAI(value: string, maxChars: number): string {
+  const text = String(value ?? "")
+    .replace(/data:image\/[a-zA-Z0-9.+-]+;base64,[A-Za-z0-9+/=]+/g, "[image omitted]")
+    .trim();
+  if (text.length <= maxChars) return text;
+  const head = Math.floor(maxChars * 0.35);
+  const tail = maxChars - head;
+  return `${text.slice(0, head)}\n\n[trimmed]\n\n${text.slice(-tail)}`;
+}
+
+function compactChatHistory(
+  history: { role: "user" | "assistant"; content: string }[] | undefined,
+  opts: { turns: number; perMessageChars: number; totalChars: number },
+) {
+  const recent = (history ?? []).slice(-opts.turns);
+  const compacted: { role: "user" | "assistant"; content: string }[] = [];
+  let remaining = opts.totalChars;
+
+  for (let i = recent.length - 1; i >= 0; i--) {
+    if (remaining <= 0) break;
+    const item = recent[i];
+    const content = compactForAI(item.content, Math.min(opts.perMessageChars, remaining));
+    if (!content) continue;
+    compacted.unshift({ role: item.role, content });
+    remaining -= content.length;
+  }
+
+  return compacted;
+}
+
+function getAIErrorMessage(err: unknown): string {
+  if (err && typeof err === "object" && "message" in err) {
+    return String((err as { message?: unknown }).message ?? "AI request failed");
+  }
+  return String(err ?? "AI request failed");
+}
+
+function getAIStatus(err: unknown): number | undefined {
+  if (!err || typeof err !== "object") return undefined;
+  const record = err as { status?: unknown; statusCode?: unknown };
+  const status = record.status ?? record.statusCode;
+  return typeof status === "number" ? status : undefined;
+}
+
+function isAbortError(err: unknown): boolean {
+  return (
+    !!err &&
+    typeof err === "object" &&
+    "name" in err &&
+    (err as { name?: unknown }).name === "AbortError"
+  );
+}
+
+function isTransientAIError(err: unknown): boolean {
+  const msg = getAIErrorMessage(err);
+  const status = getAIStatus(err);
+  return (
+    status === 408 ||
+    status === 409 ||
+    status === 429 ||
+    (typeof status === "number" && status >= 500 && status < 600) ||
+    /\b429\b|rate.?limit|too many requests|temporar|timeout|timed out|bad gateway|service unavailable|overloaded|ECONNRESET|ETIMEDOUT/i.test(
+      msg,
+    )
+  );
+}
+
+function isContextAIError(err: unknown): boolean {
+  const msg = getAIErrorMessage(err);
+  const status = getAIStatus(err);
+  return (
+    status === 413 ||
+    /too large|context length|maximum context|tokens per minute|TPM|token limit/i.test(msg)
+  );
+}
+
+function isToolAIError(err: unknown): boolean {
+  return /tool[_ ]use|tool call|function calling|tools? (are|is) not supported|invalid tool|unsupported.*tool/i.test(
+    getAIErrorMessage(err),
+  );
+}
+
 export const generateWithAI = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((input: unknown) => InputSchema.parse(input))
@@ -504,9 +586,9 @@ Keep it under ~400 words. Be specific to the user's request and existing project
   });
 
 // -----------------------------------------------------------------------------
-// Chat mode — pure conversational AI. NO tools, NO file writes, NO plugin
-// actions. Returns markdown text only. Useful for ideas, explanations, and
-// answering Roblox / Luau questions. The user copies any code manually.
+// Chat mode — conversational AI. It may use read-only research/catalog tools,
+// but never writes files or queues plugin actions. Returns markdown text only.
+// Useful for ideas, explanations, and answering Roblox / Luau questions.
 // -----------------------------------------------------------------------------
 const ChatInputSchema = z.object({
   projectId: z.string().uuid().optional(),
@@ -548,7 +630,8 @@ export const chatWithAI = createServerFn({ method: "POST" })
       if (spendErr) throw new Error("Not enough credits. Buy more on the Pricing page.");
     }
 
-    const { resolveAiGateway } = await import("./ai-providers.server");
+    const { getModelProfile, resolveAiGateway, resolveBuiltInGateway } = await import("./ai-providers.server");
+    const { ROBLOX_KNOWLEDGE_PROMPT } = await import("./roblox-knowledge");
     let resolved;
     try {
       resolved = await resolveAiGateway({
@@ -566,9 +649,8 @@ export const chatWithAI = createServerFn({ method: "POST" })
       throw e;
     }
 
-    const { generateText } = await import("ai");
-    const model = resolved.model;
-
+    const { generateText, stepCountIs } = await import("ai");
+    const { buildBloxSmithTools } = await import("./ai-tools.server");
 
     // Light project context so chat answers stay relevant.
     let projectBlock = "";
@@ -580,59 +662,213 @@ export const chatWithAI = createServerFn({ method: "POST" })
         .limit(60);
       if (existingFiles && existingFiles.length > 0) {
         projectBlock =
-          "\n\nProject files (for context only — DO NOT modify them):\n" +
+          "\n\nProject files (for context only - DO NOT modify them):\n" +
           existingFiles
-            .map((f) => `  • ${f.path} (${f.file_type} in ${f.service_location})`)
+            .slice(0, 40)
+            .map((f) => `  - ${f.path} (${f.file_type} in ${f.service_location})`)
             .join("\n");
       }
     }
 
-    const chatSystem = `You are BloxSmith, an expert Roblox / Luau assistant in **CHAT MODE**.
+    const buildSystem = (
+      includeProject: boolean,
+    ) => `You are BloxSmith, an expert Roblox / Luau assistant in **CHAT MODE**.
 
-CHAT MODE RULES — never break these:
-- DO NOT modify the user's project. You have no tools. You cannot write files, queue actions, or change Studio.
+CHAT MODE RULES - never break these:
+- DO NOT modify the user's project. You may use read-only research/catalog tools, but you cannot write files, queue actions, or change Studio.
 - The user wants to brainstorm, get ideas, ask questions, learn, debug, or get sample code to copy manually.
 - Be conversational and helpful. Use Markdown.
 - When you give code, ALWAYS wrap it in fenced code blocks with a language tag like \`\`\`lua, \`\`\`luau, or \`\`\`json. Each block gets a copy button in the UI, so split distinct snippets into separate blocks.
 - Keep answers focused. If something is best built (not chatted about), say so and suggest switching off Chat mode.
 - VISION: When the user attaches screenshots of Roblox Studio, their game, error popups, or reference images, analyze them in detail. Call out broken hierarchies, missing services, malformed Luau, UI layout issues, lighting/material problems, and red error text by exact wording. Tie every observation back to a concrete fix the user can apply.
-- MCP CONTEXT: If the user has connected MCP servers (Roblox docs, n8n, custom tools), reference relevant facts those servers expose. Cite which server you're drawing from so the user can trust the answer.${projectBlock}`;
+- MCP CONTEXT: If the user has connected MCP servers (Roblox docs, n8n, custom tools), reference relevant facts those servers expose. Cite which server you're drawing from so the user can trust the answer.
 
-    // Compose the user turn as multi-part content when images are attached so
-    // vision-capable models (Gemini 2.5+/3, GPT-5) can actually see them.
+${ROBLOX_KNOWLEDGE_PROMPT}${includeProject ? projectBlock : ""}`;
+
     type Part = { type: "text"; text: string } | { type: "image"; image: string };
-    const userContent: string | Part[] =
-      attachments && attachments.length > 0
-        ? [
-            { type: "text", text: prompt } as Part,
-            ...attachments.map((image): Part => ({ type: "image", image })),
-          ]
-        : prompt;
+    type ChatModel = Parameters<typeof generateText>[0]["model"];
+    type ChatMessages = Array<{ role: "system" | "user" | "assistant"; content: string | Part[] }>;
+    const allTools = buildBloxSmithTools({ userId, projectId });
+    const chatTools = Object.fromEntries(
+      ["web_search", "fetch_url", "roblox_asset_search", "roblox_asset_info", "roblox_asset_thumbnail"]
+        .filter((name) => name in allTools)
+        .map((name) => [name, (allTools as Record<string, unknown>)[name]]),
+    );
+    const makeMessages = (opts: {
+      includeProject: boolean;
+      historyTurns: number;
+      historyChars: number;
+      includeImages: boolean;
+    }): ChatMessages => {
+      const messages: ChatMessages = [
+        { role: "system", content: buildSystem(opts.includeProject) },
+      ];
+      const trimmedHistory = compactChatHistory(history, {
+        turns: opts.historyTurns,
+        perMessageChars: opts.historyChars,
+        totalChars: opts.historyTurns * opts.historyChars,
+      });
+      for (const h of trimmedHistory) {
+        messages.push({ role: h.role, content: h.content });
+      }
 
-    const messages: Array<{
-      role: "system" | "user" | "assistant";
-      content: string | Part[];
-    }> = [{ role: "system", content: chatSystem }];
-    for (const h of history ?? []) {
-      messages.push({ role: h.role, content: h.content });
+      const safePrompt = compactForAI(prompt, opts.includeImages ? 7000 : 8000);
+      const userContent: string | Part[] =
+        opts.includeImages && attachments && attachments.length > 0
+          ? [
+              { type: "text", text: safePrompt } as Part,
+              ...attachments.map((image): Part => ({ type: "image", image })),
+            ]
+          : attachments && attachments.length > 0
+            ? `${safePrompt}\n\n[${attachments.length} image attachment${attachments.length === 1 ? "" : "s"} omitted because this model does not support vision. Ask again with a vision-capable provider to analyze the screenshot directly.]`
+            : safePrompt;
+
+      messages.push({ role: "user", content: userContent });
+      return messages;
+    };
+
+    const callChatModel = async (
+      label: string,
+      model: ChatModel,
+      messages: ChatMessages,
+      timeoutMs: number,
+      maxOutputTokens: number,
+      stopSteps: number,
+      tools?: Record<string, unknown>,
+    ) => {
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), timeoutMs);
+      try {
+        const modelLabel =
+          model && typeof model === "object" && "modelId" in model
+            ? String((model as { modelId?: unknown }).modelId ?? "unknown")
+            : "unknown";
+        console.log(`[chatWithAI] ${label} model=${modelLabel} messages=${messages.length}`);
+        return await generateText({
+          model,
+          messages: messages as Parameters<typeof generateText>[0]["messages"],
+          maxOutputTokens,
+          ...(tools && Object.keys(tools).length > 0
+            ? { tools: tools as any, stopWhen: stepCountIs(stopSteps) }
+            : {}),
+          abortSignal: controller.signal,
+        });
+      } finally {
+        clearTimeout(timeout);
+      }
+    };
+
+    const attempts = [
+      {
+        label: "primary",
+        resolved,
+        historyTurns: getModelProfile(resolved.provider, resolved.modelName, { thinking }).historyTurns,
+        historyChars: getModelProfile(resolved.provider, resolved.modelName, { thinking }).historyChars,
+        includeProject: true,
+        maxOutputTokens: getModelProfile(resolved.provider, resolved.modelName, { thinking }).chatOutputTokens,
+        timeoutMs: getModelProfile(resolved.provider, resolved.modelName, { thinking }).chatTimeoutMs,
+      },
+      {
+        label: "primary-compact",
+        resolved,
+        historyTurns: 3,
+        historyChars: 900,
+        includeProject: false,
+        maxOutputTokens: Math.min(
+          getModelProfile(resolved.provider, resolved.modelName, { retry: true }).chatOutputTokens,
+          1_400,
+        ),
+        timeoutMs: Math.min(
+          getModelProfile(resolved.provider, resolved.modelName, { retry: true }).chatTimeoutMs,
+          20_000,
+        ),
+      },
+    ];
+
+    try {
+      const builtIn = resolveBuiltInGateway({ kind: thinking ? "large" : "fast", thinking });
+      if (builtIn.modelName !== resolved.modelName || builtIn.provider !== resolved.provider) {
+        const builtInProfile = getModelProfile(builtIn.provider, builtIn.modelName, { thinking });
+        attempts.push({
+          label: "built-in-fallback",
+          resolved: builtIn,
+          historyTurns: Math.min(builtInProfile.historyTurns, 4),
+          historyChars: Math.min(builtInProfile.historyChars, 900),
+          includeProject: false,
+          maxOutputTokens: Math.min(builtInProfile.chatOutputTokens, thinking ? 2_200 : 1_400),
+          timeoutMs: Math.min(builtInProfile.chatTimeoutMs, thinking ? 40_000 : 22_000),
+        });
+      }
+    } catch {
+      // If the built-in gateway is not configured, the primary provider is all we have.
     }
-    messages.push({ role: "user", content: userContent });
 
     let text = "";
+    let lastErr: unknown = null;
+    let toolsDisabled = false;
     try {
-      const { text: out } = await generateText({ model, messages: messages as any, maxOutputTokens: 1600 });
-      text = out;
-    } catch (err: any) {
+      for (let i = 0; i < attempts.length; i++) {
+        const attempt = attempts[i];
+        const profile = getModelProfile(attempt.resolved.provider, attempt.resolved.modelName, {
+          thinking,
+        });
+        const tools = !toolsDisabled && profile.supportsTools ? chatTools : {};
+        const includeImages =
+          !!attachments?.length && profile.supportsVision;
+        const messages = makeMessages({
+          includeProject: attempt.includeProject,
+          historyTurns: attempt.historyTurns,
+          historyChars: attempt.historyChars,
+          includeImages,
+        });
+
+        try {
+          const { text: out } = await callChatModel(
+            attempt.label,
+            attempt.resolved.model,
+            messages,
+            attempt.timeoutMs,
+            attempt.maxOutputTokens,
+            Math.min(profile.stopSteps, thinking ? 6 : 4),
+            tools,
+          );
+          text = out.trim();
+          lastErr = null;
+          break;
+        } catch (err: unknown) {
+          lastErr = err;
+          const retryable =
+            isTransientAIError(err) || isContextAIError(err) || isAbortError(err) || isToolAIError(err);
+          if (isToolAIError(err)) toolsDisabled = true;
+          console.warn(
+            `[chatWithAI] ${attempt.label} failed retryable=${retryable}: ${getAIErrorMessage(err).slice(0, 220)}`,
+          );
+          if (!retryable || i === attempts.length - 1) break;
+        }
+      }
+
+      if (!text && lastErr) throw lastErr;
+      if (!text) throw new Error("The AI returned an empty chat response.");
+    } catch (err: unknown) {
       if (!isOwner)
         await supabase.rpc("refund_credits", {
           _amount: CHAT_COST,
           _reason: "chat generation failed",
         });
-      const msg = String(err?.message ?? err);
-      if (msg.includes("429")) throw new Error("AI rate limit. Try again in a moment.");
+      const msg = getAIErrorMessage(err);
+      if (msg.includes("429") || /rate.?limit|too many requests/i.test(msg))
+        throw new Error("The AI is busy right now. Try again in a moment.");
       if (msg.includes("402"))
         throw new Error("AI credits exhausted. Add credits in workspace settings.");
-      throw new Error("Chat failed: " + msg);
+      if (/aborted|abort|timeout|timed out/i.test(msg))
+        throw new Error(
+          "The chat request took too long. I refunded the credit; try a shorter prompt or turn off Thinking mode.",
+        );
+      if (/too large|context length|token/i.test(msg))
+        throw new Error(
+          "That chat has too much context to send at once. I refunded the credit; start a fresh chat or shorten the pasted text.",
+        );
+      throw new Error("Chat failed after retrying: " + msg);
     }
 
     return { reply: text, cost: isOwner ? 0 : CHAT_COST };

@@ -1259,8 +1259,15 @@ function ProjectEditor() {
       await pushMsg("assistant", out.reply, { kind: "chat" });
     } catch (e: any) {
       const msg = String(e?.message ?? "Failed");
-      toast.error(msg);
-      await pushMsg("assistant", "Chat error: " + msg);
+      const friendly = /rate.?limit|busy|too many requests/i.test(msg)
+        ? "The AI is busy right now. Give it a moment and try again."
+        : /too much context|context|token/i.test(msg)
+          ? "That chat has too much context to send at once. Start a fresh thread or paste a shorter chunk."
+          : /took too long|timeout|timed out/i.test(msg)
+            ? "The chat request took too long. Try a shorter prompt or turn off Thinking mode."
+            : msg;
+      toast.error(friendly);
+      await pushMsg("assistant", friendly);
     } finally {
       setAiBusy(false);
       refreshCredits();

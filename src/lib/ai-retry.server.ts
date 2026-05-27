@@ -9,13 +9,13 @@
 type GenerateTextFn = (opts: any) => Promise<{ text: string;[k: string]: any }>;
 
 const TOOL_VALIDATION_RE =
-  /tool[_ ]use[_ ]failed|tool call validation|attempted to call tool|tool .*not in request\.tools/i;
+  /tool[_ ]use[_ ]failed|tool call validation|attempted to call tool|tool .*not in request\.tools|tools? (are|is) not supported|function calling|invalid tool|unsupported.*tool/i;
 
 const JSON_ONLY_INSTRUCTION = `
 
 === STRICT OUTPUT MODE (retry) ===
-The previous attempt failed because you tried to call a tool that does not exist.
-Do NOT call any tools on this attempt. Return ONLY a single valid JSON object
+The previous attempt failed because this model could not complete tool calling.
+Do NOT call any tools on this attempt. Use only the context and Roblox knowledge already in the prompt. Return ONLY a single valid JSON object
 with the shape:
 { "message": string, "files": [...], "actions": [...] }
 No markdown, no code fences, no commentary, no tool calls.`;
