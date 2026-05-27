@@ -115,10 +115,26 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
   errorComponent: ErrorComponent,
 });
 
+const HYDRATION_CLEANUP_SCRIPT = `
+(function(){
+  try {
+    var html = document.documentElement;
+    var body = document.body;
+    var remove = ["crxlauncher"];
+    for (var i = 0; i < remove.length; i++) {
+      html && html.removeAttribute(remove[i]);
+      body && body.removeAttribute(remove[i]);
+    }
+  } catch (_) {}
+})();`;
+
 function RootShell({ children }: { children: React.ReactNode }) {
   return (
     <html lang="en" suppressHydrationWarning>
-      <head><HeadContent /></head>
+      <head>
+        <script dangerouslySetInnerHTML={{ __html: HYDRATION_CLEANUP_SCRIPT }} />
+        <HeadContent />
+      </head>
       <body suppressHydrationWarning>{children}<Scripts /></body>
     </html>
   );
