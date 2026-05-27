@@ -22,8 +22,36 @@ const PROVIDER_MODELS: Record<ProviderId, string[]> = {
     "moonshotai/kimi-k2-instruct",
     "deepseek-r1-distill-llama-70b",
   ],
-  neokens: ["gemini-3-flash", "claude-haiku-4-5-20251001", "gpt-5.3-codex", "gemini-3.1-pro", "gpt-5.1"],
+  neokens: [
+    "gemini-3.1-pro",
+    "gemini-3-flash",
+    "claude-haiku-4-5-20251001",
+    "gpt-5.4",
+    "gpt-5.3-codex",
+    "gpt-5.1",
+  ],
 };
+
+const MODEL_DESCRIPTIONS: Record<string, string> = {
+  // Neokens — Roblox-focused tips
+  "gemini-3.1-pro": "Best for huge games — designs full Luau systems, datastores, and round-based gameplay end-to-end.",
+  "gemini-3-flash": "Fast all-rounder for everyday Roblox scripting — quick part spawners, GUI tweaks, RemoteEvent wiring.",
+  "claude-haiku-4-5-20251001": "Cheap + careful. Great for refactoring messy Luau scripts and writing clean ModuleScripts.",
+  "gpt-5.4": "Strong reasoning — combat formulas, anti-exploit checks, ProfileService logic, complex math.",
+  "gpt-5.3-codex": "Code specialist. Best for long Luau files, OOP classes, and tricky CFrame / raycast logic.",
+  "gpt-5.1": "Balanced default. Good UI scripting, Tween animations, and ServerScriptService handlers.",
+  // Groq
+  "llama-3.3-70b-versatile": "Fast & free heavy model. Solid for simple Roblox scripts and gameplay loops.",
+  "llama-3.1-8b-instant": "Ultra-fast. Use for tiny edits or LocalScript snippets — not big systems.",
+  "openai/gpt-oss-120b": "Open GPT, large. Decent for Luau gameplay code when speed matters more than nuance.",
+  "openai/gpt-oss-20b": "Lighter open GPT — quick utility scripts and bug fixes.",
+  "meta-llama/llama-4-scout-17b-16e-instruct": "Fast Llama 4 — handy for spawning models, NPCs, and instance trees.",
+  "meta-llama/llama-4-maverick-17b-128e-instruct": "Bigger Llama 4 — better at multi-script Roblox systems.",
+  "qwen/qwen3-32b": "Strong reasoning at zero cost — datastores, leaderboard logic, save systems.",
+  "moonshotai/kimi-k2-instruct": "Long-context — paste in a whole place file and ask for refactors.",
+  "deepseek-r1-distill-llama-70b": "Reasoning model — math-heavy gameplay (ballistics, physics, damage curves).",
+};
+
 
 export function ModelPicker({
   projectId,
