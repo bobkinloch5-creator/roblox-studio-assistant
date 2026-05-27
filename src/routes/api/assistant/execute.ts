@@ -948,6 +948,8 @@ function getLoadingScreenTemplate(prompt: string): ExecuteResult {
     files: [
       {
         path: "StarterGui/LoadingScreen/Controller.client.lua",
+        file_type: "LocalScript",
+        service_location: "StarterGui/LoadingScreen",
         content: `-- BloxSmith starter loading screen
 local Players = game:GetService("Players")
 local ContentProvider = game:GetService("ContentProvider")
