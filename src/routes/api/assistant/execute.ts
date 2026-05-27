@@ -1436,7 +1436,10 @@ export const Route = createFileRoute("/api/assistant/execute")({
                 for (let i = 0; i < attempts.length; i++) {
                   const att = attempts[i];
                   const built = buildContextBlock(att.level, ctxInputs);
-                  const useSlim = att.level >= 2;
+                  // Default to the slim prompt for speed; only use the full prompt
+                  // in thinking mode or as a fallback escalation (level >= 2 already
+                  // uses slim anyway). Cuts ~5-10k input tokens per call.
+                  const useSlim = thinking ? att.level >= 2 : true;
                   const baseSystem = useSlim ? SLIM_SYSTEM_PROMPT : SYSTEM_PROMPT;
                   const baseSystemTokens = useSlim ? slimSystemTokens : systemTokens;
                   const promptTokens =
@@ -1499,7 +1502,9 @@ export const Route = createFileRoute("/api/assistant/execute")({
                     else if (id.includes("llama-3.3-70b") || id.includes("llama3-70b") || id.includes("70b-versatile")) hardCap = 32000;
                     else if (id.includes("llama-3.1-8b") || id.includes("8b-instant")) hardCap = 8000;
                     else if (id.includes("mixtral") || id.includes("gemma")) hardCap = 8000;
-                    const target = thinking ? 24000 : 16000;
+                    // Speed-tuned output cap: most builds emit < 4k tokens of JSON.
+                    // Huge caps slow Groq + Gemini dramatically without improving quality.
+                    const target = thinking ? 10000 : 5000;
                     const maxOut = Math.min(target, hardCap);
                     const textRes = await withRateLimitRetry("ai-execute", () =>
                       generateTextWithToolFallback(generateText, {
@@ -1507,7 +1512,8 @@ export const Route = createFileRoute("/api/assistant/execute")({
                         system: systemWithRules,
                         messages,
                         tools: pickFastTools(prompt, { projectId, userId }) as any,
-                        stopWhen: stepCountIs(thinking ? 40 : 28),
+                        // Fewer tool-loop steps = faster builds. Most builds need 2-4 steps.
+                        stopWhen: stepCountIs(thinking ? 16 : 8),
                         maxOutputTokens: maxOut,
                         abortSignal: request.signal,
                       }, `ai-execute attempt#${i} src=${resolved.source} model=${att.modelId} slim=${useSlim} maxOut=${maxOut}`),
