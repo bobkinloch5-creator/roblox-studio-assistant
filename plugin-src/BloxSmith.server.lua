@@ -1226,7 +1226,16 @@ end
 
 -- Terrain: fill a region with a material
 function Actions.terrainFill(a)
-	local mat = Enum.Material[a.material or "Grass"] or Enum.Material.Grass
+	local rawMat = a.material
+	local matName
+	if type(rawMat) == "table" then
+		matName = rawMat.value or rawMat.name or "Grass"
+	elseif type(rawMat) == "string" then
+		matName = rawMat
+	else
+		matName = "Grass"
+	end
+	local mat = Enum.Material[matName] or Enum.Material.Grass
 	local cf  = coerceValue(a.cframe or { __t="CFrame", x=0, y=0, z=0 })
 	local size = coerceValue(a.size or { __t="Vector3", x=512, y=8, z=512 })
 	Terrain:FillBlock(cf, size, mat)
