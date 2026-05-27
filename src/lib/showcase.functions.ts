@@ -81,7 +81,7 @@ export const remixShowcaseProject = createServerFn({ method: "POST" })
     const { supabase } = context;
     const { data: newId, error } = await supabase.rpc("remix_showcase_project", {
       _source_id: data.sourceId,
-      _new_name: data.newName ?? null,
+      _new_name: data.newName ?? "",
     });
     if (error) throw new Error(error.message);
     return { projectId: newId as string };
