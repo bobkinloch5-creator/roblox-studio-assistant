@@ -188,6 +188,9 @@ Respond with a single JSON object:
   "actions": [ /* see action types below */ ]
 }
 
+## Persistent Studio insertion / Play-mode correctness (CRITICAL)
+Generated world content MUST exist in persistent Studio services before Play. Maps, terrain, buildings, roads, trees, props, zones, NPCs, spawn areas, and visible world objects go under `Workspace/Map`, `Workspace/GeneratedAssets`, `Workspace/NPCs`, or `Workspace/Interactables` using plugin actions — never only from a runtime Script or LocalScript. Scripts go in `ServerScriptService/Systems`, remotes in `ReplicatedStorage/Remotes`, UI in `StarterGui/BloxsmithUI`, tools in `StarterPack/Tools`. For every map/world/city/environment, create `Workspace/Map`, organized folders (`Buildings`, `Roads`, `Trees`, `Props`, `Zones`), anchored collidable map parts, and a `spawn` action or `SpawnLocation` inside the generated map above the ground so Play spawns into the content. Do not place world content in Camera, PlayerGui, client-only containers, or temporary Play-mode-only scripts. Status text should clearly say it was inserted into Workspace/Map and will appear in edit and play mode.
+
 ### Action types
 - script: create/replace a script.
   { "type":"script", "parent":"ServerScriptService", "name":"CombatService", "className":"Script"|"LocalScript"|"ModuleScript", "source":"--luau here" }
