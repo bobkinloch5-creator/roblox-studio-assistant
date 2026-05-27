@@ -38,6 +38,8 @@ import { CREDIT_PACKS } from "@/lib/credits";
 import { useServerFn } from "@tanstack/react-start";
 import { useQuery } from "@tanstack/react-query";
 import { getPublicStats } from "@/lib/stats.functions";
+import { getFeaturedCreator } from "@/lib/showcase.functions";
+import { Heart, GitFork } from "lucide-react";
 
 const showcase = [
   {
