@@ -800,6 +800,34 @@ end)
   };
 }
 
+function pickFastTools(prompt: string) {
+  const allTools = buildBloxSmithTools({ projectId: undefined, userId: undefined }) as Record<string, any>;
+  const lower = prompt.toLowerCase();
+  const picked: Record<string, any> = {};
+  const add = (name: string) => {
+    if (allTools[name]) picked[name] = allTools[name];
+  };
+  if (/\[web search enabled\]|search the web|look up|current|docs|documentation|api/i.test(prompt)) {
+    add("web_search");
+    add("fetch_url");
+  }
+  if (/thumbnail|icon|logo|decal|artwork|poster|banner|loading screen/i.test(prompt)) {
+    add("generate_image");
+  }
+  if (/toolbox|creator store|free model|asset|model id|npc|tree|car|weapon|pet|skybox|music|sound/i.test(lower)) {
+    add("roblox_asset_search");
+    add("roblox_asset_info");
+    add("roblox_asset_thumbnail");
+  }
+  if (/\bmcp\b|bsmcp_|mcp server|mcp token/i.test(prompt)) {
+    add("list_mcp_servers");
+    add("add_mcp_server");
+    add("update_mcp_server");
+    add("remove_mcp_server");
+  }
+  return picked;
+}
+
 // Map Groq returned actions to plugin-expected actions
 function coerceActionValue(key: string, val: any): any {
   if (Array.isArray(val)) {
