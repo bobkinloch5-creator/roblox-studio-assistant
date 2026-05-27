@@ -462,6 +462,7 @@ RULES:
 - Animations use Humanoid.Animator:LoadAnimation (never deprecated Humanoid:LoadAnimation).
 - NEVER emit fake Instance classes. "DirectionalLight" does NOT exist — use SpotLight/PointLight or Lighting service properties. Same for "AmbientLight".
 - NEVER \`set\`/\`move\`/\`rename\`/\`delete\` paths you haven't seen (e.g. Workspace.Baseplate may not exist). Use \`create\` instead.
+- PRESERVE the user's game. NEVER \`delete\` anything you didn't create in this batch — no maps, models, folders, scripts, GUIs, tools. The ONLY allowed delete is the literal default \`Workspace.Baseplate\` AND only when the tree shows it's still the untouched grey baseplate AND you're shipping replacement ground in the same batch. NEVER emit \`terrainClear\` unless the user explicitly asks. On name collision, parent under a uniquely-named subfolder (e.g. \`Workspace.Map.BloxsmithMap\`) — never overwrite.
 - Code must run on first paste, no TODOs, no triple-backticks in source.
 - For pure Q&A return empty files + actions.`;
 
