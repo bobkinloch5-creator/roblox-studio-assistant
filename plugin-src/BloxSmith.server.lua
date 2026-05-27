@@ -1031,6 +1031,70 @@ local function applyVisibleDefaults(inst, props)
 	end
 end
 
+local function pathHas(pathText, words)
+	local lower = string.lower(tostring(pathText or ""))
+	for _, word in ipairs(words) do
+		if string.find(lower, word, 1, true) then return true end
+	end
+	return false
+end
+
+local function ensurePath(pathText)
+	return resolvePath(pathText, true)
+end
+
+local function normalizePersistentParent(a)
+	if not a then return end
+	local t = a.type
+	local className = tostring(a.className or a.file_type or "")
+	local name = tostring(a.name or a.searchQuery or a.assetName or "")
+	local parent = tostring(a.parent or a.service_location or "")
+	local descriptor = table.concat({ t or "", className, name, parent }, " ")
+
+	if t == "script" then
+		if className == "Script" and (parent == "" or parent == "ServerScriptService") then a.parent = "ServerScriptService/Systems" end
+		if className == "LocalScript" and (parent == "" or parent == "StarterGui") then a.parent = "StarterGui/BloxsmithUI" end
+		return
+	end
+
+	if t == "create" then
+		if className == "RemoteEvent" or className == "RemoteFunction" then
+			if parent == "" or parent == "ReplicatedStorage" then a.parent = "ReplicatedStorage/Remotes" end
+		elseif className == "ScreenGui" or className == "BillboardGui" or className == "SurfaceGui" then
+			if parent == "" or parent == "StarterGui" then a.parent = "StarterGui/BloxsmithUI" end
+		elseif className == "Tool" then
+			if parent == "" or parent == "StarterPack" then a.parent = "StarterPack/Tools" end
+		elseif className == "Part" or className == "Model" or className == "Folder" or className == "MeshPart" or className == "SpawnLocation" then
+			if parent == "" or parent == "Workspace" then
+				if pathHas(descriptor, { "npc", "enemy", "zombie", "shopkeeper", "vendor" }) then
+					a.parent = "Workspace/NPCs"
+				elseif pathHas(descriptor, { "door", "lever", "button", "pickup", "interactable", "zone" }) then
+					a.parent = "Workspace/Interactables"
+				elseif pathHas(descriptor, { "map", "city", "road", "street", "building", "tree", "grass", "ground", "terrain", "floor", "baseplate", "prop", "decor" }) then
+					a.parent = "Workspace/Map"
+				else
+					a.parent = "Workspace/GeneratedAssets"
+				end
+			end
+		end
+		return
+	end
+
+	if t == "insertAsset" or t == "insert_toolbox_asset" then
+		if parent == "" or parent == "Workspace" then
+			if pathHas(descriptor, { "npc", "enemy", "zombie", "character" }) then
+				a.parent = "Workspace/NPCs"
+			elseif pathHas(descriptor, { "door", "lever", "pickup", "interactable", "zone" }) then
+				a.parent = "Workspace/Interactables"
+			elseif pathHas(descriptor, { "map", "city", "road", "street", "building", "tree", "grass", "ground", "terrain", "floor", "baseplate", "prop", "decor" }) then
+				a.parent = "Workspace/Map"
+			else
+				a.parent = "Workspace/GeneratedAssets"
+			end
+		end
+	end
+end
+
 -- Create or overwrite a script (legacy file sync)
 function Actions.script(a)
 	local parent = resolvePath(a.parent or a.service_location or "ServerScriptService", true)
