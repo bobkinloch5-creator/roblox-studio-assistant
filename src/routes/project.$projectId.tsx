@@ -62,6 +62,7 @@ import {
 import { toast } from "sonner";
 import { downloadRbxmx } from "@/lib/rbxmx-export";
 import { PublishToRobloxButton } from "@/components/PublishToRobloxButton";
+import { ShowcasePublishButton } from "@/components/ShowcasePublishButton";
 import { PluginStatus } from "@/components/PluginStatus";
 import { PushPreview, type PreviewPayload } from "@/components/PushPreview";
 import { ChatSettings } from "@/components/ChatSettings";
@@ -1558,6 +1559,14 @@ function ProjectEditor() {
               lastPublishedAt={(project as any).roblox_last_published_at ?? null}
               lastVersion={(project as any).roblox_last_version ?? null}
               disabled={!files.length}
+            />
+            <ShowcasePublishButton
+              projectId={project.id}
+              isPublished={!!(project as any).showcase_published}
+              showcaseTitle={(project as any).showcase_title}
+              showcaseDescription={(project as any).showcase_description}
+              showcaseThumbnailUrl={(project as any).showcase_thumbnail_url}
+              projectName={project.name}
             />
             <Link
               to="/plugin"
