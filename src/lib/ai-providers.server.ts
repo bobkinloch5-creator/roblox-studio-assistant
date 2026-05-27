@@ -154,11 +154,17 @@ export async function resolveAiGateway(opts: {
   const provider = settings.provider as ProviderId;
   const modelName = settings.model || PROVIDER_DEFAULT_MODEL[provider];
 
-  // Neokens is a site-wide gateway — uses NEOKENS_API_KEY env var, no per-user key.
+  // Neokens & Groq are site-wide gateways — use env keys, no per-user key.
   if (provider === "neokens") {
     const neoKey = process.env.NEOKENS_API_KEY;
     if (!neoKey) return fallback();
     const gw = createProvider("neokens", neoKey);
+    return { source: "api_key", provider, modelName, model: gw(modelName) };
+  }
+  if (provider === "groq") {
+    const groqKey = process.env.GROQ_API_KEY;
+    if (!groqKey) return fallback();
+    const gw = createGroqProvider(groqKey);
     return { source: "api_key", provider, modelName, model: gw(modelName) };
   }
 
