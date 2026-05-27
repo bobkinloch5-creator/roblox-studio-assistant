@@ -1512,13 +1512,21 @@ export const Route = createFileRoute("/api/assistant/execute")({
                     // Per-attempt wall-clock cap. Cloudflare workers will 502 if a
                     // single request hangs. UI/system builds (shop, inventory, menu,
                     // settings, tycoon, simulator) need more room than simple part edits.
+                    // On retry (i>0) we drop tools entirely so the model just emits JSON —
+                    // dramatically faster and avoids another timeout.
                     const heavyBuild = /\b(shop|inventory|menu|settings|tycoon|simulator|gui|ui|system|leaderboard|quest|admin|hud|panel|dashboard)\b/i.test(prompt);
-                    const perAttemptMs = thinking ? 38000 : (heavyBuild ? 32000 : 22000);
+                    const isRetry = i > 0;
+                    const perAttemptMs = isRetry
+                      ? 30000
+                      : thinking ? 45000 : (heavyBuild ? 42000 : 28000);
                     const attemptCtl = new AbortController();
                     const timeoutId = setTimeout(() => attemptCtl.abort(), perAttemptMs);
                     const combinedSignal: AbortSignal = (AbortSignal as any).any
                       ? (AbortSignal as any).any([request.signal, attemptCtl.signal])
                       : attemptCtl.signal;
+                    // Drop tools on retry attempts — they're the main source of latency
+                    // and the model already has enough context to emit a JSON build directly.
+                    const attemptTools = isRetry ? {} : (pickFastTools(prompt, { projectId, userId }) as any);
                     let textRes: any;
                     try {
                       textRes = await withRateLimitRetry("ai-execute", () =>
@@ -1526,13 +1534,14 @@ export const Route = createFileRoute("/api/assistant/execute")({
                           model,
                           system: systemWithRules,
                           messages,
-                          tools: pickFastTools(prompt, { projectId, userId }) as any,
+                          tools: attemptTools,
                           // Fewer tool-loop steps = faster builds. Most builds need 2-3 steps.
                           stopWhen: stepCountIs(thinking ? 12 : 5),
                           maxOutputTokens: maxOut,
                           abortSignal: combinedSignal,
-                        }, `ai-execute attempt#${i} src=${resolved.source} model=${att.modelId} slim=${useSlim} maxOut=${maxOut}`),
+                        }, `ai-execute attempt#${i} src=${resolved.source} model=${att.modelId} slim=${useSlim} maxOut=${maxOut} tools=${isRetry ? 0 : "fast"}`),
                       );
+
                     } finally {
                       clearTimeout(timeoutId);
                     }
