@@ -1436,9 +1436,20 @@ export const Route = createFileRoute("/api/assistant/execute")({
                   const model = att.useResolved
                     ? resolved.model
                     : (gateway ? gateway(att.modelId) : resolved.model);
+                  // Build the user turn. When the user attaches screenshots
+                  // (vision), send the message as a multi-part content array
+                  // so vision-capable models (Gemini 2.5+/3, GPT-5) can see
+                  // them and reason about what's broken / what to build.
+                  type Part = { type: "text"; text: string } | { type: "image"; image: string };
+                  const userContent: string | Part[] = visionImages.length > 0
+                    ? [
+                        { type: "text", text: built.contextBlock } as Part,
+                        ...visionImages.map((image): Part => ({ type: "image", image })),
+                      ]
+                    : built.contextBlock;
                   const messages = [
                     ...built.trimmedHistory,
-                    { role: "user" as const, content: built.contextBlock },
+                    { role: "user" as const, content: userContent as any },
                   ];
 
                   rawText = "";
