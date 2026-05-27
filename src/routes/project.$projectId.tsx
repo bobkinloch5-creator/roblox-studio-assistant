@@ -995,15 +995,32 @@ function ProjectEditor() {
         ...m,
         { id: tempId, role: "assistant", content: out.message + vLine + dangerLine + askLine },
       ]);
-      const realId = await persistMsg("assistant", out.message + vLine + dangerLine + askLine, {
+      // Snapshot pre-state of every file the AI is about to touch, so the user
+      // can hit "Revert" to undo this batch (restore old content / delete new
+      // files / queue plugin deletes in Studio).
+      const snapshot = (out.files ?? []).map((f: any) => {
+        const cur = files.find((x) => x.path === f.path);
+        return cur
+          ? {
+              path: f.path,
+              content: cur.content,
+              file_type: cur.file_type,
+              service_location: cur.service_location,
+              existed: true,
+            }
+          : { path: f.path, existed: false };
+      });
+      const actionsMeta = {
         files: out.files?.length ?? 0,
         actions: out.actions?.length ?? 0,
         validation: v,
         generationId: out.generationId,
         dangers: out.dangers ?? [],
-      });
+        snapshot,
+      };
+      const realId = await persistMsg("assistant", out.message + vLine + dangerLine + askLine, actionsMeta);
       const finalId = realId ?? tempId;
-      if (realId) setMessages((m) => m.map((x) => (x.id === tempId ? { ...x, id: realId } : x)));
+      setMessages((m) => m.map((x) => (x.id === tempId ? { ...x, id: finalId, actions: actionsMeta } : x)));
 
       // Always surface what the AI built so the user can see files + actions,
       // even when Auto Execute is on.
