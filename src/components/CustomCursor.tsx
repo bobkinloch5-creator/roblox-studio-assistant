@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef } from "react";
 
 /**
  * Premium custom cursor: a smooth glowing dot with a trailing ring that
@@ -7,16 +7,24 @@ import { useEffect, useRef, useState } from "react";
 export function CustomCursor() {
   const dotRef = useRef<HTMLDivElement | null>(null);
   const ringRef = useRef<HTMLDivElement | null>(null);
-  const [enabled, setEnabled] = useState(false);
+
+
 
   useEffect(() => {
     if (typeof window === "undefined") return;
     const isTouch = window.matchMedia("(pointer: coarse)").matches;
     if (isTouch) return;
-    setEnabled(true);
 
-    const dot = dotRef.current!;
-    const ring = ringRef.current!;
+    const dot = dotRef.current;
+    const ring = ringRef.current;
+    if (!dot || !ring) return;
+    let mx = window.innerWidth / 2;
+    let my = window.innerHeight / 2;
+    let rx = mx;
+    let ry = my;
+    let raf = 0;
+    let hidden = true;
+
     let mx = window.innerWidth / 2;
     let my = window.innerHeight / 2;
     let rx = mx;
