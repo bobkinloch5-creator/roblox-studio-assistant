@@ -810,11 +810,18 @@ function ProjectEditor() {
   };
 
   const deleteFile = async (id: string) => {
-    if (!confirm("Delete this file? It will also be removed from Roblox Studio.")) return;
     const target = files.find((f) => f.id === id);
+    const label = target?.path ?? "this item";
+    if (!confirm(`Delete ${label}? It will also be removed from Roblox Studio.`)) return;
     await supabase.from("project_files").delete().eq("id", id);
     if (activeId === id) setActiveId(null);
     if (target) {
+      // Generic plugin "delete" action — works for scripts AND any other
+      // Instance path (Parts, Folders, Lights, GUI objects, etc.) so the
+      // Studio workspace stays in sync with what the user removed on the site.
+      void tryQueueStudio("delete", { path: target.path });
+      // Also queue the script-specific variant in case the live tree row
+      // is a Script that lives in a path the generic delete cannot resolve.
       void tryQueueStudio("delete_script", { path: target.path });
       toast.success("Deleted — syncing to Studio");
     }
