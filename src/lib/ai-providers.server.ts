@@ -35,7 +35,17 @@ export const PROVIDER_MODELS: Record<ProviderId, string[]> = {
     "gemini-2.5-flash-lite",
     "gemini-3-flash-preview",
   ],
-  groq: ["llama-3.1-8b-instant", "openai/gpt-oss-120b", "llama-3.3-70b-versatile"],
+  groq: [
+    "llama-3.3-70b-versatile",
+    "llama-3.1-8b-instant",
+    "openai/gpt-oss-120b",
+    "openai/gpt-oss-20b",
+    "meta-llama/llama-4-scout-17b-16e-instruct",
+    "meta-llama/llama-4-maverick-17b-128e-instruct",
+    "qwen/qwen3-32b",
+    "moonshotai/kimi-k2-instruct",
+    "deepseek-r1-distill-llama-70b",
+  ],
   // Neokens proxies many models behind a single key — see neokens.com/docs.
   // Curated to cheaper models only (no Opus 4.7 / Sonnet 4.6 thinking).
   neokens: [
@@ -52,7 +62,7 @@ export const PROVIDER_DEFAULT_MODEL: Record<ProviderId, string> = {
   openai: "gpt-5-mini",
   anthropic: "claude-sonnet-4-5",
   google: "gemini-2.5-flash",
-  groq: BLOXSMITH_MODEL,
+  groq: "llama-3.3-70b-versatile",
   neokens: "gemini-3-flash",
 };
 
@@ -144,11 +154,17 @@ export async function resolveAiGateway(opts: {
   const provider = settings.provider as ProviderId;
   const modelName = settings.model || PROVIDER_DEFAULT_MODEL[provider];
 
-  // Neokens is a site-wide gateway — uses NEOKENS_API_KEY env var, no per-user key.
+  // Neokens & Groq are site-wide gateways — use env keys, no per-user key.
   if (provider === "neokens") {
     const neoKey = process.env.NEOKENS_API_KEY;
     if (!neoKey) return fallback();
     const gw = createProvider("neokens", neoKey);
+    return { source: "api_key", provider, modelName, model: gw(modelName) };
+  }
+  if (provider === "groq") {
+    const groqKey = process.env.GROQ_API_KEY;
+    if (!groqKey) return fallback();
+    const gw = createGroqProvider(groqKey);
     return { source: "api_key", provider, modelName, model: gw(modelName) };
   }
 

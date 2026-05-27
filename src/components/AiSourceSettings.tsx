@@ -33,7 +33,17 @@ const PROVIDER_MODELS: Record<ProviderId, string[]> = {
     "gemini-2.5-flash-lite",
     "gemini-3-flash-preview",
   ],
-  groq: ["llama-3.1-8b-instant", "openai/gpt-oss-120b", "llama-3.3-70b-versatile"],
+  groq: [
+    "llama-3.3-70b-versatile",
+    "llama-3.1-8b-instant",
+    "openai/gpt-oss-120b",
+    "openai/gpt-oss-20b",
+    "meta-llama/llama-4-scout-17b-16e-instruct",
+    "meta-llama/llama-4-maverick-17b-128e-instruct",
+    "qwen/qwen3-32b",
+    "moonshotai/kimi-k2-instruct",
+    "deepseek-r1-distill-llama-70b",
+  ],
   neokens: [
     "gemini-3-flash",
     "claude-haiku-4-5-20251001",
@@ -48,7 +58,7 @@ const PROVIDER_KEY_HINTS: Record<ProviderId, string> = {
   openai: "sk-... — platform.openai.com/api-keys",
   anthropic: "sk-ant-... — console.anthropic.com/settings/keys",
   google: "AI... — aistudio.google.com/apikey",
-  groq: "gsk_... — console.groq.com/keys",
+  groq: "Site-wide free key managed by admin (GROQ_API_KEY)",
   neokens: "Site-wide key managed by admin (NEOKENS_API_KEY)",
 };
 
@@ -275,11 +285,11 @@ export function AiSourceSettings({
                   </label>
                 </div>
 
-                {provider === "neokens" ? (
+                {provider === "neokens" || provider === "groq" ? (
                   <div className="rounded-md border border-primary/30 bg-primary/5 px-3 py-2 text-[11px] text-foreground">
-                    <span className="font-semibold">Neokens</span> uses a shared
-                    site key (<span className="font-mono">NEOKENS_API_KEY</span>) — no
-                    per-user key needed. One balance covers GPT, Claude, and Gemini models.
+                    <span className="font-semibold">{PROVIDER_LABELS[provider]}</span> uses a shared
+                    site key (<span className="font-mono">{provider === "groq" ? "GROQ_API_KEY" : "NEOKENS_API_KEY"}</span>) — no
+                    per-user key needed.{provider === "groq" ? " Free to use." : " One balance covers GPT, Claude, and Gemini models."}
                   </div>
                 ) : (
                 <div>
