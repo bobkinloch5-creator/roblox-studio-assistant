@@ -814,7 +814,7 @@ function pickFastTools(prompt: string, ctx: { projectId: string; userId: string 
   if (/thumbnail|icon|logo|decal|artwork|poster|banner|loading screen/i.test(prompt)) {
     add("generate_image");
   }
-  if (/toolbox|creator store|free model|asset|model id|npc|tree|car|weapon|pet|skybox|music|sound/i.test(lower)) {
+  if (/game|map|world|lobby|shop|weapon|vehicle|car|character|npc|enemy|boss|pet|tower|obby|tycoon|simulator|horror|rpg|tree|foliage|building|prop|toolbox|creator store|free model|asset|model id|skybox|music|sound/i.test(lower)) {
     add("roblox_asset_search");
     add("roblox_asset_info");
     add("roblox_asset_thumbnail");
