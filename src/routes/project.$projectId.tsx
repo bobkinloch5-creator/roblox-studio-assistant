@@ -400,6 +400,7 @@ function ProjectEditor() {
   const [revertedByMsg, setRevertedByMsg] = useState<Record<string, boolean>>({});
   const [revertingMsg, setRevertingMsg] = useState<string | null>(null);
   const [showBuildHistory, setShowBuildHistory] = useState(false);
+  const [showTaskBoard, setShowTaskBoard] = useState(false);
 
   const revertMessage = async (m: Msg) => {
     const snap: any[] = m.actions?.snapshot ?? [];
