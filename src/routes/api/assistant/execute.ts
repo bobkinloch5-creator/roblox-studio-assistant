@@ -217,6 +217,16 @@ function normalizeResult(raw: any): ExecuteResult {
   return { message, files, actions };
 }
 
+function isLikelyBuildPrompt(prompt: string): boolean {
+  return /\b(make|add|create|build|generate|spawn|insert|give me|fix|update|change|map|world|lobby|obby|shop|ui|gui|npc|weapon|tool|script|game|tycoon|simulator|system|menu|hud|inventory)\b/i.test(
+    prompt,
+  );
+}
+
+function isEmptyBuildResult(result: ExecuteResult | null | undefined): boolean {
+  return !!result && (result.files?.length ?? 0) === 0 && (result.actions?.length ?? 0) === 0;
+}
+
 function studioSafeMessage(message: string, queuedCount: number, autoExecute: boolean) {
   if (queuedCount <= 0) return message;
   const cleaned = message
@@ -1552,9 +1562,9 @@ export const Route = createFileRoute("/api/assistant/execute")({
                     else if (id.includes("llama-3.3-70b") || id.includes("llama3-70b") || id.includes("70b-versatile")) hardCap = 32000;
                     else if (id.includes("llama-3.1-8b") || id.includes("8b-instant")) hardCap = 8000;
                     else if (id.includes("mixtral") || id.includes("gemma")) hardCap = 8000;
-                    // Speed-tuned output cap: most builds emit < 3k tokens of JSON.
-                    // Huge caps slow Groq + Gemini dramatically without improving quality.
-                    const target = thinking ? 8000 : 3500;
+                    // Give build JSON enough room to finish. The previous 3.5k cap
+                    // was truncating maps/UI/system builds and producing empty results.
+                    const target = thinking ? 16000 : heavyBuild || isRetry ? 9000 : 6000;
                     const maxOut = Math.min(target, hardCap);
                     // Per-attempt wall-clock cap. Cloudflare workers will 502 if a
                     // single request hangs. UI/system builds (shop, inventory, menu,
@@ -1687,6 +1697,11 @@ export const Route = createFileRoute("/api/assistant/execute")({
           if (!result) {
             await refundOnFailure("ai generation returned no result");
             throw new Error("AI did not return a usable result.");
+          }
+
+          if (isEmptyBuildResult(result) && isLikelyBuildPrompt(prompt)) {
+            console.warn("[ai-execute] empty build result; using focused fallback template");
+            result = getFocusedFallbackTemplate(prompt);
           }
 
           result.files = result.files ?? [];
