@@ -845,8 +845,161 @@ function getMapStarterTemplate(prompt: string): ExecuteResult {
   };
 }
 
+function getGunTemplate(prompt: string): ExecuteResult {
+  const name = /\b(pistol|rifle|shotgun|sniper|smg|ak|m4|gun|weapon|blaster)\b/i.exec(prompt)?.[0]?.replace(/^./, (c) => c.toUpperCase()) || "Pistol";
+  return {
+    message: `The AI timed out, so I queued a working starter ${name} Tool in StarterPack. Equip it in Play mode — left click to fire a raycast shot with a tracer and damage.`,
+    files: [
+      {
+        path: "ServerScriptService/Systems/GunHandler.server.lua",
+        content: `-- BloxSmith starter gun: raycast + tracer + damage
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local Debris = game:GetService("Debris")
+
+local remotes = ReplicatedStorage:FindFirstChild("Remotes") or Instance.new("Folder")
+remotes.Name = "Remotes"
+remotes.Parent = ReplicatedStorage
+
+local fireRemote = remotes:FindFirstChild("GunFire") or Instance.new("RemoteEvent")
+fireRemote.Name = "GunFire"
+fireRemote.Parent = remotes
+
+local DAMAGE = 20
+local RANGE = 300
+local COOLDOWN = 0.18
+local lastFire = {}
+
+fireRemote.OnServerEvent:Connect(function(player, origin, direction)
+\tlocal now = tick()
+\tif lastFire[player] and now - lastFire[player] < COOLDOWN then return end
+\tlastFire[player] = now
+\tif typeof(origin) ~= "Vector3" or typeof(direction) ~= "Vector3" then return end
+\tlocal params = RaycastParams.new()
+\tparams.FilterDescendantsInstances = { player.Character }
+\tparams.FilterType = Enum.RaycastFilterType.Exclude
+\tlocal result = workspace:Raycast(origin, direction.Unit * RANGE, params)
+\tlocal hitPos = result and result.Position or (origin + direction.Unit * RANGE)
+\tlocal beam = Instance.new("Part")
+\tbeam.Anchored = true; beam.CanCollide = false; beam.Material = Enum.Material.Neon
+\tbeam.Color = Color3.fromRGB(255, 220, 90)
+\tbeam.Size = Vector3.new(0.15, 0.15, (hitPos - origin).Magnitude)
+\tbeam.CFrame = CFrame.lookAt((origin + hitPos)/2, hitPos)
+\tbeam.Parent = workspace
+\tDebris:AddItem(beam, 0.08)
+\tif result and result.Instance then
+\t\tlocal hum = result.Instance.Parent and result.Instance.Parent:FindFirstChildOfClass("Humanoid")
+\t\tif hum then hum:TakeDamage(DAMAGE) end
+\tend
+end)
+`,
+      },
+      {
+        path: "StarterPack/Tools/${NAME}/ClientGun.client.lua".replace(/\${NAME}/g, name),
+        content: `local Players = game:GetService("Players")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local UIS = game:GetService("UserInputService")
+local tool = script.Parent
+local player = Players.LocalPlayer
+local fireRemote = ReplicatedStorage:WaitForChild("Remotes"):WaitForChild("GunFire")
+
+local equipped = false
+tool.Equipped:Connect(function() equipped = true end)
+tool.Unequipped:Connect(function() equipped = false end)
+
+tool.Activated:Connect(function()
+\tif not equipped then return end
+\tlocal cam = workspace.CurrentCamera
+\tlocal origin = cam.CFrame.Position
+\tlocal mousePos = UIS:GetMouseLocation()
+\tlocal ray = cam:ViewportPointToRay(mousePos.X, mousePos.Y)
+\tfireRemote:FireServer(origin, ray.Direction)
+end)
+`,
+      },
+    ],
+    actions: [
+      { type: "create", className: "Folder", name: "Tools", parent: "StarterPack" },
+      { type: "create", className: "Folder", name: "Systems", parent: "ServerScriptService" },
+      { type: "create", className: "Folder", name: "Remotes", parent: "ReplicatedStorage" },
+      { type: "create", className: "Tool", name, parent: "StarterPack/Tools", props: { RequiresHandle: true, CanBeDropped: true, ToolTip: `${name} — left click to fire` } },
+      {
+        type: "create_part",
+        parent: `StarterPack/Tools/${name}`,
+        name: "Handle",
+        size: [0.6, 0.4, 2.2],
+        position: [0, 0, 0],
+        material: "Metal",
+        color: [40, 40, 45],
+        anchored: false,
+      },
+    ],
+  };
+}
+
+function getLoadingScreenTemplate(prompt: string): ExecuteResult {
+  const title = /["']([^"']{2,40})["']/.exec(prompt)?.[1] || "Loading...";
+  return {
+    message: `The AI timed out, so I queued a full-screen loading screen in StarterGui with a logo slot, progress bar, and fade-out when the game is ready.`,
+    files: [
+      {
+        path: "StarterGui/LoadingScreen/Controller.client.lua",
+        content: `-- BloxSmith starter loading screen
+local Players = game:GetService("Players")
+local ContentProvider = game:GetService("ContentProvider")
+local TweenService = game:GetService("TweenService")
+local RunService = game:GetService("RunService")
+
+local gui = script.Parent
+gui.IgnoreGuiInset = true
+gui.ResetOnSpawn = false
+gui.DisplayOrder = 9999
+
+local frame = gui:WaitForChild("Backdrop")
+local bar = frame:WaitForChild("BarBg"):WaitForChild("Fill")
+local label = frame:WaitForChild("StatusLabel")
+
+local assets = game:GetDescendants()
+local total = math.max(#assets, 1)
+local loaded = 0
+
+for _, asset in ipairs(assets) do
+\ttask.spawn(function()
+\t\tpcall(function() ContentProvider:PreloadAsync({ asset }) end)
+\t\tloaded += 1
+\tend)
+end
+
+while loaded < total do
+\tlocal pct = loaded / total
+\tbar.Size = UDim2.new(pct, 0, 1, 0)
+\tlabel.Text = string.format("Loading %d%%", math.floor(pct * 100))
+\tRunService.Heartbeat:Wait()
+end
+
+bar.Size = UDim2.new(1, 0, 1, 0)
+label.Text = "Ready"
+task.wait(0.4)
+local fade = TweenService:Create(frame, TweenInfo.new(0.6), { BackgroundTransparency = 1 })
+fade:Play(); fade.Completed:Wait()
+gui:Destroy()
+`,
+      },
+    ],
+    actions: [
+      { type: "create", className: "ScreenGui", name: "LoadingScreen", parent: "StarterGui", props: { IgnoreGuiInset: true, ResetOnSpawn: false, DisplayOrder: 9999 } },
+      { type: "create", className: "Frame", name: "Backdrop", parent: "StarterGui/LoadingScreen", props: { Size: { __t: "UDim2", xs: 1, xo: 0, ys: 1, yo: 0 }, BackgroundColor3: { __t: "Color3", r: 10/255, g: 12/255, b: 18/255 }, BorderSizePixel: 0 } },
+      { type: "create", className: "TextLabel", name: "TitleLabel", parent: "StarterGui/LoadingScreen/Backdrop", props: { Size: { __t: "UDim2", xs: 0.8, xo: 0, ys: 0, yo: 80 }, Position: { __t: "UDim2", xs: 0.1, xo: 0, ys: 0.32, yo: 0 }, BackgroundTransparency: 1, Text: title, TextColor3: { __t: "Color3", r: 1, g: 1, b: 1 }, TextScaled: true, Font: "GothamBold" } },
+      { type: "create", className: "Frame", name: "BarBg", parent: "StarterGui/LoadingScreen/Backdrop", props: { Size: { __t: "UDim2", xs: 0.5, xo: 0, ys: 0, yo: 18 }, Position: { __t: "UDim2", xs: 0.25, xo: 0, ys: 0.55, yo: 0 }, BackgroundColor3: { __t: "Color3", r: 0.12, g: 0.14, b: 0.2 }, BorderSizePixel: 0 } },
+      { type: "create", className: "Frame", name: "Fill", parent: "StarterGui/LoadingScreen/Backdrop/BarBg", props: { Size: { __t: "UDim2", xs: 0, xo: 0, ys: 1, yo: 0 }, BackgroundColor3: { __t: "Color3", r: 0.35, g: 0.7, b: 1 }, BorderSizePixel: 0 } },
+      { type: "create", className: "TextLabel", name: "StatusLabel", parent: "StarterGui/LoadingScreen/Backdrop", props: { Size: { __t: "UDim2", xs: 0.5, xo: 0, ys: 0, yo: 28 }, Position: { __t: "UDim2", xs: 0.25, xo: 0, ys: 0.6, yo: 16 }, BackgroundTransparency: 1, Text: "Loading 0%", TextColor3: { __t: "Color3", r: 0.8, g: 0.85, b: 0.95 }, TextScaled: true, Font: "Gotham" } },
+    ],
+  };
+}
+
 function getFocusedFallbackTemplate(prompt: string): ExecuteResult {
   const lower = prompt.toLowerCase();
+  if (/\b(gun|pistol|rifle|shotgun|sniper|smg|ak|m4|weapon|blaster|firearm)\b/.test(lower)) return getGunTemplate(prompt);
+  if (/\bloading\s*screen|splash\s*screen|intro\s*screen|title\s*screen\b/.test(lower)) return getLoadingScreenTemplate(prompt);
   if (/\bshop|store\b/.test(lower)) return getShopTemplate() as ExecuteResult;
   if (/\bobby|obby|parkour\b/.test(lower)) return getObbyTemplate() as ExecuteResult;
   if (/\btycoon\b/.test(lower)) return getTycoonTemplate() as ExecuteResult;
@@ -854,6 +1007,14 @@ function getFocusedFallbackTemplate(prompt: string): ExecuteResult {
   if (/\bnpc|character|dummy\b/.test(lower)) return getNpcTemplate() as ExecuteResult;
   if (/\btree|forest\b/.test(lower)) return getTreesTemplate() as ExecuteResult;
   if (/\bgrass\b/.test(lower)) return getGrassTemplate() as ExecuteResult;
+  // If the prompt is clearly UI/gameplay (not a map), don't dump a grass plane — return an honest error so the user retries.
+  if (/\bui|gui|hud|menu|button|inventory|settings|panel|screen|tool\b/.test(lower)) {
+    return {
+      message: "The AI timed out before finishing this build. Try again, or break it into a smaller step (e.g. 'just the open/close button').",
+      files: [],
+      actions: [],
+    };
+  }
   return getMapStarterTemplate(prompt);
 }
 
