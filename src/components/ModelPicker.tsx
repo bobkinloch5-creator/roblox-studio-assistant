@@ -109,7 +109,7 @@ export function ModelPicker({
         <ChevronDown className="h-3 w-3 text-muted-foreground" />
       </button>
       {open && (
-        <div className="absolute bottom-full mb-2 left-0 z-50 w-72 max-h-96 overflow-y-auto rounded-xl border border-border/60 bg-surface-elevated/95 backdrop-blur-xl shadow-2xl p-2">
+        <div className="absolute bottom-full mb-2 left-0 z-50 w-[22rem] max-h-[28rem] overflow-y-auto rounded-xl border border-border/60 bg-surface-elevated/95 backdrop-blur-xl shadow-2xl p-2">
           {(Object.keys(PROVIDER_LABELS) as ProviderId[]).map((p) => (
             <div key={p} className="mb-2">
               <div className="px-2 py-1 text-[10px] uppercase tracking-wider text-muted-foreground font-semibold">
@@ -117,25 +117,35 @@ export function ModelPicker({
               </div>
               {PROVIDER_MODELS[p].map((m) => {
                 const active = p === currentProvider && m === currentModel;
+                const desc = MODEL_DESCRIPTIONS[m];
                 return (
                   <button
                     key={`${p}:${m}`}
                     type="button"
                     disabled={saving}
                     onClick={() => pick(p, m)}
-                    className={`w-full text-left flex items-center justify-between gap-2 rounded-md px-2 py-1.5 text-xs transition ${
-                      active ? "bg-primary/15 text-foreground" : "hover:bg-surface/60 text-muted-foreground"
+                    className={`w-full text-left rounded-md px-2 py-1.5 transition ${
+                      active ? "bg-primary/15 text-foreground" : "hover:bg-surface/60"
                     }`}
                   >
-                    <span className="truncate">{m}</span>
-                    {active && <Check className="h-3 w-3 text-primary shrink-0" />}
+                    <div className="flex items-center justify-between gap-2">
+                      <span className={`truncate text-xs font-medium ${active ? "text-foreground" : "text-foreground/90"}`}>
+                        {m}
+                      </span>
+                      {active && <Check className="h-3 w-3 text-primary shrink-0" />}
+                    </div>
+                    {desc && (
+                      <div className="mt-0.5 text-[10px] leading-snug text-muted-foreground">
+                        {desc}
+                      </div>
+                    )}
                   </button>
                 );
               })}
             </div>
           ))}
           <div className="px-2 py-1 text-[10px] text-muted-foreground border-t border-border/40 mt-1">
-            Groq & Neokens are free (admin keys). Others use your own key from AI Source.
+            Groq & Neokens are free (admin keys). Pick by what you're building in Roblox.
           </div>
         </div>
       )}
