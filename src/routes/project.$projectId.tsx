@@ -2215,6 +2215,28 @@ function ProjectEditor() {
                           Auto-fix {validationByMsg[m.id].errors.length} blocked ({GENERATE_COST} cr)
                         </button>
                       )}
+                      {!isUser && m.actions?.snapshot?.length > 0 && (
+                        revertedByMsg[m.id] ? (
+                          <div className="inline-flex items-center gap-1.5 rounded-md border border-emerald-500/30 bg-emerald-500/10 px-3 py-1.5 text-xs font-medium text-emerald-300">
+                            <CheckCircle2 className="h-3.5 w-3.5" />
+                            Reverted
+                          </div>
+                        ) : (
+                          <button
+                            onClick={() => revertMessage(m)}
+                            disabled={revertingMsg === m.id}
+                            className="inline-flex items-center gap-1.5 rounded-md border border-border bg-surface-elevated/60 px-3 py-1.5 text-xs font-medium text-foreground hover:bg-surface-elevated hover:border-rose-400/40 hover:text-rose-300 transition disabled:opacity-50"
+                            title={`Undo this AI response — restores ${m.actions.snapshot.length} file${m.actions.snapshot.length === 1 ? "" : "s"} and removes new ones from Studio on next sync.`}
+                          >
+                            {revertingMsg === m.id ? (
+                              <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                            ) : (
+                              <RefreshCw className="h-3.5 w-3.5" />
+                            )}
+                            Revert this change
+                          </button>
+                        )
+                      )}
                     </div>
                   </div>
                   {isUser && (
