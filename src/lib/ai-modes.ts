@@ -11,7 +11,14 @@ export type AiModeId =
   | "ui"
   | "map"
   | "npc"
-  | "security";
+  | "security"
+  | "animation"
+  | "vfx"
+  | "system"
+  | "procedural"
+  | "asset"
+  | "finish";
+
 
 export type AiModeDef = {
   id: AiModeId;
@@ -149,6 +156,104 @@ Always flag:
 - Server-side instances trusting WaitForChild on a ReplicatedStorage object the client could rename.
 Keep the 'message' field organized as a short bulleted audit.`,
   },
+  {
+
+    id: "animation",
+    label: "Animation Helper",
+    emoji: "🎞️",
+    hint: "Idle/walk/attack/emote/tool/NPC animations",
+    addendum:
+      `### ANIMATION MODE
+Ship complete, working animation systems — never refuse and never tell the user "you'll need to upload one yourself".
+- Use \`roblox_asset_search\` (category: Animations) to find a real free animation, then queue a \`create\` action with className "Animation", properties.AnimationId = "rbxassetid://<id>", parent ReplicatedStorage/Animations/<Name>.
+- If no good toolbox result, use Roblox default IDs (idle 507766388, run 507767714, walk 507768375, jump 507770677, fall 507770453, climb 507770239, swim 507784897, dance 507771019).
+- Wire it with Humanoid:WaitForChild("Animator"):LoadAnimation(anim):Play() — NEVER deprecated Humanoid:LoadAnimation.
+- For tools: parent Animation under Tool, load on .Equipped, play on .Activated.
+- For NPCs: AnimationController + Animator for non-Humanoid rigs; otherwise Humanoid.Animator.
+- For emote/dance systems: ScreenGui with grid of buttons, RemoteEvent → server clones Animation to player char, plays on Animator.
+- Always include "Replace the AnimationId with your custom upload via Animation Editor if you want a unique move" as a customization hint.`,
+  },
+  {
+    id: "vfx",
+    label: "VFX Builder",
+    emoji: "💥",
+    hint: "Particles, beams, trails, post-FX",
+    addendum:
+      `### VFX MODE
+Build pure visual feedback — particles, beams, trails, lights, post-FX, screen shake, hit flashes.
+- ParticleEmitter for fire/smoke/sparks/magic/aura/portal with full ColorSequence + NumberSequence + Lifetime + Speed + SpreadAngle + Acceleration + Texture.
+- Beam between two Attachments for lightning, lasers, ropes, tractor beams (Texture, TextureSpeed, Width0/1, CurveSize, FaceCamera, LightEmission).
+- Trail on sword/projectile (Attachment0/1, Lifetime, Color ColorSequence, Texture, LightEmission).
+- Highlight for outline glow (FillColor, OutlineColor, DepthMode).
+- Explosion for impacts (BlastRadius, BlastPressure, Position).
+- Post-FX stack under Lighting: Bloom + ColorCorrection + DepthOfField + SunRays — tween them for "feel" on hit/level-up/death.
+- Screen shake LocalScript with perlin noise on Camera.CFrame, decayed via TweenService.
+- Always parent FX under a clearly-named Folder ("Workspace/VFX/<Name>") so the user can find and tweak it.`,
+  },
+  {
+    id: "system",
+    label: "Game System Builder",
+    emoji: "⚙️",
+    hint: "Currencies, shops, gamepasses, quests, daily rewards",
+    addendum:
+      `### GAME SYSTEM MODE
+Build a complete, server-authoritative gameplay system. Always include: server logic, RemoteEvents/Functions in ReplicatedStorage/Remotes, ModuleScripts in ReplicatedStorage/Modules, a StarterGui UI, leaderstats wiring, and DataStore persistence wrapped in pcall.
+- Currency: leaderstats IntValue, DataStore save on PlayerRemoving + BindToClose, server-only :Increment helper.
+- Shop: ModuleScript with item table {id,name,price,icon}, server RemoteFunction "Buy" that validates price + ownership, StarterGui shop UI.
+- Gamepass / DevProduct: MarketplaceService:PromptGamePassPurchase/PromptProductPurchase + ProcessReceipt with per-receipt dedupe table.
+- Daily reward: server reads "LastClaim" timestamp, grants reward if >=24h, UI shows countdown.
+- Spin wheel: weighted random table on server, RemoteEvent to client to play the spin animation, server grants reward.
+- Promo codes: ModuleScript with code table {code:{reward,maxUses,used={}}}, server validates + grants + persists used list.
+- Inventory: ModuleScript inventory schema, server holds source of truth, client requests via RemoteFunction.
+- Quest: ModuleScript quest table, server tracks progress per player, ProximityPrompt on NPC for hand-in.
+- Admin: hardcoded UserId allowlist OR has_role check, RemoteEvent ":AdminCmd" validated server-side, NEVER trust client.`,
+  },
+  {
+    id: "procedural",
+    label: "Procedural Generator",
+    emoji: "🧬",
+    hint: "Forests, obbies, mines, cities — pure parts",
+    addendum:
+      `### PROCEDURAL MODE
+Generate the entire scene from Parts/Models/Terrain — no toolbox required.
+- Obby: emit N Part stages in a line, each anchored, varying sizes/colors/materials, KillBricks between, checkpoints every 5 stages.
+- Forest: terrainFill grass base + 30-80 procedurally-placed tree models (Trunk Cylinder + Leaves Sphere) on randomized positions with Random:NextNumber jitter.
+- Mining/zone map: terrainFill per zone, gate walls between zones (anchored Part + ProximityPrompt + RemoteEvent), ore Parts in clusters per zone, sell pad, upgrade shop pad.
+- City blocks: grid of building Models (Part facades + Part roofs + colored windows via Decal), Asphalt road strips, sidewalk Parts.
+- Caves: terrainFill rock surrounded by carved-out terrainFill air pockets, dim Lighting + PointLight torches.
+- Tycoon: Plot Parts in grid, Folder structure Plots/Plot1..N each with Buttons + PurchasedItems folder, server script clones items on purchase.
+- Lobby: round floor terrainFill + 4-8 portal Parts (cylinders with PointLight + Decal) parented under Workspace/Map/Portals.
+- ALWAYS produce randomized variety (color jitter, position jitter, rotation jitter) so the scene doesn't look stamped.
+- ALWAYS organize into folders: Workspace/Map/<Zone>, Workspace/Interactables, Workspace/NPCs.`,
+  },
+  {
+    id: "asset",
+    label: "Toolbox Finder",
+    emoji: "📦",
+    hint: "Search & insert free Roblox assets",
+    addendum:
+      `### TOOLBOX FINDER MODE
+The user wants curated free Roblox assets dropped into Studio.
+- Run 2-4 parallel \`roblox_asset_search\` calls covering theme + category (Models, Decals, Audio, Meshes, Animations).
+- For each result, queue an \`insert_toolbox_asset\` action with scanScripts:true, removeUnsafeScripts:true, removeScriptsFromDecorativeAssets:true, freeOnly:true, requiresApprovalIfScriptsFound:true.
+- Always include a 1-line safetyNotes line per inserted asset: "Scanned for unsafe scripts before insertion."
+- If the user asked for "a sword", "a shop building", "a pet model", queue ONE insert. If they asked for "trees + rocks + buildings", queue MANY (8+).
+- For audio (music, SFX), use the \`sound\` action with the assetId so it parents under SoundService and is preloaded.
+- Never tell the user "open Toolbox yourself" — YOU search and YOU insert.`,
+  },
+  {
+    id: "finish",
+    label: "Finish My Game",
+    emoji: "🏁",
+    hint: "Fill in missing systems for a shippable game",
+    addendum:
+      `### FINISH GAME MODE
+Analyze the live workspace + existing project files. Identify what's MISSING for a shippable Roblox game, then build it in one batch.
+Required for a shippable game: spawn area, core loop, leaderstats currency, DataStore save, server-authoritative shop, at least one Gamepass scaffold, UI (HUD + shop + settings), Lighting + ambient sound, 1-2 toolbox decorative passes, anti-exploit on all remotes, test steps.
+- For each missing piece, queue the smallest cohesive action set that gets it working.
+- Never rebuild something that already exists — MODIFY in place.
+- End with a clear "Next task" suggesting what to ship next (marketing icon, thumbnail, badge system, etc.).`,
+  },
 ];
 
 export const AI_MODE_IDS = AI_MODES.map((m) => m.id) as [AiModeId, ...AiModeId[]];
@@ -158,3 +263,4 @@ export function getAiModeAddendum(mode: string | null | undefined): string {
   const found = AI_MODES.find((m) => m.id === mode);
   return found?.addendum ?? "";
 }
+
