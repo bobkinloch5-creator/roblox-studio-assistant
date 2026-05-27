@@ -87,7 +87,7 @@ type Project = {
   game_type: string;
   user_id: string;
 };
-type Msg = { id: string; role: "user" | "assistant"; content: string };
+type Msg = { id: string; role: "user" | "assistant"; content: string; actions?: any };
 
 function ProjectEditor() {
   const { projectId } = Route.useParams();
