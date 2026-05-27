@@ -1417,6 +1417,9 @@ export const Route = createFileRoute("/api/assistant/execute")({
                 };
                 const attempts: Attempt[] = resolved.source === "api_key"
                   ? [
+                      // Single attempt for user-key mode — the 2nd attempt nearly
+                      // doubled wall time on every build. If level 1 errors with a
+                      // too-large signal, the loop below escalates to level 3.
                       { level: 1, modelId: resolved.modelName, budget: BLOXSMITH_LARGE_MODEL_TOKEN_BUDGET, useResolved: true },
                       { level: 3, modelId: resolved.modelName, budget: BLOXSMITH_LARGE_MODEL_TOKEN_BUDGET, useResolved: true },
                     ]
