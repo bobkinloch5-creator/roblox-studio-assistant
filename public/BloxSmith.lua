@@ -1342,18 +1342,57 @@ function Actions.insert_toolbox_asset(a)
 	if not model then return false, err end
 	
 	
-	-- Scan for scripts
+	-- Asset Safety Scanner: collect scripts + classify suspicion
 	local scriptsFound = {}
+	local suspiciousReasons = {}
+	local SUSPICION_PATTERNS = {
+		{ pat = "require%s*%(%s*%d+%s*%)",    reason = "require(<assetId>) backdoor" },
+		{ pat = "getfenv%s*%(",               reason = "getfenv / sandbox escape" },
+		{ pat = "setfenv%s*%(",               reason = "setfenv / sandbox escape" },
+		{ pat = "loadstring%s*%(",            reason = "loadstring (dynamic code)" },
+		{ pat = "HttpService",                reason = "HttpService (external network)" },
+		{ pat = "MarketplaceService:Prompt",  reason = "unsolicited purchase prompt" },
+		{ pat = "TeleportService",            reason = "teleport script" },
+		{ pat = "BindToClose",                reason = "shutdown hook (BindToClose)" },
+		{ pat = "Players%[",                  reason = "player-targeting code" },
+		{ pat = "_G%[",                       reason = "global table abuse (_G[...])" },
+		{ pat = "shared%[",                   reason = "shared table abuse" },
+		{ pat = "\\%d%d%d",                   reason = "obfuscated string escapes" },
+	}
+	local function scanSource(src)
+		if type(src) ~= "string" or src == "" then return nil end
+		-- Heuristic: very long single line = likely obfuscated/minified
+		local longestLine = 0
+		for line in src:gmatch("[^\r\n]+") do
+			if #line > longestLine then longestLine = #line end
+		end
+		local hits = {}
+		if longestLine > 600 then table.insert(hits, "obfuscated (huge single line)") end
+		for _, p in ipairs(SUSPICION_PATTERNS) do
+			if src:find(p.pat) then table.insert(hits, p.reason) end
+		end
+		if #hits == 0 then return nil end
+		return table.concat(hits, ", ")
+	end
 	for _, desc in ipairs(model:GetDescendants()) do
 		if desc:IsA("LuaSourceContainer") then
 			table.insert(scriptsFound, desc)
+			local src = ""
+			pcall(function() src = desc.Source or "" end)
+			local why = scanSource(src)
+			if why then
+				table.insert(suspiciousReasons, desc:GetFullName() .. " — " .. why)
+			end
 		end
 	end
+	local hasSuspicious = #suspiciousReasons > 0
 
 	local decision = "keep"
 	
 	if #scriptsFound > 0 then
-		if a.removeScriptsFromDecorativeAssets == true or (a.removeUnsafeScripts == true and not a.requiresApprovalIfScriptsFound) then
+		-- Auto-strip if caller allows it, OR if the scripts look actively dangerous
+		if a.removeScriptsFromDecorativeAssets == true
+			or (a.removeUnsafeScripts == true and (hasSuspicious or not a.requiresApprovalIfScriptsFound)) then
 			decision = "remove"
 		else
 			local responseReceived = false
