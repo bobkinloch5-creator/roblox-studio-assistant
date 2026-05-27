@@ -1124,7 +1124,61 @@ local function ensureMapStructureIfNeeded()
 	ensurePath("Workspace/Map/Zones")
 	ensurePath("Workspace/Interactables")
 	ensurePath("Workspace/NPCs")
+	ensurePath("Workspace/GeneratedAssets")
 	return map
+end
+
+local function isWorldBuildAction(a)
+	if not a then return false end
+	local t = a.type
+	if t == "terrainFill" or t == "terrainGenerate" or t == "spawn" or t == "insertAsset" or t == "insert_toolbox_asset" then return true end
+	local descriptor = table.concat({ tostring(t or ""), tostring(a.className or ""), tostring(a.name or ""), tostring(a.parent or "") }, " ")
+	return pathHas(descriptor, { "workspace", "map", "city", "world", "terrain", "grass", "ground", "road", "building", "tree", "npc", "prop", "zone" })
+end
+
+local function getInstanceCenter(inst)
+	if not inst or not inst.Parent then return nil end
+	if inst:IsA("Model") then
+		local ok, pivot = pcall(function() return inst:GetPivot() end)
+		if ok and pivot then return pivot.Position end
+	elseif inst:IsA("BasePart") then
+		return inst.Position
+	end
+	return nil
+end
+
+local function findSpawnLocation()
+	for _, desc in ipairs(Workspace:GetDescendants()) do
+		if desc:IsA("SpawnLocation") then return desc end
+	end
+	return nil
+end
+
+local function ensurePersistentWorldAfterInsert(createdInstances)
+	local map = ensureMapStructureIfNeeded()
+	local center = Vector3.new(0, 6, 0)
+	for _, inst in ipairs(createdInstances or {}) do
+		local pos = getInstanceCenter(inst)
+		if pos then center = Vector3.new(pos.X, math.max(pos.Y + 6, 6), pos.Z); break end
+	end
+	local spawn = findSpawnLocation()
+	if not spawn then
+		spawn = Instance.new("SpawnLocation")
+		spawn.Name = "BloxsmithSpawn"
+		spawn.Size = Vector3.new(12, 1, 12)
+		spawn.Anchored = true
+		spawn.CanCollide = true
+		spawn.Neutral = true
+		spawn.AllowTeamChangeOnTouch = false
+		spawn.Material = Enum.Material.Neon
+		spawn.BrickColor = BrickColor.new("Electric blue")
+		spawn.Parent = map
+	end
+	if spawn.Position.Y < 3 then
+		spawn.CFrame = CFrame.new(center)
+	end
+	for _, inst in ipairs(createdInstances or {}) do stabilizeGeneratedInstance(inst) end
+	return spawn
 end
 
 -- Create or overwrite a script (legacy file sync)
