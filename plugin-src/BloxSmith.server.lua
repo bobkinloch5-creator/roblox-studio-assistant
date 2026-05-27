@@ -50,7 +50,7 @@ local function setApiBase(v) plugin:SetSetting("bs_api_base", v) end
 ----------------------------------------------------------------
 -- Toolbar / widget
 ----------------------------------------------------------------
-local PLUGIN_VERSION = "1.4.0"
+local PLUGIN_VERSION = "1.4.1"
 print(string.format("[BloxSmith] plugin loaded v%s — look for the BloxSmith button in the PLUGINS tab.", PLUGIN_VERSION))
 
 local toolbar = plugin:CreateToolbar("BloxSmith")
