@@ -50,6 +50,7 @@ const PROVIDER_KEY_HINTS: Record<ProviderId, string> = {
   anthropic: "sk-ant-... — console.anthropic.com/settings/keys",
   google: "AI... — aistudio.google.com/apikey",
   groq: "gsk_... — console.groq.com/keys",
+  neokens: "Site-wide key managed by admin (NEOKENS_API_KEY)",
 };
 
 export function AiSourceSettings({
