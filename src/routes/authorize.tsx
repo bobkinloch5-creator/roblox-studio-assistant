@@ -31,7 +31,23 @@ export const Route = createFileRoute("/authorize")({
     resource: typeof search.resource === "string" ? search.resource : undefined,
     client_name: typeof search.client_name === "string" ? search.client_name : undefined,
   }),
-  head: () => ({ meta: [{ title: "Authorize MCP Connection — BloxSmith" }] }),
+  head: () => ({
+    meta: [
+      { title: "Authorize MCP Connection — BloxSmith" },
+      {
+        name: "description",
+        content:
+          "Approve an MCP client (Claude.ai, Codex, Cursor and others) to connect to your BloxSmith account via OAuth and build Roblox games on your behalf.",
+      },
+      { property: "og:title", content: "Authorize MCP Connection — BloxSmith" },
+      {
+        property: "og:description",
+        content: "OAuth approval screen for MCP clients connecting to your BloxSmith account.",
+      },
+      { property: "og:url", content: "https://bloxsmith.pro/authorize" },
+    ],
+    links: [{ rel: "canonical", href: "https://bloxsmith.pro/authorize" }],
+  }),
 });
 
 function AuthorizePage() {
