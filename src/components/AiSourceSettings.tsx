@@ -276,7 +276,15 @@ export function AiSourceSettings({
                   </label>
                 </div>
 
+                {provider === "neokens" ? (
+                  <div className="rounded-md border border-primary/30 bg-primary/5 px-3 py-2 text-[11px] text-foreground">
+                    <span className="font-semibold">Neokens</span> uses a shared
+                    site key (<span className="font-mono">NEOKENS_API_KEY</span>) — no
+                    per-user key needed. One balance covers GPT, Claude, and Gemini models.
+                  </div>
+                ) : (
                 <div>
+
                   <div className="flex items-center justify-between">
                     <span className="text-[10px] uppercase tracking-wide text-muted-foreground">
                       {PROVIDER_LABELS[provider]} API key
