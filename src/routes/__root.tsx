@@ -4,7 +4,6 @@ import { Toaster } from "sonner";
 import appCss from "../styles.css?url";
 import { AuthProvider } from "@/lib/auth-context";
 import { ThemeProvider } from "@/hooks/useTheme";
-import { CustomCursor } from "@/components/CustomCursor";
 import { useUnlockAudio } from "@/hooks/useSounds";
 
 function NotFoundComponent() {
