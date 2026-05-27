@@ -6,6 +6,93 @@ export const Route = createFileRoute("/changelog")({
   component: () => {
     const changelogItems = [
       {
+        version: "v2.5.0",
+        date: "May 27, 2026",
+        title: "Full Roblox Creation Assistant",
+        description: "Bloxsmith AI evolves from a script generator into a complete Roblox build agent: maps, GUIs, tools, animations, VFX, full game systems, and procedural worlds — all placed correctly inside Studio.",
+        updates: [
+          {
+            category: "AI",
+            tagColor: "bg-violet-500/10 text-violet-400 border-violet-500/20",
+            icon: Wand2,
+            title: "Six New Build Modes",
+            detail: "Added Animation Helper, VFX Builder, Game System Builder, Procedural Generator, Toolbox Finder, and Finish My Game modes. Each ships with deep implementation guides so the AI builds the right thing the first time."
+          },
+          {
+            category: "AI",
+            tagColor: "bg-violet-500/10 text-violet-400 border-violet-500/20",
+            icon: Boxes,
+            title: "Procedural World Generation",
+            detail: "Ask for an obby, mining sim, forest, city block, lobby, tycoon, or cave system and the AI generates the full scene with zones, parts, materials, NPCs, and gameplay logic in one batch."
+          },
+          {
+            category: "AI",
+            tagColor: "bg-amber-500/10 text-amber-400 border-amber-500/20",
+            icon: Layers,
+            title: "Placement Mandate Across All Studio Services",
+            detail: "Every generated item now lands in the correct service — Workspace, ServerScriptService, ReplicatedStorage, ServerStorage, StarterGui, StarterPack, StarterPlayer, Lighting, SoundService, Teams — inside a clean folder structure. No more loose scripts in Workspace."
+          },
+          {
+            category: "AI",
+            tagColor: "bg-amber-500/10 text-amber-400 border-amber-500/20",
+            icon: FolderKanban,
+            title: "Structured Response Contract",
+            detail: "Every build now reports What, How, Where, Test Steps, Safety Notes, and a suggested Next Task — so you always know exactly what landed and where."
+          }
+        ]
+      },
+      {
+        version: "v2.4.0",
+        date: "May 27, 2026",
+        title: "Real Toolbox Assets & Map Insertion",
+        description: "The AI can now find and insert real free assets from the Roblox creator marketplace — maps, models, props, and full scenes.",
+        updates: [
+          {
+            category: "AI Tools",
+            tagColor: "bg-emerald-500/10 text-emerald-400 border-emerald-500/20",
+            icon: Map,
+            title: "Real Map & Asset Insertion",
+            detail: "Switched to the unauthenticated toolbox-service endpoint so asset lookups work from our serverless backend. Results are ranked by popularity (upvote percent × vote count) for better picks."
+          },
+          {
+            category: "AI Tools",
+            tagColor: "bg-emerald-500/10 text-emerald-400 border-emerald-500/20",
+            icon: Package,
+            title: "Map Intent Safety Net",
+            detail: "When you ask for a map, world, lobby, or city and no toolbox insert was queued, the AI now auto-searches and queues a free, script-scanned asset insertion so you never get an empty result."
+          },
+          {
+            category: "Security",
+            tagColor: "bg-pink-500/10 text-pink-400 border-pink-500/20",
+            icon: ShieldCheck,
+            title: "Free + Script-Scanned by Default",
+            detail: "Auto-inserted toolbox assets are restricted to free items and pass through the quarantine scanner that strips malicious scripts before they touch your place."
+          }
+        ]
+      },
+      {
+        version: "v2.3.0",
+        date: "May 27, 2026",
+        title: "Smarter Models & UI/GUI Generation",
+        description: "Hardened model routing so every Bloxsmith model has the right tokens and capabilities for the job — including full UI, GUI, and animation generation.",
+        updates: [
+          {
+            category: "AI",
+            tagColor: "bg-cyan-500/10 text-cyan-400 border-cyan-500/20",
+            icon: Sparkles,
+            title: "UI & GUI Animation Generation",
+            detail: "Bloxsmith can now design and code complete GUIs with TweenService animations, hover states, and polished layouts — not just gameplay scripts."
+          },
+          {
+            category: "Backend",
+            tagColor: "bg-amber-500/10 text-amber-400 border-amber-500/20",
+            icon: Wrench,
+            title: "Per-Model Token Tuning",
+            detail: "Every model now ships with the right context window and output token budget for its tier, so long builds no longer get truncated mid-script."
+          }
+        ]
+      },
+      {
         version: "v2.2.0",
         date: "May 26, 2026",
         title: "MCP Servers & Promote-to-Earn",
