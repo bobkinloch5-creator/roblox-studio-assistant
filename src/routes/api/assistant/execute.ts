@@ -1436,7 +1436,10 @@ export const Route = createFileRoute("/api/assistant/execute")({
                 for (let i = 0; i < attempts.length; i++) {
                   const att = attempts[i];
                   const built = buildContextBlock(att.level, ctxInputs);
-                  const useSlim = att.level >= 2;
+                  // Default to the slim prompt for speed; only use the full prompt
+                  // in thinking mode or as a fallback escalation (level >= 2 already
+                  // uses slim anyway). Cuts ~5-10k input tokens per call.
+                  const useSlim = thinking ? att.level >= 2 : true;
                   const baseSystem = useSlim ? SLIM_SYSTEM_PROMPT : SYSTEM_PROMPT;
                   const baseSystemTokens = useSlim ? slimSystemTokens : systemTokens;
                   const promptTokens =
