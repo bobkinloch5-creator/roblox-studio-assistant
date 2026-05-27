@@ -381,6 +381,7 @@ function ProjectEditor() {
   const [credits, setCredits] = useState<number | null>(null);
   const GENERATE_COST = 3;
   const outOfCredits = credits !== null && credits < GENERATE_COST;
+  const [aiMode, setAiMode] = useState<string>("build");
   const runAI = useServerFn(generateWithAI);
   const runFixErrors = useServerFn(fixErrorsWithAI);
   const runAutopilot = useServerFn(autopilotBuild);
@@ -1010,6 +1011,7 @@ function ProjectEditor() {
           autoExecute: autoExecute && !planMode,
           studioConnected: aiContext?.updatedAt != null,
           thinking,
+          aiMode,
         }),
       });
 
