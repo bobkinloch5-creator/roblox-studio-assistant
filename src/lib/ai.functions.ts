@@ -174,6 +174,7 @@ export const generateWithAI = createServerFn({ method: "POST" })
     const { generateText, Output, stepCountIs } = await import("ai");
     const { SYSTEM_PROMPT } = await import("./ai-gateway.server");
     const { getModelProfile, resolveAiGateway } = await import("./ai-providers.server");
+    const { buildProjectMemoryBlock, rememberProjectInteraction } = await import("./ai-memory.server");
 
     const { buildBloxSmithTools } = await import("./ai-tools.server");
 
@@ -207,7 +208,7 @@ export const generateWithAI = createServerFn({ method: "POST" })
       heavyBuild: isComplex,
     });
 
-    const [liveContextResult, allFilesResult] = await Promise.all([
+    const [liveContextResult, allFilesResult, memoryBlock] = await Promise.all([
       supabase
         .from("plugin_context")
         .select("context,instance_count,updated_at")
@@ -218,6 +219,7 @@ export const generateWithAI = createServerFn({ method: "POST" })
         .select("path,file_type,service_location,content")
         .eq("project_id", projectId)
         .limit(isComplex ? 120 : 80),
+      buildProjectMemoryBlock(supabase, projectId, { limit: 10, maxChars: isComplex ? 1400 : 900 }),
     ]);
     const liveContext = liveContextResult.data;
     const allFiles = allFilesResult.data;
@@ -271,7 +273,8 @@ export const generateWithAI = createServerFn({ method: "POST" })
 
     let result: { message: string; files: GenFile[]; actions: GenAction[] };
     try {
-      const fullPrompt = `${liveBlock}\n\nFULL PROJECT FILE MAP (${(allFiles ?? []).length} files — every file your project has, by location):\n${projectMap || "  (no files yet)"}\n\nRelevant project files (with content preview):\n${filesBlock || "(none indexed)"}\n\nUser request:\n${prompt}\n\nRules:\n- You have FULL AWARENESS of the project above. Reference real files by path. NEVER duplicate something that already exists — MODIFY it.\n- Organize new files into clean subfolders by feature (e.g. ServerScriptService/Combat/HitService, ReplicatedStorage/Modules/Config, StarterPlayerScripts/UI/Hud). Do NOT dump everything at the root of a service.\n- Place server Scripts in ServerScriptService, LocalScripts in StarterPlayerScripts or StarterGui, GUIs in StarterGui, RemoteEvents/RemoteFunctions in ReplicatedStorage/Remotes, ModuleScripts in ReplicatedStorage/Modules (shared) or ServerStorage/Modules (server-only), Tools in StarterPack, physical/world objects in Workspace.\n- For ground/landscape requests (grass, sand, snow, water, hills, islands), use real Roblox Terrain via the \`terrainFill\` action. NEVER spawn hundreds of thin Parts.\n- Do NOT claim success — phrase as "Queued for Studio…".\n- If the request is a casual question (no code changes), reply naturally in 'message' with empty 'files' and 'actions'.\n- Use tools (web_search, roblox_asset_*, fetch_url) ONLY when you genuinely need fresh info — every tool call slows you down.\n\nReturn the JSON object as specified.`;
+      const fullPrompt = `${memoryBlock ? `${memoryBlock}\n\n` : ""}${liveBlock}\n\nFULL PROJECT FILE MAP (${(allFiles ?? []).length} files - every file your project has, by location):\n${projectMap || "  (no files yet)"}\n\nRelevant project files (with content preview):\n${filesBlock || "(none indexed)"}\n\nUser request:\n${prompt}\n\nRules:\n- You have FULL AWARENESS of the project above. Reference real files by path. NEVER duplicate something that already exists - MODIFY it.\n- Use PROJECT MEMORY for durable preferences, naming, genre, and recent context. If memory conflicts with live files or the user's latest request, obey the latest request and live project state.
+- Organize new files into clean subfolders by feature (e.g. ServerScriptService/Combat/HitService, ReplicatedStorage/Modules/Config, StarterPlayerScripts/UI/Hud). Do NOT dump everything at the root of a service.\n- Place server Scripts in ServerScriptService, LocalScripts in StarterPlayerScripts or StarterGui, GUIs in StarterGui, RemoteEvents/RemoteFunctions in ReplicatedStorage/Remotes, ModuleScripts in ReplicatedStorage/Modules (shared) or ServerStorage/Modules (server-only), Tools in StarterPack, physical/world objects in Workspace.\n- For ground/landscape requests (grass, sand, snow, water, hills, islands), use real Roblox Terrain via the \`terrainFill\` action. NEVER spawn hundreds of thin Parts.\n- Do NOT claim success - phrase as "Queued for Studio...".\n- If the request is a casual question (no code changes), reply naturally in 'message' with empty 'files' and 'actions'.\n- Use tools (web_search, roblox_asset_*, fetch_url) ONLY when you genuinely need fresh info - every tool call slows you down.\n\nReturn the JSON object as specified.`;
       const { generateTextWithToolFallback } = await import("./ai-retry.server");
       const builtInTools = pickGenerationTools(prompt, buildBloxSmithTools({ userId }) as Record<string, any>);
       const mcpTools = shouldLoadUserMcpTools(prompt)
@@ -372,6 +375,13 @@ export const generateWithAI = createServerFn({ method: "POST" })
       })
       .select("id")
       .single();
+
+    await rememberProjectInteraction(supabase, {
+      projectId,
+      userId,
+      prompt,
+      result: { message: result.message, files: result.files, actions: queued },
+    });
 
     // Preview mode → stop here. The client renders the breakdown and asks
     // the user to confirm before anything is written or queued to Studio.
@@ -563,6 +573,7 @@ export const planBuild = createServerFn({ method: "POST" })
 
     const { generateText } = await import("ai");
     const { resolveBuiltInGateway } = await import("./ai-providers.server");
+    const { buildProjectMemoryBlock, rememberProjectInteraction } = await import("./ai-memory.server");
     let model;
     try {
       model = resolveBuiltInGateway({ kind: "fast", thinking }).model;
@@ -575,7 +586,7 @@ export const planBuild = createServerFn({ method: "POST" })
       throw e;
     }
 
-    const [liveContextResult, existingFilesResult] = await Promise.all([
+    const [liveContextResult, existingFilesResult, memoryBlock] = await Promise.all([
       supabase
         .from("plugin_context")
         .select("context,updated_at")
@@ -586,6 +597,7 @@ export const planBuild = createServerFn({ method: "POST" })
         .select("path,file_type,service_location")
         .eq("project_id", projectId)
         .limit(40),
+      buildProjectMemoryBlock(supabase, projectId, { limit: 8, maxChars: 900 }),
     ]);
     const liveContext = liveContextResult.data;
     const existingFiles = existingFilesResult.data;
@@ -626,7 +638,7 @@ Keep it under ~400 words. Be specific to the user's request and existing project
 
     let text = "";
     try {
-      const planUserText = `${liveBlock}\n\nExisting project files:\n${filesBlock || "(none)"}\n\nUser request:\n${prompt}`;
+      const planUserText = `${memoryBlock ? `${memoryBlock}\n\n` : ""}${liveBlock}\n\nExisting project files:\n${filesBlock || "(none)"}\n\nUser request:\n${prompt}`;
       const { text: out } = await generateText({
         model,
         system: planSystem,
@@ -636,6 +648,12 @@ Keep it under ~400 words. Be specific to the user's request and existing project
         timeout: { totalMs: thinking ? 18_000 : 12_000 },
       });
       text = out;
+      await rememberProjectInteraction(supabase, {
+        projectId,
+        userId,
+        prompt,
+        result: { message: `Plan generated: ${out.slice(0, 220)}`, files: [], actions: [] },
+      });
     } catch (err: any) {
       if (!isOwner)
         await supabase.rpc("refund_credits", {
@@ -724,6 +742,7 @@ export const chatWithAI = createServerFn({ method: "POST" })
 
     const { getModelProfile, recordProviderHealth, resolveAiGateway, resolveBuiltInGateway } = await import("./ai-providers.server");
     const { ROBLOX_KNOWLEDGE_PROMPT } = await import("./roblox-knowledge");
+    const { buildProjectMemoryBlock, rememberProjectInteraction } = await import("./ai-memory.server");
     let resolved;
     try {
       resolved = await resolveAiGateway({
@@ -746,12 +765,18 @@ export const chatWithAI = createServerFn({ method: "POST" })
 
     // Light project context so chat answers stay relevant.
     let projectBlock = "";
+    let memoryBlock = "";
     if (projectId) {
-      const { data: existingFiles } = await supabase
-        .from("project_files")
-        .select("path,file_type,service_location")
-        .eq("project_id", projectId)
-        .limit(60);
+      const [existingFilesResult, loadedMemory] = await Promise.all([
+        supabase
+          .from("project_files")
+          .select("path,file_type,service_location")
+          .eq("project_id", projectId)
+          .limit(60),
+        buildProjectMemoryBlock(supabase, projectId, { limit: 10, maxChars: 1200 }),
+      ]);
+      const existingFiles = existingFilesResult.data;
+      memoryBlock = loadedMemory;
       if (existingFiles && existingFiles.length > 0) {
         projectBlock =
           "\n\nProject files (for context only - DO NOT modify them):\n" +
@@ -774,8 +799,9 @@ CHAT MODE RULES - never break these:
 - Keep answers focused. If something is best built (not chatted about), say so and suggest switching off Chat mode.
 - VISION: When the user attaches screenshots of Roblox Studio, their game, error popups, or reference images, analyze them in detail. Call out broken hierarchies, missing services, malformed Luau, UI layout issues, lighting/material problems, and red error text by exact wording. Tie every observation back to a concrete fix the user can apply.
 - MCP CONTEXT: If the user has connected MCP servers (Roblox docs, n8n, custom tools), reference relevant facts those servers expose. Cite which server you're drawing from so the user can trust the answer.
+- MEMORY: Use project memory for durable preferences, names, genre, style, and recent context. If it conflicts with the user's latest message or live project files, follow the latest message and live state.
 
-${ROBLOX_KNOWLEDGE_PROMPT}${includeProject ? projectBlock : ""}`;
+${ROBLOX_KNOWLEDGE_PROMPT}${includeProject && memoryBlock ? `\n\n${memoryBlock}` : ""}${includeProject ? projectBlock : ""}`;
 
     type Part = { type: "text"; text: string } | { type: "image"; image: string };
     type ChatModel = Parameters<typeof generateText>[0]["model"];
@@ -960,6 +986,14 @@ ${ROBLOX_KNOWLEDGE_PROMPT}${includeProject ? projectBlock : ""}`;
 
       if (!text && lastErr) throw lastErr;
       if (!text) throw new Error("The AI returned an empty chat response.");
+      if (projectId) {
+        await rememberProjectInteraction(supabase, {
+          projectId,
+          userId,
+          prompt,
+          result: { message: text, files: [], actions: [] },
+        });
+      }
     } catch (err: unknown) {
       if (!isOwner)
         await supabase.rpc("refund_credits", {
@@ -1058,6 +1092,7 @@ export const fixErrorsWithAI = createServerFn({ method: "POST" })
     const { generateText, Output, stepCountIs } = await import("ai");
     const { resolveBuiltInGateway } = await import("./ai-providers.server");
     const { buildBloxSmithTools } = await import("./ai-tools.server");
+    const { buildProjectMemoryBlock, rememberProjectInteraction } = await import("./ai-memory.server");
 
     let model;
     try {
@@ -1071,7 +1106,7 @@ export const fixErrorsWithAI = createServerFn({ method: "POST" })
       throw e;
     }
 
-    const [liveContextResult, existingFilesResult] = await Promise.all([
+    const [liveContextResult, existingFilesResult, memoryBlock] = await Promise.all([
       supabase
         .from("plugin_context")
         .select("context,instance_count,updated_at")
@@ -1082,6 +1117,7 @@ export const fixErrorsWithAI = createServerFn({ method: "POST" })
         .select("path,file_type,service_location,content")
         .eq("project_id", projectId)
         .limit(60),
+      buildProjectMemoryBlock(supabase, projectId, { limit: 8, maxChars: 1000 }),
     ]);
     const liveContext = liveContextResult.data;
     const existingFiles = existingFilesResult.data;
@@ -1126,7 +1162,7 @@ Respond ONLY with the JSON object specified.`;
       const { text: rawText } = await generateTextWithToolFallback(generateText, {
         model,
         system: FIX_SYSTEM,
-        prompt: `STUDIO OUTPUT LOGS:\n\`\`\`\n${logs}\n\`\`\`\n\n${liveBlock}\n\nProject files in DB:\n${filesBlock || "(empty)"}\n\nThink step-by-step. Use web_search / fetch_url if you need to look up a Roblox API to fix the error. Then patch the broken files now.`,
+        prompt: `STUDIO OUTPUT LOGS:\n\`\`\`\n${logs}\n\`\`\`\n\n${memoryBlock ? `${memoryBlock}\n\n` : ""}${liveBlock}\n\nProject files in DB:\n${filesBlock || "(empty)"}\n\nThink step-by-step. Use web_search / fetch_url if you need to look up a Roblox API to fix the error. Then patch the broken files now.`,
         tools: pickGenerationTools(logs, buildBloxSmithTools({ userId }) as Record<string, any>) as any,
         stopWhen: stepCountIs(8),
         maxRetries: 0,
@@ -1142,6 +1178,12 @@ Respond ONLY with the JSON object specified.`;
       }
       result.files = result.files ?? [];
       result.actions = result.actions ?? [];
+      await rememberProjectInteraction(supabase, {
+        projectId,
+        userId,
+        prompt: `Fix errors: ${logs.slice(0, 700)}`,
+        result: { message: result.message, files: result.files, actions: result.actions },
+      });
     } catch (err: any) {
       if (!isOwner)
         await supabase.rpc("refund_credits", { _amount: cost, _reason: "ai fix failed" });

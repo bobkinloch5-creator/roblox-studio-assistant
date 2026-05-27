@@ -26,6 +26,16 @@ const checks = [
     must: [/pickGenerationTools/, /shouldLoadUserMcpTools/, /maxRetries:\s*0/, /Promise\.all/, /timeout:\s*\{/],
   },
   {
+    name: "Project memory is persisted and injected into AI prompts",
+    file: "src/lib/ai-memory.server.ts",
+    must: [/project_ai_memories/, /rememberProjectInteraction/, /buildProjectMemoryBlock/, /extractProjectMemories/],
+  },
+  {
+    name: "Build API uses persistent project memory",
+    file: "src/routes/api/assistant/execute.ts",
+    must: [/buildProjectMemoryBlock/, /rememberProjectInteraction/, /memoryBlock/, /PROJECT MEMORY/],
+  },
+  {
     name: "Roblox safety validation blocks common backdoors",
     file: "src/lib/sync-validation.ts",
     must: [/BACKDOOR_PATTERNS/, /require\\s\*\\\(/, /loadstring/, /InsertService/],

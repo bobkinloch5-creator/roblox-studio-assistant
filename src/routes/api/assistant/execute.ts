@@ -15,6 +15,7 @@ import {
 } from "@/lib/ai-gateway.server";
 import { getModelProfile, recordProviderHealth, resolveAiGateway } from "@/lib/ai-providers.server";
 import { buildBloxSmithTools } from "@/lib/ai-tools.server";
+import { buildProjectMemoryBlock, rememberProjectInteraction } from "@/lib/ai-memory.server";
 
 // ---------- Prompt-size protection helpers ----------
 // Rough token estimate: 1 token ≈ 4 chars of English. Good enough for budgeting.
@@ -103,6 +104,7 @@ type ContextInputs = {
   files: DbFile[];
   history: { role: "user" | "assistant"; content: string }[];
   keywords: string[];
+  memoryBlock?: string;
 };
 
 function buildContextBlock(level: 0 | 1 | 2 | 3, inp: ContextInputs): {
@@ -119,6 +121,7 @@ function buildContextBlock(level: 0 | 1 | 2 | 3, inp: ContextInputs): {
   if (level === 3) {
     const contextBlock =
       `Studio plugin status: ${inp.studioConnected ? "connected" : "not connected"}.\n\n` +
+      (inp.memoryBlock ? `${inp.memoryBlock.slice(0, 700)}\n\n` : "") +
       `User request:\n${inp.prompt}\n\n` +
       `Return ONLY the strict JSON object from the output contract.`;
     return { contextBlock, trimmedHistory: [], filesIncluded: 0 };
@@ -150,6 +153,7 @@ function buildContextBlock(level: 0 | 1 | 2 | 3, inp: ContextInputs): {
   const contextBlock =
     `${liveBlock}\n\n` +
     `Studio plugin status: ${inp.studioConnected ? "connected" : "not connected"}.\n\n` +
+    (inp.memoryBlock ? `${inp.memoryBlock}\n\n` : "") +
     `Relevant project files:\n${filesBlock}\n\n` +
     `User request:\n${inp.prompt}\n\n` +
     `Return ONLY the strict JSON object from the output contract.`;
@@ -1688,7 +1692,7 @@ export const Route = createFileRoute("/api/assistant/execute")({
               try {
                 const gateway = apiKey ? createGroqProvider(apiKey) : null;
 
-                const [liveContextResult, existingFilesResult, convoRowResult] = await Promise.all([
+                const [liveContextResult, existingFilesResult, convoRowResult, memoryBlock] = await Promise.all([
                   supabaseUser
                     .from("plugin_context")
                     .select("context,instance_count,updated_at")
@@ -1706,6 +1710,7 @@ export const Route = createFileRoute("/api/assistant/execute")({
                     .order("created_at", { ascending: true })
                     .limit(1)
                     .maybeSingle(),
+                  buildProjectMemoryBlock(supabaseUser, projectId, { limit: 10, maxChars: 1200 }),
                 ]);
                 const liveContext = liveContextResult.data;
                 const existingFiles = existingFilesResult.data;
@@ -1758,6 +1763,7 @@ export const Route = createFileRoute("/api/assistant/execute")({
                   files: (existingFiles ?? []) as DbFile[],
                   history,
                   keywords,
+                  memoryBlock,
                 };
 
                 // Build attempts. For external API-key sources we use a
@@ -1851,7 +1857,7 @@ export const Route = createFileRoute("/api/assistant/execute")({
                   try {
                     const systemWithRules = (projectRules
                       ? `${baseSystem}\n\n=== PROJECT-SPECIFIC RULES (override defaults) ===\n${projectRules}`
-                      : baseSystem) + (modeAddendum ? `\n\n${modeAddendum}` : "");
+                      : baseSystem) + "\n\nUse PROJECT MEMORY for persistent preferences, game name, style, genre, and recent context. If it conflicts with live project files or the latest user request, obey the latest request and live state." + (modeAddendum ? `\n\n${modeAddendum}` : "");
                     const { generateTextWithToolFallback, extractToolActivity } = await import("@/lib/ai-retry.server");
                     // Per-model output-token cap. Each provider/model family has a
                     // hard max_completion_tokens. Asking for more than the cap
@@ -2248,6 +2254,13 @@ export const Route = createFileRoute("/api/assistant/execute")({
               }
             }
           }
+
+          await rememberProjectInteraction(supabaseUser, {
+            projectId,
+            userId,
+            prompt,
+            result: { message: result.message, files: result.files, actions: queued },
+          });
 
           const { scoreGeneration } = await import("@/lib/ai-quality");
           const quality = scoreGeneration(result.files as any, queued as any);
