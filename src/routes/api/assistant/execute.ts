@@ -1976,8 +1976,16 @@ export const Route = createFileRoute("/api/assistant/execute")({
           result.files = validation.files as any;
           const validatedActions = validation.actions as any;
 
-          // Build final action queue (files as script actions + validated custom actions)
+          // Build final action queue.
+          // IMPORTANT: run create/structure actions FIRST so containers like
+          // ScreenGui/Tool/Folder exist before scripts get parented into them.
+          // Otherwise the plugin's script handler auto-creates a plain Folder
+          // at that path (e.g. StarterGui/LoadingScreen becomes a Folder, not
+          // a ScreenGui), and the LoadingScreen never renders in-game.
           const queued: GenAction[] = [];
+          for (const a of validatedActions) {
+            queued.push(a);
+          }
           for (const f of result.files) {
             const segments = f.path.split("/");
             const name = segments[segments.length - 1];
@@ -1989,9 +1997,7 @@ export const Route = createFileRoute("/api/assistant/execute")({
               source: f.content,
             });
           }
-          for (const a of validatedActions) {
-            queued.push(a);
-          }
+
 
           // Detect dangerous actions
           const dangers = detectDangerousActions(result.files, queued);
