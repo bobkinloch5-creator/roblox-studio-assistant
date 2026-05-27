@@ -1,15 +1,18 @@
 import { useEffect, useState } from "react";
 import { Link } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
-import { Loader2, Key, Server, Check, X, Plug, ExternalLink, AlertCircle } from "lucide-react";
+import { Loader2, Key, Server, Check, X, Eye, EyeOff, Plug, ExternalLink, AlertCircle } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import {
   getProjectAiConfig,
   saveProjectAiSettings,
+  saveProviderKey,
+  clearProviderKey,
 } from "@/lib/project-ai.functions";
 import { SITE_PROVIDER_LABELS, SITE_PROVIDER_MODELS, type SiteProviderId } from "@/lib/ai-models";
 
 type SiteOnlyProviderId = SiteProviderId;
+type ProviderId = SiteOnlyProviderId;
 type Mode = "mcp" | "api_key";
 const isSiteProvider = (value: unknown): value is SiteOnlyProviderId =>
   value === "groq" || value === "neokens";
@@ -40,6 +43,11 @@ const PROVIDER_MODELS: Record<ProviderId, string[]> = {
 };
 
 const SITE_ONLY_PROVIDERS: SiteOnlyProviderId[] = ["groq", "neokens"];
+
+const PROVIDER_KEY_HINTS: Record<ProviderId, string> = {
+  groq: "Site-wide free key managed by admin (GROQ_API_KEY)",
+  neokens: "Site-wide key managed by admin (NEOKENS_API_KEY)",
+};
 
 export function AiSourceSettings({
   projectId,
