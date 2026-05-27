@@ -243,8 +243,19 @@ function useLiveStats() {
   });
 }
 
+function useFeaturedCreator() {
+  const fetchFeatured = useServerFn(getFeaturedCreator);
+  return useQuery({
+    queryKey: ["featured-creator"],
+    queryFn: () => fetchFeatured(),
+    staleTime: 10 * 60_000,
+  });
+}
+
 function Landing() {
   const { data: live } = useLiveStats();
+  const { data: featuredRes } = useFeaturedCreator();
+  const featured = featuredRes?.featured ?? null;
   const stats = live
     ? [
         { value: compact(live.scripts), label: "Scripts generated" },
