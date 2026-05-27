@@ -19,7 +19,7 @@ export const Route = createFileRoute("/ideas")({
       {
         name: "description",
         content:
-          "Generate fresh, buildable Roblox game ideas across 11 categories. Every idea ships with a gameplay loop, features, monetization plan and a one-click Build button.",
+          "Generate fresh, buildable Roblox game ideas across 11 categories. Each idea ships with a gameplay loop, features, monetization and a one-click Build button.",
       },
       { property: "og:title", content: "BloxSmith Game Idea Generator" },
       {
