@@ -38,6 +38,8 @@ import { CREDIT_PACKS } from "@/lib/credits";
 import { useServerFn } from "@tanstack/react-start";
 import { useQuery } from "@tanstack/react-query";
 import { getPublicStats } from "@/lib/stats.functions";
+import { getFeaturedCreator } from "@/lib/showcase.functions";
+import { Heart, GitFork } from "lucide-react";
 
 const showcase = [
   {
@@ -241,8 +243,19 @@ function useLiveStats() {
   });
 }
 
+function useFeaturedCreator() {
+  const fetchFeatured = useServerFn(getFeaturedCreator);
+  return useQuery({
+    queryKey: ["featured-creator"],
+    queryFn: () => fetchFeatured(),
+    staleTime: 10 * 60_000,
+  });
+}
+
 function Landing() {
   const { data: live } = useLiveStats();
+  const { data: featuredRes } = useFeaturedCreator();
+  const featured = featuredRes?.featured ?? null;
   const stats = live
     ? [
         { value: compact(live.scripts), label: "Scripts generated" },
@@ -432,6 +445,80 @@ function Landing() {
           </div>
         </div>
       </section>
+
+      {/* FEATURED CREATOR — top showcased project of the week */}
+      {featured && (
+        <section className="mx-auto max-w-7xl px-4 sm:px-6 pt-16">
+          <div className="max-w-2xl mx-auto text-center">
+            <div className="inline-flex items-center gap-1.5 rounded-full glass px-3 py-1 text-xs text-muted-foreground">
+              <Trophy className="h-3 w-3 text-primary-glow" />
+              {featured.window === "weekly" ? "Featured this week" : "Top of the showcase"}
+            </div>
+            <h2 className="mt-4 text-3xl sm:text-4xl font-bold">Creator spotlight</h2>
+            <p className="text-muted-foreground mt-3">
+              The most-loved community build right now. Tap to play or remix.
+            </p>
+          </div>
+          <Link
+            to="/showcase/$projectId"
+            params={{ projectId: featured.projectId }}
+            className="mt-10 group block max-w-5xl mx-auto rounded-3xl glass-strong gradient-border overflow-hidden hover:shadow-[0_30px_80px_-20px_hsl(var(--primary)/0.45)] transition"
+          >
+            <div className="grid md:grid-cols-2">
+              <div className="relative aspect-[4/3] md:aspect-auto md:min-h-[320px] overflow-hidden bg-surface">
+                {featured.thumbnailUrl ? (
+                  <img
+                    src={featured.thumbnailUrl}
+                    alt={featured.title}
+                    loading="lazy"
+                    className="h-full w-full object-cover transition duration-700 group-hover:scale-105"
+                  />
+                ) : (
+                  <div className="h-full w-full grid place-items-center bg-gradient-to-br from-primary/20 to-primary-glow/10">
+                    <Gamepad2 className="h-16 w-16 text-primary-glow/60" />
+                  </div>
+                )}
+                <div className="absolute inset-0 bg-gradient-to-t from-background/80 via-transparent to-transparent md:bg-gradient-to-r md:from-transparent md:via-transparent md:to-background/30 pointer-events-none" />
+              </div>
+              <div className="p-6 sm:p-8 flex flex-col justify-center gap-4">
+                <div className="flex items-center gap-3">
+                  {featured.creator?.avatarUrl ? (
+                    <img
+                      src={featured.creator.avatarUrl}
+                      alt={featured.creator.displayName ?? "Creator"}
+                      className="h-9 w-9 rounded-full ring-2 ring-primary/40 object-cover"
+                    />
+                  ) : (
+                    <div className="h-9 w-9 rounded-full bg-primary/20 grid place-items-center">
+                      <Users className="h-4 w-4 text-primary-glow" />
+                    </div>
+                  )}
+                  <div className="text-xs text-muted-foreground">
+                    By <span className="text-foreground font-medium">{featured.creator?.displayName ?? "A BloxSmith creator"}</span>
+                  </div>
+                </div>
+                <h3 className="text-2xl sm:text-3xl font-bold tracking-tight">{featured.title}</h3>
+                {featured.description && (
+                  <p className="text-sm text-muted-foreground line-clamp-4">{featured.description}</p>
+                )}
+                <div className="flex items-center gap-4 text-xs text-muted-foreground pt-1">
+                  <span className="inline-flex items-center gap-1">
+                    <Heart className="h-3.5 w-3.5 text-rose-400" /> {featured.likes} like{featured.likes === 1 ? "" : "s"}
+                  </span>
+                  <span className="inline-flex items-center gap-1">
+                    <GitFork className="h-3.5 w-3.5 text-primary-glow" /> {featured.remixes} remix{featured.remixes === 1 ? "" : "es"}
+                  </span>
+                </div>
+                <div className="pt-2">
+                  <span className="inline-flex items-center gap-1.5 rounded-full bg-primary/15 border border-primary/30 px-3 py-1.5 text-xs font-medium text-primary-glow group-hover:bg-primary/25 transition">
+                    View & remix <ArrowRight className="h-3.5 w-3.5" />
+                  </span>
+                </div>
+              </div>
+            </div>
+          </Link>
+        </section>
+      )}
 
       {/* SHOWCASE GALLERY */}
       <section className="mx-auto max-w-7xl px-4 sm:px-6 py-16">
