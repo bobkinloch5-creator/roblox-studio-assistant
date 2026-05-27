@@ -562,10 +562,10 @@ function ProjectEditor() {
         setConvoId(cid);
         const { data: msgs } = await supabase
           .from("agent_messages")
-          .select("id,role,content")
+          .select("id,role,content,actions")
           .eq("conversation_id", cid)
           .order("created_at", { ascending: true });
-        setMessages((msgs ?? []).map((m: any) => ({ id: m.id, role: m.role, content: m.content })));
+        setMessages((msgs ?? []).map((m: any) => ({ id: m.id, role: m.role, content: m.content, actions: m.actions })));
       }
     })();
   }, [user, projectId]);
@@ -575,10 +575,10 @@ function ProjectEditor() {
     setShowHistory(false);
     const { data: msgs } = await supabase
       .from("agent_messages")
-      .select("id,role,content")
+      .select("id,role,content,actions")
       .eq("conversation_id", cid)
       .order("created_at", { ascending: true });
-    setMessages((msgs ?? []).map((m: any) => ({ id: m.id, role: m.role, content: m.content })));
+    setMessages((msgs ?? []).map((m: any) => ({ id: m.id, role: m.role, content: m.content, actions: m.actions })));
   };
 
   const newChat = async () => {
