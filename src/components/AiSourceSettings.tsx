@@ -95,6 +95,31 @@ export function AiSourceSettings({
   const [showKey, setShowKey] = useState(false);
   const [busy, setBusy] = useState<string | null>(null);
   const [toast, setToast] = useState<{ kind: "ok" | "err"; text: string } | null>(null);
+  const [mcpServers, setMcpServers] = useState<McpRow[]>([]);
+  const [mcpLoading, setMcpLoading] = useState(true);
+  const [mcpBusy, setMcpBusy] = useState<string | null>(null);
+
+  const loadMcp = async () => {
+    setMcpLoading(true);
+    const { data } = await supabase
+      .from("user_mcp_servers")
+      .select("id,name,url,enabled,last_test_ok,tool_count")
+      .order("created_at", { ascending: false });
+    setMcpServers((data as McpRow[]) ?? []);
+    setMcpLoading(false);
+  };
+
+  const toggleMcp = async (s: McpRow) => {
+    setMcpBusy(s.id);
+    const { error } = await supabase
+      .from("user_mcp_servers")
+      .update({ enabled: !s.enabled })
+      .eq("id", s.id);
+    setMcpBusy(null);
+    if (error) return flash("err", error.message);
+    setMcpServers((prev) => prev.map((x) => (x.id === s.id ? { ...x, enabled: !x.enabled } : x)));
+  };
+
 
   const load = async () => {
     setLoading(true);
