@@ -1586,8 +1586,11 @@ export const Route = createFileRoute("/api/assistant/execute")({
                         // fall through
                       }
                     }
-                    if (!isTooLarge && i < attempts.length - 1) continue;
-                    if (i === attempts.length - 1) break;
+                    // Only escalate to the next attempt when the failure was a
+                    // token / context-size error. Unrelated errors (network, JSON
+                    // parse, model 500) don't benefit from a 2nd slow round-trip.
+                    if (isTooLarge && i < attempts.length - 1) continue;
+                    break;
                   }
                 }
 
