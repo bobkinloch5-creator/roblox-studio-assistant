@@ -13,6 +13,7 @@ import { Route as TermsRouteImport } from './routes/terms'
 import { Route as TemplatesRouteImport } from './routes/templates'
 import { Route as SitemapDotxmlRouteImport } from './routes/sitemap[.]xml'
 import { Route as SignupRouteImport } from './routes/signup'
+import { Route as ShowcaseRouteImport } from './routes/showcase'
 import { Route as PrivacyRouteImport } from './routes/privacy'
 import { Route as PricingRouteImport } from './routes/pricing'
 import { Route as PluginRouteImport } from './routes/plugin'
@@ -28,6 +29,7 @@ import { Route as AuthorizeRouteImport } from './routes/authorize'
 import { Route as AdminRouteImport } from './routes/admin'
 import { Route as AccountRouteImport } from './routes/account'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as ShowcaseProjectIdRouteImport } from './routes/showcase.$projectId'
 import { Route as ProjectProjectIdRouteImport } from './routes/project.$projectId'
 import { Route as CheckoutCustomRouteImport } from './routes/checkout.custom'
 import { Route as CheckoutPackRouteImport } from './routes/checkout.$pack'
@@ -66,6 +68,11 @@ const SitemapDotxmlRoute = SitemapDotxmlRouteImport.update({
 const SignupRoute = SignupRouteImport.update({
   id: '/signup',
   path: '/signup',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ShowcaseRoute = ShowcaseRouteImport.update({
+  id: '/showcase',
+  path: '/showcase',
   getParentRoute: () => rootRouteImport,
 } as any)
 const PrivacyRoute = PrivacyRouteImport.update({
@@ -142,6 +149,11 @@ const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
   getParentRoute: () => rootRouteImport,
+} as any)
+const ShowcaseProjectIdRoute = ShowcaseProjectIdRouteImport.update({
+  id: '/$projectId',
+  path: '/$projectId',
+  getParentRoute: () => ShowcaseRoute,
 } as any)
 const ProjectProjectIdRoute = ProjectProjectIdRouteImport.update({
   id: '/project/$projectId',
@@ -257,6 +269,7 @@ export interface FileRoutesByFullPath {
   '/plugin': typeof PluginRoute
   '/pricing': typeof PricingRoute
   '/privacy': typeof PrivacyRoute
+  '/showcase': typeof ShowcaseRouteWithChildren
   '/signup': typeof SignupRoute
   '/sitemap.xml': typeof SitemapDotxmlRoute
   '/templates': typeof TemplatesRoute
@@ -266,6 +279,7 @@ export interface FileRoutesByFullPath {
   '/checkout/$pack': typeof CheckoutPackRoute
   '/checkout/custom': typeof CheckoutCustomRoute
   '/project/$projectId': typeof ProjectProjectIdRoute
+  '/showcase/$projectId': typeof ShowcaseProjectIdRoute
   '/api/assistant/execute': typeof ApiAssistantExecuteRoute
   '/api/public/mcp': typeof ApiPublicMcpRoute
   '/api/studio/poll': typeof ApiStudioPollRoute
@@ -297,6 +311,7 @@ export interface FileRoutesByTo {
   '/plugin': typeof PluginRoute
   '/pricing': typeof PricingRoute
   '/privacy': typeof PrivacyRoute
+  '/showcase': typeof ShowcaseRouteWithChildren
   '/signup': typeof SignupRoute
   '/sitemap.xml': typeof SitemapDotxmlRoute
   '/templates': typeof TemplatesRoute
@@ -306,6 +321,7 @@ export interface FileRoutesByTo {
   '/checkout/$pack': typeof CheckoutPackRoute
   '/checkout/custom': typeof CheckoutCustomRoute
   '/project/$projectId': typeof ProjectProjectIdRoute
+  '/showcase/$projectId': typeof ShowcaseProjectIdRoute
   '/api/assistant/execute': typeof ApiAssistantExecuteRoute
   '/api/public/mcp': typeof ApiPublicMcpRoute
   '/api/studio/poll': typeof ApiStudioPollRoute
@@ -338,6 +354,7 @@ export interface FileRoutesById {
   '/plugin': typeof PluginRoute
   '/pricing': typeof PricingRoute
   '/privacy': typeof PrivacyRoute
+  '/showcase': typeof ShowcaseRouteWithChildren
   '/signup': typeof SignupRoute
   '/sitemap.xml': typeof SitemapDotxmlRoute
   '/templates': typeof TemplatesRoute
@@ -347,6 +364,7 @@ export interface FileRoutesById {
   '/checkout/$pack': typeof CheckoutPackRoute
   '/checkout/custom': typeof CheckoutCustomRoute
   '/project/$projectId': typeof ProjectProjectIdRoute
+  '/showcase/$projectId': typeof ShowcaseProjectIdRoute
   '/api/assistant/execute': typeof ApiAssistantExecuteRoute
   '/api/public/mcp': typeof ApiPublicMcpRoute
   '/api/studio/poll': typeof ApiStudioPollRoute
@@ -380,6 +398,7 @@ export interface FileRouteTypes {
     | '/plugin'
     | '/pricing'
     | '/privacy'
+    | '/showcase'
     | '/signup'
     | '/sitemap.xml'
     | '/templates'
@@ -389,6 +408,7 @@ export interface FileRouteTypes {
     | '/checkout/$pack'
     | '/checkout/custom'
     | '/project/$projectId'
+    | '/showcase/$projectId'
     | '/api/assistant/execute'
     | '/api/public/mcp'
     | '/api/studio/poll'
@@ -420,6 +440,7 @@ export interface FileRouteTypes {
     | '/plugin'
     | '/pricing'
     | '/privacy'
+    | '/showcase'
     | '/signup'
     | '/sitemap.xml'
     | '/templates'
@@ -429,6 +450,7 @@ export interface FileRouteTypes {
     | '/checkout/$pack'
     | '/checkout/custom'
     | '/project/$projectId'
+    | '/showcase/$projectId'
     | '/api/assistant/execute'
     | '/api/public/mcp'
     | '/api/studio/poll'
@@ -460,6 +482,7 @@ export interface FileRouteTypes {
     | '/plugin'
     | '/pricing'
     | '/privacy'
+    | '/showcase'
     | '/signup'
     | '/sitemap.xml'
     | '/templates'
@@ -469,6 +492,7 @@ export interface FileRouteTypes {
     | '/checkout/$pack'
     | '/checkout/custom'
     | '/project/$projectId'
+    | '/showcase/$projectId'
     | '/api/assistant/execute'
     | '/api/public/mcp'
     | '/api/studio/poll'
@@ -501,6 +525,7 @@ export interface RootRouteChildren {
   PluginRoute: typeof PluginRoute
   PricingRoute: typeof PricingRoute
   PrivacyRoute: typeof PrivacyRoute
+  ShowcaseRoute: typeof ShowcaseRouteWithChildren
   SignupRoute: typeof SignupRoute
   SitemapDotxmlRoute: typeof SitemapDotxmlRoute
   TemplatesRoute: typeof TemplatesRoute
@@ -554,6 +579,13 @@ declare module '@tanstack/react-router' {
       path: '/signup'
       fullPath: '/signup'
       preLoaderRoute: typeof SignupRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/showcase': {
+      id: '/showcase'
+      path: '/showcase'
+      fullPath: '/showcase'
+      preLoaderRoute: typeof ShowcaseRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/privacy': {
@@ -660,6 +692,13 @@ declare module '@tanstack/react-router' {
       fullPath: '/'
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
+    }
+    '/showcase/$projectId': {
+      id: '/showcase/$projectId'
+      path: '/$projectId'
+      fullPath: '/showcase/$projectId'
+      preLoaderRoute: typeof ShowcaseProjectIdRouteImport
+      parentRoute: typeof ShowcaseRoute
     }
     '/project/$projectId': {
       id: '/project/$projectId'
@@ -797,6 +836,18 @@ declare module '@tanstack/react-router' {
   }
 }
 
+interface ShowcaseRouteChildren {
+  ShowcaseProjectIdRoute: typeof ShowcaseProjectIdRoute
+}
+
+const ShowcaseRouteChildren: ShowcaseRouteChildren = {
+  ShowcaseProjectIdRoute: ShowcaseProjectIdRoute,
+}
+
+const ShowcaseRouteWithChildren = ShowcaseRoute._addFileChildren(
+  ShowcaseRouteChildren,
+)
+
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AccountRoute: AccountRoute,
@@ -813,6 +864,7 @@ const rootRouteChildren: RootRouteChildren = {
   PluginRoute: PluginRoute,
   PricingRoute: PricingRoute,
   PrivacyRoute: PrivacyRoute,
+  ShowcaseRoute: ShowcaseRouteWithChildren,
   SignupRoute: SignupRoute,
   SitemapDotxmlRoute: SitemapDotxmlRoute,
   TemplatesRoute: TemplatesRoute,

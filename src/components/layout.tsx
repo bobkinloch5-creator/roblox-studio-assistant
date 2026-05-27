@@ -33,6 +33,9 @@ export function Header() {
           <Link to="/templates" className="hover:text-foreground">
             Templates
           </Link>
+          <Link to="/showcase" className="hover:text-foreground">
+            Showcase
+          </Link>
           <Link to="/ideas" className="hover:text-foreground">
             Ideas
           </Link>
