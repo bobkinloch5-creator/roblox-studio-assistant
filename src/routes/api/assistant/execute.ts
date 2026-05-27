@@ -1181,7 +1181,15 @@ export const Route = createFileRoute("/api/assistant/execute")({
           }
 
           const body = await request.json().catch(() => ({}));
-          const { projectId, prompt, autoExecute, studioConnected, thinking, aiMode } = body;
+          const { projectId, prompt, autoExecute, studioConnected, thinking, aiMode, attachments } = body;
+          // Vision: optional list of data URLs (data:image/...;base64,...) sent
+          // from the chat composer's attach-image button. Cap to 4 images so we
+          // don't blow the context window.
+          const visionImages: string[] = Array.isArray(attachments)
+            ? attachments
+                .filter((x: unknown): x is string => typeof x === "string" && x.startsWith("data:image/"))
+                .slice(0, 4)
+            : [];
 
           if (!projectId || !prompt) {
             return new Response(JSON.stringify({ error: "Missing projectId or prompt" }), {
