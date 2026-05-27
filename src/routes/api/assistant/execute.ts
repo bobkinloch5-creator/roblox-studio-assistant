@@ -800,8 +800,8 @@ end)
   };
 }
 
-function pickFastTools(prompt: string) {
-  const allTools = buildBloxSmithTools({ projectId: undefined, userId: undefined }) as Record<string, any>;
+function pickFastTools(prompt: string, ctx: { projectId: string; userId: string }) {
+  const allTools = buildBloxSmithTools(ctx) as Record<string, any>;
   const lower = prompt.toLowerCase();
   const picked: Record<string, any> = {};
   const add = (name: string) => {
@@ -1491,8 +1491,9 @@ export const Route = createFileRoute("/api/assistant/execute")({
                         model,
                         system: systemWithRules,
                         messages,
-                        tools: buildBloxSmithTools({ projectId, userId }) as any,
-                        stopWhen: stepCountIs(thinking ? 60 : 45),
+                        tools: pickFastTools(prompt, { projectId, userId }) as any,
+                        stopWhen: stepCountIs(thinking ? 24 : 10),
+                        maxOutputTokens: thinking ? 9000 : 6000,
                       }, `ai-execute attempt#${i} src=${resolved.source} model=${att.modelId} slim=${useSlim}`),
                     );
                     rawText = textRes.text;
