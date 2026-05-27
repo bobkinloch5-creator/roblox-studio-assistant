@@ -8,7 +8,7 @@ import {
   clearProviderKey,
 } from "@/lib/project-ai.functions";
 
-type ProviderId = "openai" | "anthropic" | "google" | "groq";
+type ProviderId = "openai" | "anthropic" | "google" | "groq" | "neokens";
 type Mode = "mcp" | "api_key";
 
 const PROVIDER_LABELS: Record<ProviderId, string> = {
@@ -16,6 +16,7 @@ const PROVIDER_LABELS: Record<ProviderId, string> = {
   anthropic: "Anthropic",
   google: "Google Gemini",
   groq: "Groq",
+  neokens: "Neokens",
 };
 
 const PROVIDER_MODELS: Record<ProviderId, string[]> = {
@@ -33,6 +34,15 @@ const PROVIDER_MODELS: Record<ProviderId, string[]> = {
     "gemini-3-flash-preview",
   ],
   groq: ["llama-3.1-8b-instant", "openai/gpt-oss-120b", "llama-3.3-70b-versatile"],
+  neokens: [
+    "gpt-5.3-codex",
+    "gpt-5.1",
+    "claude-opus-4-7-thinking",
+    "claude-sonnet-4-6-thinking",
+    "claude-haiku-4-5-20251001",
+    "gemini-3.1-pro",
+    "gemini-3-flash",
+  ],
 };
 
 const PROVIDER_KEY_HINTS: Record<ProviderId, string> = {
@@ -40,6 +50,7 @@ const PROVIDER_KEY_HINTS: Record<ProviderId, string> = {
   anthropic: "sk-ant-... — console.anthropic.com/settings/keys",
   google: "AI... — aistudio.google.com/apikey",
   groq: "gsk_... — console.groq.com/keys",
+  neokens: "Site-wide key managed by admin (NEOKENS_API_KEY)",
 };
 
 export function AiSourceSettings({
@@ -265,7 +276,15 @@ export function AiSourceSettings({
                   </label>
                 </div>
 
+                {provider === "neokens" ? (
+                  <div className="rounded-md border border-primary/30 bg-primary/5 px-3 py-2 text-[11px] text-foreground">
+                    <span className="font-semibold">Neokens</span> uses a shared
+                    site key (<span className="font-mono">NEOKENS_API_KEY</span>) — no
+                    per-user key needed. One balance covers GPT, Claude, and Gemini models.
+                  </div>
+                ) : (
                 <div>
+
                   <div className="flex items-center justify-between">
                     <span className="text-[10px] uppercase tracking-wide text-muted-foreground">
                       {PROVIDER_LABELS[provider]} API key
@@ -317,6 +336,8 @@ export function AiSourceSettings({
                     Stored encrypted in your account. Only used by your projects.
                   </p>
                 </div>
+                )}
+
               </div>
             )}
 
