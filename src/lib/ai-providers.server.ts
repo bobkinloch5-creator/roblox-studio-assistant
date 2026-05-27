@@ -62,7 +62,7 @@ export const PROVIDER_DEFAULT_MODEL: Record<ProviderId, string> = {
   openai: "gpt-5-mini",
   anthropic: "claude-sonnet-4-5",
   google: "gemini-2.5-flash",
-  groq: BLOXSMITH_MODEL,
+  groq: "llama-3.3-70b-versatile",
   neokens: "gemini-3-flash",
 };
 
