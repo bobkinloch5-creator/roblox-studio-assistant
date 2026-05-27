@@ -2551,6 +2551,7 @@ local function disconnect()
 	connected = false; activeProjectId = nil
 	lastFingerprint = nil; lastContextSentAt = 0
 	scanInProgress = false; scanCancelRequested = false
+	setCreditsDisplay(nil)
 	status.Text = "Not connected"; status.TextColor3 = C.textDim
 	syncInfo.Text = "—"; syncInfo.TextColor3 = C.textDim
 	ctxInfo.Text = "—"; ctxInfo.TextColor3 = C.textDim
