@@ -58,6 +58,7 @@ export function TaskBoard({ projectId, open, onClose, onBuildTask }: Props) {
   const nextBest = useServerFn(nextBestTask);
   const finish = useServerFn(finishThisGame);
   const brief = useServerFn(buildTaskBrief);
+  const importErrs = useServerFn(importStudioErrors);
 
   const [tasks, setTasks] = useState<WorkflowTask[]>([]);
   const [loading, setLoading] = useState(false);
