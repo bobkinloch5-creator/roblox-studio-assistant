@@ -1510,9 +1510,10 @@ export const Route = createFileRoute("/api/assistant/execute")({
                     const target = thinking ? 8000 : 3500;
                     const maxOut = Math.min(target, hardCap);
                     // Per-attempt wall-clock cap. Cloudflare workers will 502 if a
-                    // single request hangs. Give each attempt at most ~18s so a
-                    // 2-attempt chain still fits inside the 50s response window.
-                    const perAttemptMs = thinking ? 30000 : 18000;
+                    // single request hangs. UI/system builds (shop, inventory, menu,
+                    // settings, tycoon, simulator) need more room than simple part edits.
+                    const heavyBuild = /\b(shop|inventory|menu|settings|tycoon|simulator|gui|ui|system|leaderboard|quest|admin|hud|panel|dashboard)\b/i.test(prompt);
+                    const perAttemptMs = thinking ? 38000 : (heavyBuild ? 32000 : 22000);
                     const attemptCtl = new AbortController();
                     const timeoutId = setTimeout(() => attemptCtl.abort(), perAttemptMs);
                     const combinedSignal: AbortSignal = (AbortSignal as any).any
