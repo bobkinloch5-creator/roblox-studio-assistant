@@ -276,6 +276,72 @@ export function AiSourceSettings({
               </button>
             </div>
 
+            <div className="rounded-lg border border-border bg-surface-elevated/40 p-3 space-y-2">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2 text-xs font-semibold">
+                  <Plug className="h-3.5 w-3.5 text-primary" /> MCP servers
+                  <span className="text-[10px] font-normal text-muted-foreground">
+                    (tools merged into every build)
+                  </span>
+                </div>
+                <Link
+                  to="/mcp-servers"
+                  className="inline-flex items-center gap-1 text-[10px] text-muted-foreground hover:text-foreground"
+                >
+                  Manage <ExternalLink className="h-3 w-3" />
+                </Link>
+              </div>
+
+              {mcpLoading ? (
+                <div className="flex items-center gap-2 text-[11px] text-muted-foreground">
+                  <Loader2 className="h-3 w-3 animate-spin" /> Loading servers…
+                </div>
+              ) : mcpServers.length === 0 ? (
+                <div className="rounded-md border border-dashed border-border px-3 py-3 text-center text-[11px] text-muted-foreground">
+                  No MCP servers yet.{" "}
+                  <Link to="/mcp-servers" className="text-primary hover:underline">
+                    Add one
+                  </Link>{" "}
+                  to give the AI extra tools (Codex, Notion, Linear, etc.).
+                </div>
+              ) : (
+                <ul className="space-y-1 max-h-40 overflow-y-auto pr-1">
+                  {mcpServers.map((s) => (
+                    <li
+                      key={s.id}
+                      className="flex items-center justify-between gap-2 rounded-md border border-border/60 bg-background/40 px-2.5 py-1.5"
+                    >
+                      <label className="flex items-center gap-2 min-w-0 cursor-pointer flex-1">
+                        <input
+                          type="checkbox"
+                          checked={s.enabled}
+                          disabled={mcpBusy === s.id}
+                          onChange={() => toggleMcp(s)}
+                          className="h-3.5 w-3.5 accent-primary"
+                        />
+                        <span className="truncate text-xs font-medium">{s.name}</span>
+                        {s.last_test_ok === true ? (
+                          <span className="inline-flex items-center gap-0.5 text-[10px] text-success shrink-0">
+                            <Check className="h-3 w-3" />
+                            {s.tool_count ?? 0} tools
+                          </span>
+                        ) : s.last_test_ok === false ? (
+                          <span className="inline-flex items-center gap-0.5 text-[10px] text-destructive shrink-0">
+                            <AlertCircle className="h-3 w-3" /> failing
+                          </span>
+                        ) : null}
+                      </label>
+                      <span className="truncate text-[10px] text-muted-foreground max-w-[40%]">
+                        {s.url.replace(/^https?:\/\//, "")}
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
+
+
+
             {mode === "api_key" && (
               <div className="space-y-3 rounded-lg border border-border bg-surface-elevated/40 p-3">
                 <div className="grid grid-cols-2 gap-2">
