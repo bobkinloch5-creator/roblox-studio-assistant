@@ -1,6 +1,8 @@
 import { defineTool } from "mcp-tanstack-start";
 import { z } from "zod";
 import { supabaseAdmin } from "@/integrations/supabase/client.server";
+import { MCP_PROTOCOL_VERSION } from "@/lib/mcp-rpc-utils";
+import { searchRobloxDocs } from "@/lib/roblox-docs.server";
 
 // Extract authenticated userId from MCP tool execution context. Admin scope
 // (workspace MCP_SECRET) is allowed to act with no userId constraint.
@@ -321,20 +323,79 @@ export const searchToolboxTool = defineTool({
     limit: z.number().int().min(1).max(20).default(8),
   }),
   execute: async ({ query, category, limit }) => {
-    const url = `https://catalog.roblox.com/v1/search/items/details?Category=${encodeURIComponent(category)}&Keyword=${encodeURIComponent(query)}&Limit=${Math.min(30, limit * 3)}&SortType=Relevance`;
-    const r = await fetch(url, { headers: { "User-Agent": "BloxSmith/1.0" } });
-    if (!r.ok) throw new Error(`Catalog HTTP ${r.status}`);
-    const j: any = await r.json();
-    const items = (j.data ?? [])
-      .map((x: any) => ({
-        assetId: x.id,
-        name: x.name,
-        creator: x.creatorName,
-        verified: !!x.creatorHasVerifiedBadge || x.creatorTargetId === 1,
-        price: x.price ?? 0,
-      }))
-      .filter((i: any) => i.verified && i.price === 0)
-      .slice(0, limit);
+    const { searchRobloxAssets } = await import("@/lib/ai-tools.server");
+    const items = await searchRobloxAssets(query, category, limit, {
+      freeOnly: true,
+      verifiedOnly: false,
+    });
     return JSON.stringify({ count: items.length, items }, null, 2);
+  },
+});
+
+export const searchRobloxDocsTool = defineTool({
+  name: "search_roblox_docs",
+  description:
+    "Search official Roblox Creator Hub and Engine API documentation for Roblox services, Luau APIs, DataStores, remotes, MarketplaceService, UI, animation, pathfinding, terrain, and other implementation details.",
+  parameters: z.object({
+    query: z.string().min(2).max(200),
+    limit: z.number().int().min(1).max(8).default(5),
+  }),
+  execute: async ({ query, limit }) => {
+    const results = await searchRobloxDocs(query, limit);
+    return JSON.stringify({ count: results.length, results }, null, 2);
+  },
+});
+
+export const mcpConnectionHelpTool = defineTool({
+  name: "mcp_connection_help",
+  description:
+    "Return setup snippets for connecting BloxSmith MCP from different IDEs and AI clients such as VS Code, Cursor, Windsurf, Claude Code, Codex, Zed, Continue, and generic Streamable HTTP clients.",
+  parameters: z.object({
+    client: z
+      .enum(["claude_code", "codex", "vscode", "cursor", "windsurf", "zed", "continue", "generic"])
+      .default("generic"),
+  }),
+  execute: async ({ client }) => {
+    const endpoint = "https://bloxsmith.pro/api/public/mcp";
+    const snippets: Record<string, unknown> = {
+      claude_code: {
+        file: "~/.claude.json",
+        config: { mcpServers: { bloxsmith: { type: "http", url: endpoint, headers: { Authorization: "Bearer YOUR_MCP_TOKEN" } } } },
+      },
+      codex: {
+        file: "~/.codex/config.toml",
+        config: `[mcp_servers.bloxsmith]\ntype = "http"\nurl = "${endpoint}"\nheaders = { Authorization = "Bearer YOUR_MCP_TOKEN" }`,
+      },
+      vscode: {
+        file: ".vscode/mcp.json",
+        config: { servers: { bloxsmith: { type: "http", url: endpoint, headers: { Authorization: "Bearer YOUR_MCP_TOKEN" } } } },
+      },
+      cursor: {
+        file: "~/.cursor/mcp.json",
+        config: { mcpServers: { bloxsmith: { url: endpoint, headers: { Authorization: "Bearer YOUR_MCP_TOKEN" } } } },
+      },
+      windsurf: {
+        file: "~/.codeium/windsurf/mcp_config.json",
+        config: { mcpServers: { bloxsmith: { serverUrl: endpoint, headers: { Authorization: "Bearer YOUR_MCP_TOKEN" } } } },
+      },
+      zed: {
+        file: "Zed settings.json",
+        config: { context_servers: { bloxsmith: { source: "custom", url: endpoint, headers: { Authorization: "Bearer YOUR_MCP_TOKEN" } } } },
+      },
+      continue: {
+        file: "config.yaml",
+        config: { mcpServers: [{ name: "bloxsmith", url: endpoint, headers: { Authorization: "Bearer YOUR_MCP_TOKEN" } }] },
+      },
+      generic: {
+        transport: "Streamable HTTP",
+        endpoint,
+        headers: {
+          Authorization: "Bearer YOUR_MCP_TOKEN",
+          Accept: "application/json, text/event-stream",
+          "MCP-Protocol-Version": MCP_PROTOCOL_VERSION,
+        },
+      },
+    };
+    return JSON.stringify({ endpoint, client, setup: snippets[client] }, null, 2);
   },
 });

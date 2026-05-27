@@ -2,6 +2,13 @@ import { createServerFn } from "@tanstack/react-start";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { supabaseAdmin } from "@/integrations/supabase/client.server";
 import { z } from "zod";
+import {
+  isOwnMcpUrl,
+  mcpHttpHeaders,
+  normalizeMcpAuthHeader,
+  parseMcpHttpResponse,
+  MCP_PROTOCOL_VERSION,
+} from "./mcp-rpc-utils";
 
 function randomToken(len = 32) {
   const bytes = new Uint8Array(len);
@@ -13,22 +20,6 @@ async function sha256(text: string) {
   const buf = new TextEncoder().encode(text);
   const hash = await crypto.subtle.digest("SHA-256", buf);
   return Array.from(new Uint8Array(hash)).map((b) => b.toString(16).padStart(2, "0")).join("");
-}
-
-function isOwnMcpUrl(url: string): boolean {
-  try {
-    const u = new URL(url);
-    const host = u.hostname.toLowerCase();
-    const path = u.pathname.replace(/\/+$/, "");
-    const isOurs =
-      host === "bloxsmith.pro" ||
-      host === "www.bloxsmith.pro" ||
-      host.endsWith(".lovable.app") ||
-      host === "localhost";
-    return isOurs && path === "/api/public/mcp";
-  } catch {
-    return false;
-  }
 }
 
 async function ensureOwnToken(userId: string): Promise<string> {
@@ -64,10 +55,7 @@ export async function runMcpHealthCheck(
     return { ok: false, error: "Server not found", latencyMs: Date.now() - started };
   }
 
-  let authHeader = (server.auth_header ?? "").trim();
-  if (authHeader && !/^(Bearer|Basic|Token)\s+/i.test(authHeader)) {
-    authHeader = `Bearer ${authHeader}`;
-  }
+  let authHeader = normalizeMcpAuthHeader(server.auth_header);
 
   const pointsAtUs = isOwnMcpUrl(server.url);
   if (pointsAtUs) {
@@ -76,16 +64,10 @@ export async function runMcpHealthCheck(
     else authHeader = `Bearer ${await ensureOwnToken(userId)}`;
   }
 
-  const headers: Record<string, string> = {
-    "Content-Type": "application/json",
-    Accept: "application/json, text/event-stream",
-  };
-  if (authHeader) headers["Authorization"] = authHeader;
-
   const rpc = async (method: string, params: any, id: number) => {
     const r = await fetch(server.url, {
       method: "POST",
-      headers,
+      headers: mcpHttpHeaders(authHeader),
       body: JSON.stringify({ jsonrpc: "2.0", id, method, params }),
     });
     if (!r.ok) {
@@ -98,26 +80,22 @@ export async function runMcpHealthCheck(
       }
       throw new Error(`HTTP ${r.status} ${r.statusText}`);
     }
-    const ct = r.headers.get("content-type") ?? "";
-    if (ct.includes("text/event-stream")) {
-      const text = await r.text();
-      const line = text.split("\n").map((l) => l.trim()).find((l) => l.startsWith("data:"));
-      if (!line) throw new Error("Empty SSE stream");
-      const parsed = JSON.parse(line.slice(5).trim());
-      if (parsed.error) throw new Error(parsed.error.message);
-      return parsed.result;
-    }
-    const parsed = await r.json();
+    const parsed = await parseMcpHttpResponse(r);
     if (parsed.error) throw new Error(parsed.error.message);
     return parsed.result;
   };
 
   try {
     await rpc("initialize", {
-      protocolVersion: "2025-06-18",
+      protocolVersion: MCP_PROTOCOL_VERSION,
       capabilities: {},
       clientInfo: { name: "bloxsmith", version: "1.0.0" },
     }, 1);
+    await fetch(server.url, {
+      method: "POST",
+      headers: mcpHttpHeaders(authHeader),
+      body: JSON.stringify({ jsonrpc: "2.0", method: "notifications/initialized" }),
+    }).catch(() => null);
     const list = await rpc("tools/list", {}, 2);
     const tools = (list?.tools ?? []) as Array<{ name: string; description?: string }>;
     const trimmed = tools.slice(0, 20).map((t) => ({ name: t.name, description: t.description ?? "" }));

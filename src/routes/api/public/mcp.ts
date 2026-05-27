@@ -6,27 +6,48 @@ import {
   readProjectFileTool,
   listProjectsTool,
   searchToolboxTool,
+  searchRobloxDocsTool,
+  mcpConnectionHelpTool,
 } from "@/lib/mcp/tools/bloxsmith";
+import { MCP_PROTOCOL_VERSION } from "@/lib/mcp-rpc-utils";
 import { supabaseAdmin } from "@/integrations/supabase/client.server";
 
 const mcp = createMcpServer({
   name: "bloxsmith",
   version: "1.0.0",
   instructions:
-    "BloxSmith MCP server — use these tools to build, modify, and extend Roblox games inside the user's BloxSmith projects. Call `list_my_projects` first to discover a projectId, then `build_roblox` with a natural-language prompt to write scripts and queue Studio actions. Use `list_project_files` + `read_project_file` to inspect existing code before editing. Use `search_roblox_toolbox` for free assets.",
+    "BloxSmith MCP server — use these tools to build, modify, and extend Roblox games inside the user's BloxSmith projects. Call `list_my_projects` first to discover a projectId, then `build_roblox` with a natural-language prompt to write scripts and queue Studio actions. Use `list_project_files` + `read_project_file` to inspect existing code before editing. Use `search_roblox_docs` for Roblox API facts and `search_roblox_toolbox` for free assets.",
   tools: [
     buildRobloxTool,
     listProjectFilesTool,
     readProjectFileTool,
     listProjectsTool,
     searchToolboxTool,
+    searchRobloxDocsTool,
+    mcpConnectionHelpTool,
   ],
+  transport: {
+    enableJsonResponse: true,
+    allowedOrigins: [
+      "https://bloxsmith.pro",
+      "https://www.bloxsmith.pro",
+      "https://vscode.dev",
+      "https://github.dev",
+      "http://localhost",
+      "https://localhost",
+      "http://127.0.0.1",
+      "https://127.0.0.1",
+    ],
+  },
 });
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
-  "Access-Control-Allow-Headers": "Content-Type, Authorization",
+  "Access-Control-Allow-Headers":
+    "Content-Type, Accept, Authorization, X-Bloxsmith-Api-Key, X-API-Key, API-Key, MCP-Protocol-Version, Mcp-Session-Id, Last-Event-ID",
+  "Access-Control-Expose-Headers": "MCP-Protocol-Version, Mcp-Session-Id, WWW-Authenticate",
+  "MCP-Protocol-Version": MCP_PROTOCOL_VERSION,
 };
 
 const methodNotAllowed = () =>
@@ -42,6 +63,25 @@ const methodNotAllowed = () =>
     },
   );
 
+function withCors(response: Response) {
+  return new Response(response.body, {
+    status: response.status,
+    statusText: response.statusText,
+    headers: { ...Object.fromEntries(response.headers.entries()), ...corsHeaders },
+  });
+}
+
+function mcpErrorResponse(err: any) {
+  return new Response(
+    JSON.stringify({
+      jsonrpc: "2.0",
+      error: { code: -32603, message: err?.message ?? "MCP server error" },
+      id: null,
+    }),
+    { status: 500, headers: { "Content-Type": "application/json", ...corsHeaders } },
+  );
+}
+
 // Public discovery — returns tool metadata (name, description, JSON schema) with NO auth.
 // Execution still requires a Bearer bsmcp_... token via POST. Safe to expose.
 function publicDiscovery() {
@@ -51,6 +91,8 @@ function publicDiscovery() {
     readProjectFileTool,
     listProjectsTool,
     searchToolboxTool,
+    searchRobloxDocsTool,
+    mcpConnectionHelpTool,
   ].map((t: any) => {
     let inputSchema: unknown = { type: "object" };
     try {
@@ -78,7 +120,36 @@ function publicDiscovery() {
         "BloxSmith MCP server. POST tools/call requests with Authorization: Bearer bsmcp_… (generate a token at https://bloxsmith.pro/mcp).",
       endpoint: "https://bloxsmith.pro/api/public/mcp",
       transport: "streamable-http",
+      protocolVersion: MCP_PROTOCOL_VERSION,
       auth: { type: "bearer", scheme: "bsmcp_", obtain_token_url: "https://bloxsmith.pro/mcp" },
+      ide_setup: {
+        claude_code: {
+          type: "http",
+          url: "https://bloxsmith.pro/api/public/mcp",
+          headers: { Authorization: "Bearer YOUR_MCP_TOKEN" },
+        },
+        codex_toml:
+          '[mcp_servers.bloxsmith]\ntype = "http"\nurl = "https://bloxsmith.pro/api/public/mcp"\nheaders = { Authorization = "Bearer YOUR_MCP_TOKEN" }',
+        vscode_mcp_json: {
+          servers: {
+            bloxsmith: {
+              type: "http",
+              url: "https://bloxsmith.pro/api/public/mcp",
+              headers: { Authorization: "Bearer YOUR_MCP_TOKEN" },
+            },
+          },
+        },
+        cursor_windsurf_json: {
+          mcpServers: {
+            bloxsmith: {
+              url: "https://bloxsmith.pro/api/public/mcp",
+              headers: { Authorization: "Bearer YOUR_MCP_TOKEN" },
+            },
+          },
+        },
+        stdio_bridge:
+          'npx -y mcp-remote https://bloxsmith.pro/api/public/mcp --header "Authorization: Bearer YOUR_MCP_TOKEN"',
+      },
       tools,
     }),
     {
@@ -102,6 +173,8 @@ function detectClient(ua: string | null): string {
   if (s.includes("claude")) return "Claude";
   if (s.includes("antigravity")) return "Antigravity";
   if (s.includes("cursor")) return "Cursor";
+  if (s.includes("vscode") || s.includes("visual studio code")) return "VS Code";
+  if (s.includes("copilot")) return "GitHub Copilot";
   if (s.includes("cline")) return "Cline";
   if (s.includes("windsurf")) return "Windsurf";
   if (s.includes("continue")) return "Continue";
@@ -159,7 +232,11 @@ async function authenticate(request: Request) {
     request.headers.get("Authorization") ?? request.headers.get("authorization");
   const apiKeyHeader =
     request.headers.get("X-Bloxsmith-Api-Key") ??
-    request.headers.get("x-bloxsmith-api-key");
+    request.headers.get("x-bloxsmith-api-key") ??
+    request.headers.get("X-API-Key") ??
+    request.headers.get("x-api-key") ??
+    request.headers.get("API-Key") ??
+    request.headers.get("api-key");
   const hasAuthHeader = !!authHeader;
   const hasApiKeyHeader = !!apiKeyHeader;
   const token =
@@ -301,9 +378,32 @@ export const Route = createFileRoute("/api/public/mcp")({
       POST: async ({ request }) => {
         const result = await authenticate(request);
         if (!result.ok) return result.response;
-        return mcp.handleRequest(request, { auth: result.auth });
+        try {
+          const response = await mcp.handleRequest(request, { auth: result.auth });
+          return withCors(response);
+        } catch (err: any) {
+          return mcpErrorResponse(err);
+        }
       },
-      GET: async () => publicDiscovery(),
+      GET: async ({ request }) => {
+        const wantsStream = /\btext\/event-stream\b/i.test(request.headers.get("Accept") ?? "");
+        const hasAuth =
+          request.headers.has("Authorization") ||
+          request.headers.has("authorization") ||
+          request.headers.has("X-Bloxsmith-Api-Key") ||
+          request.headers.has("X-API-Key");
+        if (wantsStream || hasAuth) {
+          const result = await authenticate(request);
+          if (!result.ok) return result.response;
+          try {
+            const response = await mcp.handleRequest(request, { auth: result.auth });
+            return withCors(response);
+          } catch (err: any) {
+            return mcpErrorResponse(err);
+          }
+        }
+        return publicDiscovery();
+      },
       DELETE: async () => methodNotAllowed(),
       OPTIONS: async () => new Response(null, { status: 204, headers: corsHeaders }),
     },

@@ -1,6 +1,13 @@
 import { tool } from "ai";
 import { z } from "zod";
 import { supabaseAdmin } from "@/integrations/supabase/client.server";
+import {
+  isOwnMcpUrl,
+  mcpHttpHeaders,
+  normalizeMcpAuthHeader,
+  parseMcpHttpResponse,
+  MCP_PROTOCOL_VERSION,
+} from "./mcp-rpc-utils";
 
 // Minimal MCP Streamable HTTP JSON-RPC client.
 // Initializes per request, lists tools, and exposes a single callable.
@@ -11,22 +18,6 @@ type McpServer = {
   url: string;
   auth_header: string | null;
 };
-
-function isOwnMcpUrl(url: string): boolean {
-  try {
-    const u = new URL(url);
-    const host = u.hostname.toLowerCase();
-    const path = u.pathname.replace(/\/+$/, "");
-    const isOurs =
-      host === "bloxsmith.pro" ||
-      host === "www.bloxsmith.pro" ||
-      host.endsWith(".lovable.app") ||
-      host === "localhost";
-    return isOurs && path === "/api/public/mcp";
-  } catch {
-    return false;
-  }
-}
 
 function randomToken(len = 32) {
   const bytes = new Uint8Array(len);
@@ -56,18 +47,6 @@ async function ensureOwnToken(userId: string): Promise<string> {
   return token;
 }
 
-/**
- * Normalize whatever the user pasted into a valid Authorization header value.
- * Accepts bare tokens ("bsmcp_xxx", "sk-...", "ghp_..."), or fully-formed
- * "Bearer xxx" / "Basic xxx" / "Token xxx" strings.
- */
-function normalizeAuthHeader(raw: string | null | undefined): string {
-  const v = (raw ?? "").trim();
-  if (!v) return "";
-  if (/^(Bearer|Basic|Token)\s+/i.test(v)) return v;
-  return `Bearer ${v}`;
-}
-
 async function resolveAuthHeader(server: McpServer, userId: string): Promise<string> {
   if (isOwnMcpUrl(server.url)) {
     const adminSecret = process.env.MCP_SECRET;
@@ -75,7 +54,7 @@ async function resolveAuthHeader(server: McpServer, userId: string): Promise<str
     const token = await ensureOwnToken(userId);
     return `Bearer ${token}`;
   }
-  return normalizeAuthHeader(server.auth_header);
+  return normalizeMcpAuthHeader(server.auth_header);
 }
 
 async function mcpRpc(
@@ -85,14 +64,9 @@ async function mcpRpc(
   params?: any,
   id = 1,
 ) {
-  const headers: Record<string, string> = {
-    "Content-Type": "application/json",
-    Accept: "application/json, text/event-stream",
-  };
-  if (authHeader) headers["Authorization"] = authHeader;
   const r = await fetch(server.url, {
     method: "POST",
-    headers,
+    headers: mcpHttpHeaders(authHeader),
     body: JSON.stringify({ jsonrpc: "2.0", id, method, params }),
   });
   if (!r.ok) {
@@ -103,26 +77,14 @@ async function mcpRpc(
     }
     throw new Error(`MCP ${server.name} HTTP ${r.status}`);
   }
-  const ct = r.headers.get("content-type") ?? "";
-  let data: any;
-  if (ct.includes("text/event-stream")) {
-    const text = await r.text();
-    const line = text
-      .split("\n")
-      .map((l) => l.trim())
-      .find((l) => l.startsWith("data:"));
-    if (!line) throw new Error(`MCP ${server.name}: empty SSE`);
-    data = JSON.parse(line.slice(5).trim());
-  } else {
-    data = await r.json();
-  }
+  const data = await parseMcpHttpResponse(r);
   if (data.error) throw new Error(`MCP ${server.name}: ${data.error.message}`);
   return data.result;
 }
 
 async function initAndList(server: McpServer, authHeader: string) {
   await mcpRpc(server, authHeader, "initialize", {
-    protocolVersion: "2025-06-18",
+    protocolVersion: MCP_PROTOCOL_VERSION,
     capabilities: {},
     clientInfo: { name: "bloxsmith", version: "1.0.0" },
   });
@@ -130,11 +92,7 @@ async function initAndList(server: McpServer, authHeader: string) {
   try {
     await fetch(server.url, {
       method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Accept: "application/json, text/event-stream",
-        ...(authHeader ? { Authorization: authHeader } : {}),
-      },
+      headers: mcpHttpHeaders(authHeader),
       body: JSON.stringify({ jsonrpc: "2.0", method: "notifications/initialized" }),
     });
   } catch {}

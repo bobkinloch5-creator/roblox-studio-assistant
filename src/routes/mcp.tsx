@@ -1,5 +1,6 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { McpTokenManager } from "@/components/McpTokenManager";
+import { MCP_PROTOCOL_VERSION } from "@/lib/mcp-rpc-utils";
 
 export const Route = createFileRoute("/mcp")({
   component: McpPage,
@@ -110,7 +111,7 @@ function McpPage() {
           <h2 className="text-2xl font-semibold">Pricing</h2>
           <p className="text-muted-foreground">
             Each <code className="bg-muted px-1.5 py-0.5 rounded">build_roblox</code> call
-            costs <strong>1 BloxSmith credit</strong> from the project owner's account —
+            costs <strong>1 BloxSmith credit</strong> from the connected MCP user's account —
             the same as a build run from the website. Read-only tools
             (<code className="bg-muted px-1.5 py-0.5 rounded">list_my_projects</code>,
             {" "}
@@ -227,6 +228,24 @@ headers = { Authorization = "Bearer YOUR_MCP_TOKEN" }`}</Code>
     }
   }
 }`}</Code>
+          <p className="text-sm text-muted-foreground">
+            Some IDE builds still expect a local stdio bridge instead of direct HTTP.
+            If the direct URL does not connect, use this command-based server:
+          </p>
+          <Code>{`{
+  "mcpServers": {
+    "bloxsmith": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "mcp-remote",
+        "${endpoint}",
+        "--header",
+        "Authorization: Bearer YOUR_MCP_TOKEN"
+      ]
+    }
+  }
+}`}</Code>
         </section>
 
         <section className="space-y-3">
@@ -241,6 +260,7 @@ headers = { Authorization = "Bearer YOUR_MCP_TOKEN" }`}</Code>
   -H "Authorization: Bearer YOUR_MCP_TOKEN" \\
   -H "Content-Type: application/json" \\
   -H "Accept: application/json, text/event-stream" \\
+  -H "MCP-Protocol-Version: ${MCP_PROTOCOL_VERSION}" \\
   -d '{"jsonrpc":"2.0","id":1,"method":"tools/list"}'`}</Code>
           <p className="text-sm text-muted-foreground">
             A successful response lists <code>list_my_projects</code>,{" "}
@@ -266,7 +286,15 @@ headers = { Authorization = "Bearer YOUR_MCP_TOKEN" }`}</Code>
               inspect existing code. <em>Free.</em>
             </li>
             <li>
-              <strong>search_roblox_toolbox</strong> — find free verified assets.{" "}
+              <strong>search_roblox_toolbox</strong> — find free Roblox toolbox assets.{" "}
+              <em>Free.</em>
+            </li>
+            <li>
+              <strong>search_roblox_docs</strong> — search official Roblox Creator Hub
+              and Engine API docs. <em>Free.</em>
+            </li>
+            <li>
+              <strong>mcp_connection_help</strong> — get setup snippets for your IDE.{" "}
               <em>Free.</em>
             </li>
           </ul>
