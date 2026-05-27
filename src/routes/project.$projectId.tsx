@@ -66,7 +66,8 @@ import { TeamChat } from "@/components/TeamChat";
 import { AssistantMessage } from "@/components/AssistantMessage";
 import { BuildHistoryDrawer } from "@/components/BuildHistoryDrawer";
 import { OrganizeProjectButton } from "@/components/OrganizeProjectButton";
-import { MessagesSquare } from "lucide-react";
+import { TaskBoard } from "@/components/TaskBoard";
+import { MessagesSquare, Kanban } from "lucide-react";
 
 export const Route = createFileRoute("/project/$projectId")({
   component: ProjectEditor,
