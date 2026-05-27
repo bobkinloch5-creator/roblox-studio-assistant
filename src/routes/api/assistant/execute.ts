@@ -1562,10 +1562,6 @@ export const Route = createFileRoute("/api/assistant/execute")({
                     else if (id.includes("llama-3.3-70b") || id.includes("llama3-70b") || id.includes("70b-versatile")) hardCap = 32000;
                     else if (id.includes("llama-3.1-8b") || id.includes("8b-instant")) hardCap = 8000;
                     else if (id.includes("mixtral") || id.includes("gemma")) hardCap = 8000;
-                    // Give build JSON enough room to finish. The previous 3.5k cap
-                    // was truncating maps/UI/system builds and producing empty results.
-                    const target = thinking ? 16000 : heavyBuild || isRetry ? 9000 : 6000;
-                    const maxOut = Math.min(target, hardCap);
                     // Per-attempt wall-clock cap. Cloudflare workers will 502 if a
                     // single request hangs. UI/system builds (shop, inventory, menu,
                     // settings, tycoon, simulator) need more room than simple part edits.
@@ -1573,6 +1569,10 @@ export const Route = createFileRoute("/api/assistant/execute")({
                     // dramatically faster and avoids another timeout.
                     const heavyBuild = /\b(shop|inventory|menu|settings|tycoon|simulator|gui|ui|system|leaderboard|quest|admin|hud|panel|dashboard)\b/i.test(prompt);
                     const isRetry = i > 0;
+                    // Give build JSON enough room to finish. The previous 3.5k cap
+                    // was truncating maps/UI/system builds and producing empty results.
+                    const target = thinking ? 16000 : heavyBuild || isRetry ? 9000 : 6000;
+                    const maxOut = Math.min(target, hardCap);
                     const perAttemptMs = isRetry
                       ? 30000
                       : thinking ? 45000 : (heavyBuild ? 42000 : 28000);
