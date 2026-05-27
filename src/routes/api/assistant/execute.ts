@@ -1418,14 +1418,14 @@ export const Route = createFileRoute("/api/assistant/execute")({
                 const attempts: Attempt[] = resolved.source === "api_key"
                   ? [
                       { level: 1, modelId: resolved.modelName, budget: BLOXSMITH_LARGE_MODEL_TOKEN_BUDGET, useResolved: true },
-                      { level: 2, modelId: resolved.modelName, budget: BLOXSMITH_LARGE_MODEL_TOKEN_BUDGET, useResolved: true },
                       { level: 3, modelId: resolved.modelName, budget: BLOXSMITH_LARGE_MODEL_TOKEN_BUDGET, useResolved: true },
                     ]
                   : [
+                      // Fast path: one attempt with the small model, one with the large
+                      // model as a fallback. Four attempts blew past Cloudflare's
+                      // worker wall-time and caused 502s.
                       { level: 0, modelId: thinking ? BLOXSMITH_THINK_MODEL : BLOXSMITH_MODEL, budget: BLOXSMITH_MODEL_TOKEN_BUDGET, useResolved: true },
-                      { level: 1, modelId: thinking ? BLOXSMITH_THINK_MODEL : BLOXSMITH_MODEL, budget: BLOXSMITH_MODEL_TOKEN_BUDGET, useResolved: false },
                       { level: 2, modelId: BLOXSMITH_LARGE_MODEL, budget: BLOXSMITH_LARGE_MODEL_TOKEN_BUDGET, useResolved: false },
-                      { level: 3, modelId: BLOXSMITH_LARGE_MODEL, budget: BLOXSMITH_LARGE_MODEL_TOKEN_BUDGET, useResolved: false },
                     ];
 
                 const systemTokens = estimateTokens(SYSTEM_PROMPT);
