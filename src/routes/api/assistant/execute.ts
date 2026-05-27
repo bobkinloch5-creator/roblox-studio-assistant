@@ -897,7 +897,9 @@ end)
 `,
       },
       {
-        path: "StarterPack/Tools/${NAME}/ClientGun.client.lua".replace(/\${NAME}/g, name),
+        path: `StarterPack/Tools/${name}/ClientGun.client.lua`,
+        file_type: "LocalScript",
+        service_location: `StarterPack/Tools/${name}`,
         content: `local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local UIS = game:GetService("UserInputService")
