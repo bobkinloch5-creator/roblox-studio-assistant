@@ -9,6 +9,7 @@ import {
   nextBestTask,
   finishThisGame,
   buildTaskBrief,
+  importStudioErrors,
   type WorkflowTask,
 } from "@/lib/tasks.functions";
 import {
@@ -24,6 +25,7 @@ import {
   RotateCcw,
   Trash2,
   Hammer,
+  Bug,
 } from "lucide-react";
 import { toast } from "sonner";
 
