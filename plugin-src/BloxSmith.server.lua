@@ -1095,6 +1095,38 @@ local function normalizePersistentParent(a)
 	end
 end
 
+local function asVector3(v, fallback)
+	if typeof(v) == "Vector3" then return v end
+	if typeof(v) == "table" then
+		if v.__t == "Vector3" or v.type == "Vector3" then return Vector3.new(v.x or 0, v.y or 0, v.z or 0) end
+		if #v >= 3 then return Vector3.new(v[1] or 0, v[2] or 0, v[3] or 0) end
+	end
+	return fallback or Vector3.new(0, 8, 0)
+end
+
+local function stabilizeGeneratedInstance(inst)
+	if not inst then return end
+	if inst:IsA("BasePart") then
+		applyVisibleDefaults(inst, nil)
+	elseif inst:IsA("Model") or inst:IsA("Folder") then
+		for _, desc in ipairs(inst:GetDescendants()) do
+			if desc:IsA("BasePart") then applyVisibleDefaults(desc, nil) end
+		end
+	end
+end
+
+local function ensureMapStructureIfNeeded()
+	local map = ensurePath("Workspace/Map")
+	ensurePath("Workspace/Map/Buildings")
+	ensurePath("Workspace/Map/Roads")
+	ensurePath("Workspace/Map/Trees")
+	ensurePath("Workspace/Map/Props")
+	ensurePath("Workspace/Map/Zones")
+	ensurePath("Workspace/Interactables")
+	ensurePath("Workspace/NPCs")
+	return map
+end
+
 -- Create or overwrite a script (legacy file sync)
 function Actions.script(a)
 	local parent = resolvePath(a.parent or a.service_location or "ServerScriptService", true)
