@@ -2479,6 +2479,27 @@ function ProjectEditor() {
                     ))}
                   </div>
                 )}
+                {!prompt.trim() && attachments.length === 0 && !chatMode && !planMode && (
+                  <div className="mb-2 flex flex-wrap gap-1.5">
+                    {[
+                      "Make a sword tool",
+                      "Create a main menu",
+                      "Add a leaderstats system",
+                      "Build a simple shop GUI",
+                      "Make a loading screen",
+                      "Add a daily reward",
+                    ].map((tpl) => (
+                      <button
+                        key={tpl}
+                        type="button"
+                        onClick={() => setPrompt(tpl)}
+                        className="rounded-full border border-border bg-surface/60 px-2.5 py-1 text-[11px] text-muted-foreground hover:text-foreground hover:border-primary/40 hover:bg-primary/5 transition"
+                      >
+                        {tpl}
+                      </button>
+                    ))}
+                  </div>
+                )}
                 <textarea
                   value={prompt}
                   onChange={(e) => setPrompt(e.target.value)}
