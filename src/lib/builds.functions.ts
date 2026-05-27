@@ -159,3 +159,95 @@ export const organizeProject = createServerFn({ method: "POST" })
 
     return { queued: rows.length, layout: STANDARD_LAYOUT };
   });
+
+// ---------------------------------------------------------------------------
+// Revert Build — restores file snapshot from a specific assistant message and
+// queues Studio deletes for files that didn't exist before. Also marks the
+// message's actions.reverted = true so the History drawer dims it.
+// ---------------------------------------------------------------------------
+export const revertBuild = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((i: unknown) =>
+    z.object({ projectId: z.string().uuid(), messageId: z.string().uuid() }).parse(i),
+  )
+  .handler(async ({ data, context }) => {
+    const { supabase, userId } = context;
+    const { projectId, messageId } = data;
+
+    // Membership check via RLS-friendly read.
+    const { data: proj, error: pErr } = await supabase
+      .from("projects")
+      .select("id")
+      .eq("id", projectId)
+      .maybeSingle();
+    if (pErr || !proj) throw new Error("Project not found or not accessible.");
+
+    const { data: msg, error: mErr } = await supabase
+      .from("agent_messages")
+      .select("id,actions,conversation_id")
+      .eq("id", messageId)
+      .maybeSingle();
+    if (mErr || !msg) throw new Error("Build not found.");
+
+    const actions: any = msg.actions ?? {};
+    if (actions.reverted === true) {
+      return { restored: 0, removed: 0, queuedDeletes: 0, alreadyReverted: true };
+    }
+    const snap: any[] = Array.isArray(actions.snapshot) ? actions.snapshot : [];
+    if (snap.length === 0) throw new Error("No snapshot stored for this build.");
+
+    // Pull current file ids for this project so we can update/delete by id.
+    const { data: cur } = await supabase
+      .from("project_files")
+      .select("id,path,file_type,service_location")
+      .eq("project_id", projectId);
+    const byPath = new Map((cur ?? []).map((f) => [f.path, f]));
+
+    let restored = 0;
+    let removed = 0;
+    const queueDeletes: string[] = [];
+
+    for (const s of snap) {
+      if (!s || typeof s.path !== "string") continue;
+      const existing = byPath.get(s.path);
+      if (s.existed) {
+        if (existing) {
+          await supabase
+            .from("project_files")
+            .update({
+              content: s.content ?? "",
+              file_type: s.file_type ?? existing.file_type,
+              service_location: s.service_location ?? existing.service_location,
+            })
+            .eq("id", existing.id);
+          restored++;
+        }
+      } else {
+        if (existing) {
+          await supabase.from("project_files").delete().eq("id", existing.id);
+        }
+        queueDeletes.push(s.path);
+        removed++;
+      }
+    }
+
+    // Queue Studio deletes for files that didn't exist before this build.
+    if (queueDeletes.length > 0) {
+      const rows = queueDeletes.map((path) => ({
+        project_id: projectId,
+        user_id: userId,
+        action_type: "delete",
+        payload: { type: "delete", path },
+        status: "pending",
+      }));
+      await supabase.from("plugin_actions").insert(rows);
+    }
+
+    // Mark message as reverted.
+    await supabase
+      .from("agent_messages")
+      .update({ actions: { ...actions, reverted: true } })
+      .eq("id", messageId);
+
+    return { restored, removed, queuedDeletes: queueDeletes.length, alreadyReverted: false };
+  });
