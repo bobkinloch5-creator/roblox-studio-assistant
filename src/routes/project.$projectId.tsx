@@ -1233,9 +1233,15 @@ function ProjectEditor() {
     const imgs = attachments;
     setPrompt("");
     setAttachments([]);
-    if (chatMode) await runChatRequest(p || "Analyze the attached image(s).", imgs);
-    else if (planMode) await runPlanRequest(p);
-    else await runGenerate(p || "Analyze the attached image(s) and build/fix what's needed.", { images: imgs });
+    // Web-search hint: when the toggle is on, push the AI to actively call
+    // the web_search / fetch_url tools to ground its answer.
+    const webHint = webSearch
+      ? "\n\n[WEB SEARCH ENABLED] You MUST call the web_search tool (and fetch_url for promising results) before answering or building. Cite at least one source URL in your reply."
+      : "";
+    const composedPrompt = (p || "Analyze the attached image(s) and help.") + webHint;
+    if (chatMode) await runChatRequest(composedPrompt, imgs);
+    else if (planMode) await runPlanRequest(composedPrompt);
+    else await runGenerate(composedPrompt, { images: imgs });
   };
 
 
