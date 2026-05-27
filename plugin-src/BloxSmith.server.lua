@@ -2511,6 +2511,7 @@ local function doConnect()
 		return false
 	end
 	connected = true
+	if data.user.credits ~= nil then setCreditsDisplay(data.user.credits); lastCreditsAt = os.time() end
 	local creditsTxt = (data.user.credits ~= nil) and (" · " .. tostring(data.user.credits) .. " credits") or ""
 	status.Text = "Connected as " .. (data.user.display_name or data.user.email) .. creditsTxt
 	status.TextColor3 = C.text
