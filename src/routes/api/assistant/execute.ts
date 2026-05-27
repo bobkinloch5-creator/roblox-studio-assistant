@@ -1640,8 +1640,9 @@ export const Route = createFileRoute("/api/assistant/execute")({
                     const msg = String(err?.message ?? err);
                     const isTooLarge = /too large|context length|token|tpm|413/i.test(msg);
                     const isAbort = err?.name === "AbortError" || /aborted|abort|timeout/i.test(msg);
+                    const isBadJson = /json|no json object|unexpected end|unterminated|truncated/i.test(msg);
                     console.error(
-                      `[ai-execute] attempt ${i} failed (tooLarge=${isTooLarge}, abort=${isAbort}): ${msg.slice(0, 300)}`,
+                      `[ai-execute] attempt ${i} failed (tooLarge=${isTooLarge}, abort=${isAbort}, badJson=${isBadJson}): ${msg.slice(0, 300)}`,
                     );
                     if (!isTooLarge && !isAbort && rawText && gateway) {
                       try {
@@ -1658,12 +1659,15 @@ export const Route = createFileRoute("/api/assistant/execute")({
                     // attempt with a smaller context and slim prompt usually fits
                     // inside the wall-clock budget. Other errors (network, JSON
                     // parse, model 500) don't benefit from a retry.
-                    if ((isTooLarge || isAbort) && i < attempts.length - 1) continue;
+                    if ((isTooLarge || isAbort || isBadJson) && i < attempts.length - 1) continue;
                     // Friendlier final message for aborts so the user knows to retry.
                     if (isAbort) {
                       lastErr = new Error(
                         "The AI took too long to finish this build in one shot. Try a shorter, more focused request (e.g. 'shop UI only — open/close button and 3 items') or run it again.",
                       );
+                    } else if (isBadJson) {
+                      result = getFocusedFallbackTemplate(prompt);
+                      lastErr = null;
                     }
                     break;
                   }
