@@ -1,6 +1,8 @@
-import { useTheme, THEMES, type Theme } from "@/hooks/useTheme";
+import { useTheme, THEMES, type Theme, type ThemeCategory } from "@/hooks/useTheme";
 import { Palette, Check } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
+
+const CATEGORIES: ThemeCategory[] = ["Base", "Roblox Games", "Seasonal"];
 
 export function ThemeToggle() {
   const { theme, setTheme } = useTheme();
@@ -10,15 +12,9 @@ export function ThemeToggle() {
 
   useEffect(() => {
     function onKeyDown(event: KeyboardEvent) {
-      if (event.key === "Escape") {
-        setOpen(false);
-      }
+      if (event.key === "Escape") setOpen(false);
     }
-
-    if (open) {
-      window.addEventListener("keydown", onKeyDown);
-    }
-
+    if (open) window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
   }, [open]);
 
@@ -43,37 +39,38 @@ export function ThemeToggle() {
       {open && (
         <>
           <div className="fixed inset-0 z-40" onClick={() => setOpen(false)} />
-          <div className="absolute right-0 top-full z-50 mt-3 w-[18rem] overflow-hidden rounded-2xl border border-border/70 bg-surface-elevated/95 shadow-2xl backdrop-blur-xl animate-fade-in">
-            <div className="border-b border-border/40 px-4 py-3">
-              <p className="text-[11px] font-bold uppercase tracking-[0.16em] text-muted-foreground">
-                Roblox Themes
-              </p>
-            </div>
-            <div className="py-2">
-              {THEMES.map((t) => (
-                <button
-                  key={t.id}
-                  onClick={() => {
-                    setTheme(t.id as Theme);
-                    setOpen(false);
-                  }}
-                  className="flex w-full items-center gap-3 px-4 py-3 text-left transition hover:bg-background/35"
-                  role="menuitemradio"
-                  aria-checked={theme === t.id}
-                >
-                  <span className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-primary/8 text-base shadow-[inset_0_1px_0_oklch(1_0_0_/_0.1)]">
-                    {t.emoji}
-                  </span>
-                  <span className="min-w-0 flex-1">
-                    <span className="block truncate text-[0.98rem] font-medium text-foreground">{t.label}</span>
-                    <span className="mt-0.5 block truncate text-[11px] text-muted-foreground">{t.hint}</span>
-                  </span>
-                  <span className="flex h-7 w-7 shrink-0 items-center justify-center">
-                    {theme === t.id && <Check className="h-4 w-4 text-primary-glow" />}
-                  </span>
-                </button>
-              ))}
-            </div>
+          <div className="absolute right-0 top-full z-50 mt-3 max-h-[28rem] w-[19rem] overflow-y-auto rounded-2xl border border-border/70 bg-surface-elevated/95 shadow-2xl backdrop-blur-xl animate-fade-in">
+            {CATEGORIES.map((cat) => (
+              <div key={cat}>
+                <div className="sticky top-0 z-10 border-b border-border/40 bg-surface-elevated/95 px-4 py-2 backdrop-blur-xl">
+                  <p className="text-[10.5px] font-bold uppercase tracking-[0.18em] text-muted-foreground">
+                    {cat}
+                  </p>
+                </div>
+                <div className="py-1.5">
+                  {THEMES.filter((t) => t.category === cat).map((t) => (
+                    <button
+                      key={t.id}
+                      onClick={() => { setTheme(t.id as Theme); setOpen(false); }}
+                      className="flex w-full items-center gap-3 px-4 py-2.5 text-left transition hover:bg-background/35"
+                      role="menuitemradio"
+                      aria-checked={theme === t.id}
+                    >
+                      <span className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-primary/8 text-base shadow-[inset_0_1px_0_oklch(1_0_0_/_0.1)]">
+                        {t.emoji}
+                      </span>
+                      <span className="min-w-0 flex-1">
+                        <span className="block truncate text-[0.95rem] font-medium text-foreground">{t.label}</span>
+                        <span className="mt-0.5 block truncate text-[11px] text-muted-foreground">{t.hint}</span>
+                      </span>
+                      <span className="flex h-7 w-7 shrink-0 items-center justify-center">
+                        {theme === t.id && <Check className="h-4 w-4 text-primary-glow" />}
+                      </span>
+                    </button>
+                  ))}
+                </div>
+              </div>
+            ))}
           </div>
         </>
       )}
