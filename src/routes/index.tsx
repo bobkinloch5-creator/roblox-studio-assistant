@@ -35,6 +35,9 @@ import {
   Terminal,
 } from "lucide-react";
 import { CREDIT_PACKS } from "@/lib/credits";
+import { useServerFn } from "@tanstack/react-start";
+import { useQuery } from "@tanstack/react-query";
+import { getPublicStats } from "@/lib/stats.functions";
 
 const showcase = [
   {
@@ -216,14 +219,38 @@ const testimonials = [
   },
 ];
 
-const stats = [
+const fallbackStats = [
   { value: "12k+", label: "Scripts generated" },
   { value: "850+", label: "Games started" },
   { value: "60s", label: "Idea → playable" },
   { value: "4.9★", label: "Creator rating" },
 ];
 
+function compact(n: number) {
+  if (n >= 1000) return `${(n / 1000).toFixed(n >= 10000 ? 0 : 1)}k+`;
+  if (n >= 100) return `${Math.floor(n / 10) * 10}+`;
+  return `${n}`;
+}
+
+function useLiveStats() {
+  const fetchStats = useServerFn(getPublicStats);
+  return useQuery({
+    queryKey: ["public-stats"],
+    queryFn: () => fetchStats({}),
+    staleTime: 5 * 60_000,
+  });
+}
+
 function Landing() {
+  const { data: live } = useLiveStats();
+  const stats = live
+    ? [
+        { value: compact(live.scripts), label: "Scripts generated" },
+        { value: compact(live.projects), label: "Games started" },
+        { value: compact(live.users), label: "Builders" },
+        { value: compact(live.showcased), label: "In showcase" },
+      ]
+    : fallbackStats;
   return (
     <div className="min-h-screen flex flex-col">
       <Header />
