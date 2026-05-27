@@ -87,7 +87,7 @@ type Project = {
   game_type: string;
   user_id: string;
 };
-type Msg = { id: string; role: "user" | "assistant"; content: string };
+type Msg = { id: string; role: "user" | "assistant"; content: string; actions?: any };
 
 function ProjectEditor() {
   const { projectId } = Route.useParams();
@@ -393,6 +393,65 @@ function ProjectEditor() {
   const [fixLogs, setFixLogs] = useState("");
   const [fixBusy, setFixBusy] = useState(false);
   const FIX_COST = 2;
+  const [revertedByMsg, setRevertedByMsg] = useState<Record<string, boolean>>({});
+  const [revertingMsg, setRevertingMsg] = useState<string | null>(null);
+
+  const revertMessage = async (m: Msg) => {
+    const snap: any[] = m.actions?.snapshot ?? [];
+    if (!snap.length) return;
+    if (!confirm(`Revert ${snap.length} file change${snap.length === 1 ? "" : "s"} from this AI response?\n\nThis restores old file contents, deletes anything new, and queues Studio to remove the new instances on next sync.`)) return;
+    setRevertingMsg(m.id);
+    try {
+      let restored = 0;
+      let removed = 0;
+      const queueDeletes: string[] = [];
+      for (const s of snap) {
+        const cur = files.find((x) => x.path === s.path);
+        if (s.existed) {
+          if (cur) {
+            await supabase
+              .from("project_files")
+              .update({
+                content: s.content ?? "",
+                file_type: s.file_type ?? cur.file_type,
+                service_location: s.service_location ?? cur.service_location,
+              })
+              .eq("id", cur.id);
+            restored++;
+          }
+        } else {
+          if (cur) {
+            await supabase.from("project_files").delete().eq("id", cur.id);
+          }
+          queueDeletes.push(s.path);
+          removed++;
+        }
+      }
+      // Tell Studio to delete the newly-created scripts/instances on next sync.
+      for (const path of queueDeletes) {
+        try {
+          await runQueuePluginAction({
+            data: {
+              projectId,
+              actionType: "delete",
+              payload: { type: "delete", path },
+            } as any,
+          });
+        } catch (err) {
+          // Non-fatal — DB is already reverted; surface in toast only.
+          console.warn("Failed to queue Studio delete for", path, err);
+        }
+      }
+      setRevertedByMsg((p) => ({ ...p, [m.id]: true }));
+      toast.success(
+        `Reverted — restored ${restored}, removed ${removed}${queueDeletes.length ? `, queued ${queueDeletes.length} Studio delete${queueDeletes.length === 1 ? "" : "s"}` : ""}.`,
+      );
+    } catch (e: any) {
+      toast.error(e?.message ?? "Revert failed");
+    } finally {
+      setRevertingMsg(null);
+    }
+  };
   const AUTOPILOT_COST = 10;
   const [showAuto, setShowAuto] = useState(false);
   const [autoDesc, setAutoDesc] = useState("");
@@ -562,10 +621,10 @@ function ProjectEditor() {
         setConvoId(cid);
         const { data: msgs } = await supabase
           .from("agent_messages")
-          .select("id,role,content")
+          .select("id,role,content,actions")
           .eq("conversation_id", cid)
           .order("created_at", { ascending: true });
-        setMessages((msgs ?? []).map((m: any) => ({ id: m.id, role: m.role, content: m.content })));
+        setMessages((msgs ?? []).map((m: any) => ({ id: m.id, role: m.role, content: m.content, actions: m.actions })));
       }
     })();
   }, [user, projectId]);
@@ -575,10 +634,10 @@ function ProjectEditor() {
     setShowHistory(false);
     const { data: msgs } = await supabase
       .from("agent_messages")
-      .select("id,role,content")
+      .select("id,role,content,actions")
       .eq("conversation_id", cid)
       .order("created_at", { ascending: true });
-    setMessages((msgs ?? []).map((m: any) => ({ id: m.id, role: m.role, content: m.content })));
+    setMessages((msgs ?? []).map((m: any) => ({ id: m.id, role: m.role, content: m.content, actions: m.actions })));
   };
 
   const newChat = async () => {
@@ -993,15 +1052,32 @@ function ProjectEditor() {
         ...m,
         { id: tempId, role: "assistant", content: out.message + vLine + dangerLine + askLine },
       ]);
-      const realId = await persistMsg("assistant", out.message + vLine + dangerLine + askLine, {
+      // Snapshot pre-state of every file the AI is about to touch, so the user
+      // can hit "Revert" to undo this batch (restore old content / delete new
+      // files / queue plugin deletes in Studio).
+      const snapshot = (out.files ?? []).map((f: any) => {
+        const cur = files.find((x) => x.path === f.path);
+        return cur
+          ? {
+              path: f.path,
+              content: cur.content,
+              file_type: cur.file_type,
+              service_location: cur.service_location,
+              existed: true,
+            }
+          : { path: f.path, existed: false };
+      });
+      const actionsMeta = {
         files: out.files?.length ?? 0,
         actions: out.actions?.length ?? 0,
         validation: v,
         generationId: out.generationId,
         dangers: out.dangers ?? [],
-      });
+        snapshot,
+      };
+      const realId = await persistMsg("assistant", out.message + vLine + dangerLine + askLine, actionsMeta);
       const finalId = realId ?? tempId;
-      if (realId) setMessages((m) => m.map((x) => (x.id === tempId ? { ...x, id: realId } : x)));
+      setMessages((m) => m.map((x) => (x.id === tempId ? { ...x, id: finalId, actions: actionsMeta } : x)));
 
       // Always surface what the AI built so the user can see files + actions,
       // even when Auto Execute is on.
@@ -2138,6 +2214,28 @@ function ProjectEditor() {
                           )}
                           Auto-fix {validationByMsg[m.id].errors.length} blocked ({GENERATE_COST} cr)
                         </button>
+                      )}
+                      {!isUser && m.actions?.snapshot?.length > 0 && (
+                        revertedByMsg[m.id] ? (
+                          <div className="inline-flex items-center gap-1.5 rounded-md border border-emerald-500/30 bg-emerald-500/10 px-3 py-1.5 text-xs font-medium text-emerald-300">
+                            <CheckCircle2 className="h-3.5 w-3.5" />
+                            Reverted
+                          </div>
+                        ) : (
+                          <button
+                            onClick={() => revertMessage(m)}
+                            disabled={revertingMsg === m.id}
+                            className="inline-flex items-center gap-1.5 rounded-md border border-border bg-surface-elevated/60 px-3 py-1.5 text-xs font-medium text-foreground hover:bg-surface-elevated hover:border-rose-400/40 hover:text-rose-300 transition disabled:opacity-50"
+                            title={`Undo this AI response — restores ${m.actions.snapshot.length} file${m.actions.snapshot.length === 1 ? "" : "s"} and removes new ones from Studio on next sync.`}
+                          >
+                            {revertingMsg === m.id ? (
+                              <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                            ) : (
+                              <RefreshCw className="h-3.5 w-3.5" />
+                            )}
+                            Revert this change
+                          </button>
+                        )
                       )}
                     </div>
                   </div>
