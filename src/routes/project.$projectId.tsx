@@ -398,7 +398,6 @@ function ProjectEditor() {
   const FIX_COST = 2;
   const [revertedByMsg, setRevertedByMsg] = useState<Record<string, boolean>>({});
   const [revertingMsg, setRevertingMsg] = useState<string | null>(null);
-  const [showHistory, setShowHistory] = useState(false);
 
   const revertMessage = async (m: Msg) => {
     const snap: any[] = m.actions?.snapshot ?? [];
