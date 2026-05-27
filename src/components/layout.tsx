@@ -67,7 +67,7 @@ export function Header() {
         </nav>
         <div className="hidden md:flex items-center gap-3">
           <a
-            href="https://discord.gg/ypjzApsz3S"
+            href="https://discord.gg/J9TU7syJCr"
             target="_blank"
             rel="noopener noreferrer"
             title="Join the BloxSmith Discord — +5 free credits"
@@ -261,7 +261,7 @@ export function Footer() {
         </div>
         <div className="flex flex-wrap gap-6 items-center">
           <a
-            href="https://discord.gg/ypjzApsz3S"
+            href="https://discord.gg/J9TU7syJCr"
             target="_blank"
             rel="noopener noreferrer"
             className="inline-flex items-center gap-1.5 text-[#7c8ff5] hover:text-[#a3b1ff] font-semibold"
