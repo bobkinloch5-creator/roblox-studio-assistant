@@ -248,6 +248,30 @@ export function TaskBoard({ projectId, open, onClose, onBuildTask }: Props) {
               {busy === "__finish" ? <Loader2 className="h-3 w-3 animate-spin" /> : <CheckCircle2 className="h-3 w-3" />}
               Finish This Game
             </button>
+            <button
+              onClick={async () => {
+                setBusy("__errs");
+                try {
+                  const res = await importErrs({ data: { projectId, limit: 20 } });
+                  if (res.created > 0) {
+                    toast.success(`Imported ${res.created} fix task${res.created === 1 ? "" : "s"} from Studio errors.`);
+                    await refresh();
+                  } else {
+                    toast.message(res.reason ?? "Nothing to import.");
+                  }
+                } catch (e) {
+                  toast.error((e as Error).message);
+                } finally {
+                  setBusy(null);
+                }
+              }}
+              disabled={busy === "__errs"}
+              className="h-8 px-2.5 rounded-md border border-border bg-surface text-xs inline-flex items-center gap-1.5 hover:bg-surface-elevated disabled:opacity-50"
+              title="Pull recent Studio runtime errors onto the board as needs_fix tasks"
+            >
+              {busy === "__errs" ? <Loader2 className="h-3 w-3 animate-spin" /> : <Bug className="h-3 w-3 text-amber-400" />}
+              Pull Studio Errors
+            </button>
             <div className="flex-1" />
             <div className="flex gap-1">
               <input
