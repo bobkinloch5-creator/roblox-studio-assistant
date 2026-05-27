@@ -9,9 +9,13 @@ import {
   saveProviderKey,
   clearProviderKey,
 } from "@/lib/project-ai.functions";
+import { SITE_PROVIDER_LABELS, SITE_PROVIDER_MODELS, type SiteProviderId } from "@/lib/ai-models";
 
-type ProviderId = "openai" | "anthropic" | "google" | "groq" | "neokens";
+type SiteOnlyProviderId = SiteProviderId;
+type ProviderId = SiteOnlyProviderId;
 type Mode = "mcp" | "api_key";
+const isSiteProvider = (value: unknown): value is SiteOnlyProviderId =>
+  value === "groq" || value === "neokens";
 
 type McpRow = {
   id: string;
@@ -24,52 +28,23 @@ type McpRow = {
 
 
 const PROVIDER_LABELS: Record<ProviderId, string> = {
-  openai: "OpenAI",
-  anthropic: "Anthropic",
-  google: "Google Gemini",
-  groq: "Groq",
-  neokens: "Neokens",
+  groq: SITE_PROVIDER_LABELS.groq,
+  neokens: SITE_PROVIDER_LABELS.neokens,
 };
 
 const PROVIDER_MODELS: Record<ProviderId, string[]> = {
-  openai: ["gpt-5", "gpt-5-mini", "gpt-5-nano", "gpt-5-codex", "gpt-4.1", "gpt-4.1-mini"],
-  anthropic: [
-    "claude-sonnet-4-5",
-    "claude-opus-4-1",
-    "claude-3-5-sonnet-latest",
-    "claude-3-5-haiku-latest",
-  ],
-  google: [
-    "gemini-2.5-pro",
-    "gemini-2.5-flash",
-    "gemini-2.5-flash-lite",
-    "gemini-3-flash-preview",
-  ],
   groq: [
-    "llama-3.3-70b-versatile",
-    "llama-3.1-8b-instant",
-    "openai/gpt-oss-120b",
-    "openai/gpt-oss-20b",
-    "meta-llama/llama-4-scout-17b-16e-instruct",
-    "meta-llama/llama-4-maverick-17b-128e-instruct",
-    "qwen/qwen3-32b",
-    "moonshotai/kimi-k2-instruct",
-    "deepseek-r1-distill-llama-70b",
+    ...SITE_PROVIDER_MODELS.groq,
   ],
   neokens: [
-    "gemini-3-flash",
-    "claude-haiku-4-5-20251001",
-    "gpt-5.3-codex",
-    "gemini-3.1-pro",
-    "gpt-5.1",
+    ...SITE_PROVIDER_MODELS.neokens,
   ],
 
 };
 
+const SITE_ONLY_PROVIDERS: SiteOnlyProviderId[] = ["groq", "neokens"];
+
 const PROVIDER_KEY_HINTS: Record<ProviderId, string> = {
-  openai: "sk-... — platform.openai.com/api-keys",
-  anthropic: "sk-ant-... — console.anthropic.com/settings/keys",
-  google: "AI... — aistudio.google.com/apikey",
   groq: "Site-wide free key managed by admin (GROQ_API_KEY)",
   neokens: "Site-wide key managed by admin (NEOKENS_API_KEY)",
 };
@@ -88,8 +63,8 @@ export function AiSourceSettings({
 
   const [loading, setLoading] = useState(true);
   const [mode, setMode] = useState<Mode>("mcp");
-  const [provider, setProvider] = useState<ProviderId>("openai");
-  const [model, setModel] = useState<string>("gpt-5-mini");
+  const [provider, setProvider] = useState<SiteOnlyProviderId>("groq");
+  const [model, setModel] = useState<string>(PROVIDER_MODELS.groq[0]);
   const [keys, setKeys] = useState<Record<string, { label: string | null; updatedAt: string }>>({});
   const [draftKey, setDraftKey] = useState("");
   const [showKey, setShowKey] = useState(false);
@@ -127,8 +102,9 @@ export function AiSourceSettings({
       const res = await get({ data: { projectId } });
       const s = res.settings;
       setMode((s.mode as Mode) ?? "mcp");
-      setProvider(((s.provider as ProviderId) ?? "openai"));
-      setModel(s.model ?? PROVIDER_MODELS[(s.provider as ProviderId) ?? "openai"][0]);
+      const nextProvider = isSiteProvider(s.provider) ? s.provider : "groq";
+      setProvider(nextProvider);
+      setModel(s.model ?? PROVIDER_MODELS[nextProvider][0]);
       setKeys(res.keys ?? {});
     } catch (e) {
       setToast({ kind: "err", text: e instanceof Error ? e.message : "Failed to load" });
@@ -268,10 +244,10 @@ export function AiSourceSettings({
                 }`}
               >
                 <div className="flex items-center gap-2 text-xs font-semibold">
-                  <Key className="h-3.5 w-3.5" /> My API key
+                  <Key className="h-3.5 w-3.5" /> Free API
                 </div>
                 <p className="text-[11px] text-muted-foreground">
-                  Bring your own OpenAI / Anthropic / Google / Groq key (e.g. gpt-5-codex on OpenAI). No credits charged.
+                  Use the site Groq or Neokens key with the Roblox model you pick. No OpenAI or Anthropic keys needed.
                 </p>
               </button>
             </div>
@@ -352,7 +328,7 @@ export function AiSourceSettings({
                     <select
                       value={provider}
                       onChange={(e) => {
-                        const p = e.target.value as ProviderId;
+                        const p = e.target.value as SiteOnlyProviderId;
                         const m = PROVIDER_MODELS[p][0];
                         setProvider(p);
                         setModel(m);
@@ -360,7 +336,7 @@ export function AiSourceSettings({
                       }}
                       className="mt-1 w-full rounded-md border border-border bg-background px-2 py-1.5 text-xs"
                     >
-                      {(Object.keys(PROVIDER_LABELS) as ProviderId[]).map((p) => (
+                      {SITE_ONLY_PROVIDERS.map((p) => (
                         <option key={p} value={p}>
                           {PROVIDER_LABELS[p]}
                           {keys[p] ? " ✓" : ""}

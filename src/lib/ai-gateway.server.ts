@@ -43,12 +43,12 @@ export const createGroqProvider = (groqApiKey: string) =>
 // JSON for big scenes — it would skip actions or invent classes.
 // Thinking = same strong model for harder plans.
 // Fast = lightweight model only for quick plan outlines / cheap calls.
-export const BLOXSMITH_MODEL = "openai/gpt-oss-120b";
-export const BLOXSMITH_THINK_MODEL = "openai/gpt-oss-120b";
+export const BLOXSMITH_MODEL = "llama-3.3-70b-versatile";
+export const BLOXSMITH_THINK_MODEL = "llama-3.3-70b-versatile";
 export const BLOXSMITH_FAST_MODEL = "llama-3.3-70b-versatile";
 // Large-context fallback when the request is still too big. Same family,
 // max headroom (~128k context window on Groq).
-export const BLOXSMITH_LARGE_MODEL = "openai/gpt-oss-120b";
+export const BLOXSMITH_LARGE_MODEL = "llama-3.3-70b-versatile";
 
 // Token budgets. gpt-oss-120b on Groq has a ~128k context window, so we
 // can afford much more workspace context than the old 8b limit allowed.
