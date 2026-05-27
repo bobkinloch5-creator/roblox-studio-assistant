@@ -118,6 +118,40 @@ function classifyAIError(err: unknown): "timeout" | "context" | "rate_limit" | "
   return "unknown";
 }
 
+function pickGenerationTools(prompt: string, allTools: Record<string, any>): Record<string, unknown> {
+  const lower = prompt.toLowerCase();
+  const picked: Record<string, unknown> = {};
+  const add = (name: string) => {
+    if (name in allTools) picked[name] = allTools[name];
+  };
+
+  if (/\b(datastore|remoteevent|remotefunction|marketplaceservice|pathfindingservice|tweenservice|runservice|animation|animator|humanoid|screen.?gui|luau|creator hub|api reference|docs|documentation)\b/i.test(lower)) {
+    add("roblox_docs_search");
+  }
+  if (/\b(search the web|web search|look up|current|latest|today|internet|url|https?:\/\/)\b/i.test(lower)) {
+    add("web_search");
+    add("fetch_url");
+  }
+  if (/\b(toolbox|creator store|free model|asset|model id|insert model|use a model|marketplace|skybox|music|sound|decal|image id|thumbnail|icon|logo|banner|loading screen)\b/i.test(lower)) {
+    add("roblox_asset_search");
+  }
+  if (/\b(asset info|asset details|verify asset|thumbnail|preview|safe model|scan scripts?)\b/i.test(lower)) {
+    add("roblox_asset_info");
+    add("roblox_asset_thumbnail");
+  }
+  if (/\b(image|thumbnail|icon|logo|decal|artwork|poster|banner|loading screen)\b/i.test(lower)) {
+    add("generate_image");
+  }
+
+  return picked;
+}
+
+function shouldLoadUserMcpTools(prompt: string): boolean {
+  return /\bmcp\b|connected server|external tool|custom tool|use my server|use my tools|notion|linear|github|jira|slack|supabase/i.test(
+    prompt,
+  );
+}
+
 export const generateWithAI = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((input: unknown) => InputSchema.parse(input))
@@ -139,7 +173,7 @@ export const generateWithAI = createServerFn({ method: "POST" })
 
     const { generateText, Output, stepCountIs } = await import("ai");
     const { SYSTEM_PROMPT } = await import("./ai-gateway.server");
-    const { resolveAiGateway } = await import("./ai-providers.server");
+    const { getModelProfile, resolveAiGateway } = await import("./ai-providers.server");
 
     const { buildBloxSmithTools } = await import("./ai-tools.server");
 
@@ -168,30 +202,33 @@ export const generateWithAI = createServerFn({ method: "POST" })
     }
 
     const model = resolved.model;
+    const profile = getModelProfile(resolved.provider, resolved.modelName, {
+      thinking,
+      heavyBuild: isComplex,
+    });
 
-
-    // 1. Pull the live workspace snapshot the plugin most recently pushed up.
-    const { data: liveContext } = await supabase
-      .from("plugin_context")
-      .select("context,instance_count,updated_at")
-      .eq("project_id", projectId)
-      .maybeSingle();
-
-    // 2. Pull script files we have in DB. We over-fetch metadata, then pick
-    //    only the files that look relevant to the prompt to keep tokens small.
-    const { data: allFiles } = await supabase
-      .from("project_files")
-      .select("path,file_type,service_location,content")
-      .eq("project_id", projectId)
-      .limit(200);
+    const [liveContextResult, allFilesResult] = await Promise.all([
+      supabase
+        .from("plugin_context")
+        .select("context,instance_count,updated_at")
+        .eq("project_id", projectId)
+        .maybeSingle(),
+      supabase
+        .from("project_files")
+        .select("path,file_type,service_location,content")
+        .eq("project_id", projectId)
+        .limit(isComplex ? 120 : 80),
+    ]);
+    const liveContext = liveContextResult.data;
+    const allFiles = allFilesResult.data;
 
     // FULL PROJECT AWARENESS: a compact tree of every file (path + type +
     // location) so the model always knows what exists, even if the content
     // isn't loaded. Cheap (~40 chars/file) and prevents duplicates.
     const projectMap = (allFiles ?? [])
-      .map((f) => `  • ${f.path} [${f.file_type} @ ${f.service_location}]`)
+      .map((f) => `  - ${f.path} [${f.file_type} @ ${f.service_location}]`)
       .join("\n")
-      .slice(0, 6000);
+      .slice(0, isComplex ? 5000 : 2800);
 
     // Keyword-based relevance: score each file on prompt-token overlap and
     // include only the top ~6. Always include any explicitly-named file.
@@ -206,14 +243,14 @@ export const generateWithAI = createServerFn({ method: "POST" })
     const relevant = (allFiles ?? [])
       .map((f) => ({ ...f, _score: scoreFile(f) }))
       .sort((a, b) => b._score - a._score)
-      .slice(0, isComplex ? 10 : 6);
+      .slice(0, isComplex ? 8 : 4);
     const filesBlock = relevant
       .map(
         (f) =>
-          `--- ${f.path} (${f.file_type} in ${f.service_location}) ---\n${(f.content ?? "").slice(0, isComplex ? 400 : 220)}`,
+          `--- ${f.path} (${f.file_type} in ${f.service_location}) ---\n${(f.content ?? "").slice(0, isComplex ? 360 : 160)}`,
       )
       .join("\n\n")
-      .slice(0, isComplex ? 4000 : 2200);
+      .slice(0, isComplex ? 3200 : 1400);
 
     // Live workspace: summarize service counts instead of dumping full JSON.
     let liveBlock = "LIVE STUDIO WORKSPACE: (empty baseplate)";
@@ -236,12 +273,24 @@ export const generateWithAI = createServerFn({ method: "POST" })
     try {
       const fullPrompt = `${liveBlock}\n\nFULL PROJECT FILE MAP (${(allFiles ?? []).length} files — every file your project has, by location):\n${projectMap || "  (no files yet)"}\n\nRelevant project files (with content preview):\n${filesBlock || "(none indexed)"}\n\nUser request:\n${prompt}\n\nRules:\n- You have FULL AWARENESS of the project above. Reference real files by path. NEVER duplicate something that already exists — MODIFY it.\n- Organize new files into clean subfolders by feature (e.g. ServerScriptService/Combat/HitService, ReplicatedStorage/Modules/Config, StarterPlayerScripts/UI/Hud). Do NOT dump everything at the root of a service.\n- Place server Scripts in ServerScriptService, LocalScripts in StarterPlayerScripts or StarterGui, GUIs in StarterGui, RemoteEvents/RemoteFunctions in ReplicatedStorage/Remotes, ModuleScripts in ReplicatedStorage/Modules (shared) or ServerStorage/Modules (server-only), Tools in StarterPack, physical/world objects in Workspace.\n- For ground/landscape requests (grass, sand, snow, water, hills, islands), use real Roblox Terrain via the \`terrainFill\` action. NEVER spawn hundreds of thin Parts.\n- Do NOT claim success — phrase as "Queued for Studio…".\n- If the request is a casual question (no code changes), reply naturally in 'message' with empty 'files' and 'actions'.\n- Use tools (web_search, roblox_asset_*, fetch_url) ONLY when you genuinely need fresh info — every tool call slows you down.\n\nReturn the JSON object as specified.`;
       const { generateTextWithToolFallback } = await import("./ai-retry.server");
+      const builtInTools = pickGenerationTools(prompt, buildBloxSmithTools({ userId }) as Record<string, any>);
+      const mcpTools = shouldLoadUserMcpTools(prompt)
+        ? await (await import("./mcp-client.server")).buildUserMcpTools(userId)
+        : {};
+      const tools = { ...builtInTools, ...mcpTools } as Record<string, unknown>;
+      const timeoutMs = isComplex
+        ? Math.min(profile.timeoutMs, thinking ? 38_000 : 30_000)
+        : Math.min(profile.timeoutMs, thinking ? 28_000 : 16_000);
       const { text: rawText } = await generateTextWithToolFallback(generateText, {
         model,
         system: SYSTEM_PROMPT,
         prompt: fullPrompt,
-        tools: { ...buildBloxSmithTools({ userId }), ...(await (await import("./mcp-client.server")).buildUserMcpTools(userId)) } as any,
-        stopWhen: stepCountIs(isComplex ? 18 : 6),
+        ...(Object.keys(tools).length > 0
+          ? { tools: tools as any, stopWhen: stepCountIs(Math.min(profile.stopSteps, isComplex ? 8 : 3)) }
+          : {}),
+        maxOutputTokens: Math.min(profile.maxOutputTokens, isComplex ? 9000 : 4500),
+        maxRetries: 0,
+        timeout: { totalMs: timeoutMs, stepMs: timeoutMs, chunkMs: 12_000 },
       }, "generateWithAI");
       // Parse JSON from the raw text response
       const jsonMatch = rawText.match(/\{[\s\S]*\}/);
@@ -526,16 +575,20 @@ export const planBuild = createServerFn({ method: "POST" })
       throw e;
     }
 
-    const { data: liveContext } = await supabase
-      .from("plugin_context")
-      .select("context,updated_at")
-      .eq("project_id", projectId)
-      .maybeSingle();
-    const { data: existingFiles } = await supabase
-      .from("project_files")
-      .select("path,file_type,service_location")
-      .eq("project_id", projectId)
-      .limit(40);
+    const [liveContextResult, existingFilesResult] = await Promise.all([
+      supabase
+        .from("plugin_context")
+        .select("context,updated_at")
+        .eq("project_id", projectId)
+        .maybeSingle(),
+      supabase
+        .from("project_files")
+        .select("path,file_type,service_location")
+        .eq("project_id", projectId)
+        .limit(40),
+    ]);
+    const liveContext = liveContextResult.data;
+    const existingFiles = existingFilesResult.data;
 
     const filesBlock = (existingFiles ?? [])
       .map((f) => `  • ${f.path} (${f.file_type} in ${f.service_location})`)
@@ -579,6 +632,8 @@ Keep it under ~400 words. Be specific to the user's request and existing project
         system: planSystem,
         prompt: planUserText,
         maxOutputTokens: 1200,
+        maxRetries: 0,
+        timeout: { totalMs: thinking ? 18_000 : 12_000 },
       });
       text = out;
     } catch (err: any) {
@@ -960,6 +1015,9 @@ Rules:
         model,
         system,
         prompt: `Original:\n${data.prompt}\n\nRewrite as one short, clear sentence.`,
+        maxOutputTokens: 120,
+        maxRetries: 0,
+        timeout: { totalMs: 8_000 },
       });
       const cleaned = text.trim().replace(/^["']|["']$/g, "");
       return { prompt: cleaned || data.prompt };
@@ -1013,17 +1071,20 @@ export const fixErrorsWithAI = createServerFn({ method: "POST" })
       throw e;
     }
 
-    const { data: liveContext } = await supabase
-      .from("plugin_context")
-      .select("context,instance_count,updated_at")
-      .eq("project_id", projectId)
-      .maybeSingle();
-
-    const { data: existingFiles } = await supabase
-      .from("project_files")
-      .select("path,file_type,service_location,content")
-      .eq("project_id", projectId)
-      .limit(60);
+    const [liveContextResult, existingFilesResult] = await Promise.all([
+      supabase
+        .from("plugin_context")
+        .select("context,instance_count,updated_at")
+        .eq("project_id", projectId)
+        .maybeSingle(),
+      supabase
+        .from("project_files")
+        .select("path,file_type,service_location,content")
+        .eq("project_id", projectId)
+        .limit(60),
+    ]);
+    const liveContext = liveContextResult.data;
+    const existingFiles = existingFilesResult.data;
 
     // Send FULL file bodies for any file whose name/path appears in the logs,
     // otherwise truncated previews so the model has every relevant suspect.
@@ -1066,8 +1127,10 @@ Respond ONLY with the JSON object specified.`;
         model,
         system: FIX_SYSTEM,
         prompt: `STUDIO OUTPUT LOGS:\n\`\`\`\n${logs}\n\`\`\`\n\n${liveBlock}\n\nProject files in DB:\n${filesBlock || "(empty)"}\n\nThink step-by-step. Use web_search / fetch_url if you need to look up a Roblox API to fix the error. Then patch the broken files now.`,
-        tools: { ...buildBloxSmithTools({ userId }), ...(await (await import("./mcp-client.server")).buildUserMcpTools(userId)) } as any,
-        stopWhen: stepCountIs(40),
+        tools: pickGenerationTools(logs, buildBloxSmithTools({ userId }) as Record<string, any>) as any,
+        stopWhen: stepCountIs(8),
+        maxRetries: 0,
+        timeout: { totalMs: 24_000, stepMs: 24_000, chunkMs: 10_000 },
       }, "fixErrorsWithAI");
       // Parse JSON from raw text
       const fixJsonMatch = rawText.match(/\{[\s\S]*\}/);
@@ -1207,12 +1270,12 @@ export const autopilotBuild = createServerFn({ method: "POST" })
     }
 
     const { generateText, stepCountIs } = await import("ai");
-    const { resolveBuiltInGateway } = await import("./ai-providers.server");
+    const { getModelProfile, resolveBuiltInGateway } = await import("./ai-providers.server");
     const { buildBloxSmithTools } = await import("./ai-tools.server");
 
-    let model;
+    let builtIn;
     try {
-      model = resolveBuiltInGateway({ kind: "large" }).model;
+      builtIn = resolveBuiltInGateway({ kind: "large" });
     } catch (e) {
       if (!isOwner)
         await supabase.rpc("refund_credits", {
@@ -1221,19 +1284,23 @@ export const autopilotBuild = createServerFn({ method: "POST" })
         });
       throw e;
     }
+    const model = builtIn.model;
+    const profile = getModelProfile(builtIn.provider, builtIn.modelName, { heavyBuild: true });
 
-    const { data: liveContext } = await supabase
-      .from("plugin_context")
-      .select("context,instance_count,updated_at")
-      .eq("project_id", projectId)
-      .maybeSingle();
-
-    // Aggressively trim: only path/type/location, no full content. Cap at 25 files.
-    const { data: existingFilesAP } = await supabase
-      .from("project_files")
-      .select("path,file_type,service_location")
-      .eq("project_id", projectId)
-      .limit(25);
+    const [liveContextResult, existingFilesResult] = await Promise.all([
+      supabase
+        .from("plugin_context")
+        .select("context,instance_count,updated_at")
+        .eq("project_id", projectId)
+        .maybeSingle(),
+      supabase
+        .from("project_files")
+        .select("path,file_type,service_location")
+        .eq("project_id", projectId)
+        .limit(25),
+    ]);
+    const liveContext = liveContextResult.data;
+    const existingFilesAP = existingFilesResult.data;
 
     const filesBlockAP = (existingFilesAP ?? [])
       .map((f) => `${f.path} (${f.file_type} in ${f.service_location})`)
@@ -1377,8 +1444,10 @@ Build EVERYTHING. Ship the complete game.`;
             model,
             system: AUTOPILOT_SYSTEM,
             prompt: `${liveBlock}\n\n${projectBlockAP}\n\nGAME DESCRIPTION:\n"""\n${description}\n"""\n\nBuild ON TOP of any existing files listed above. Ship the COMPLETE game — every phase, every file body complete, every structural action. Include the default "everything" scope (spawn area, leaderstats, DataStore, shop, HUD, main menu, settings, music, day/night, anti-exploit, admin stub) plus everything the user described. No markdown, no code fences — JSON only.`,
-            maxOutputTokens: 16000,
-            ...(useTools ? { tools: slimTools, stopWhen: stepCountIs(30) } : {}),
+            maxOutputTokens: Math.min(profile.maxOutputTokens, 14000),
+            maxRetries: 0,
+            timeout: { totalMs: 42_000, stepMs: 42_000, chunkMs: 12_000 },
+            ...(useTools ? { tools: slimTools, stopWhen: stepCountIs(12) } : {}),
           },
           useTools ? "autopilotBuild" : "autopilotBuild-notools",
         );

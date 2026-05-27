@@ -21,6 +21,11 @@ const checks = [
     must: [/recordProviderHealth/, /getModelProfile/, /classifyProviderError/, /roblox_docs_search/, /Promise\.all/, /maxRetries:\s*0/],
   },
   {
+    name: "Generate path keeps tools and retries fast",
+    file: "src/lib/ai.functions.ts",
+    must: [/pickGenerationTools/, /shouldLoadUserMcpTools/, /maxRetries:\s*0/, /Promise\.all/, /timeout:\s*\{/],
+  },
+  {
     name: "Roblox safety validation blocks common backdoors",
     file: "src/lib/sync-validation.ts",
     must: [/BACKDOOR_PATTERNS/, /require\\s\*\\\(/, /loadstring/, /InsertService/],
