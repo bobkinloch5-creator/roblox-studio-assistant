@@ -484,6 +484,10 @@ function ProjectEditor() {
   const CHAT_COST = 1;
   const runChat = useServerFn(chatWithAI);
   const [thinking, setThinking] = useState(false);
+  // Web-search toggle: when on, the AI is pushed to call the web_search /
+  // fetch_url tools to verify facts (Luau APIs, current best practices,
+  // game-design patterns) before answering / building.
+  const [webSearch, setWebSearch] = useState(false);
   const [mcpServers, setMcpServers] = useState<Array<{ name: string; enabled: boolean; ok: boolean | null }>>([]);
   const [mcpClient, setMcpClient] = useState<{ client: string | null; lastUsedAt: string | null } | null>(null);
   const [aiSettings, setAiSettings] = useState<{ mode: "mcp" | "api_key"; provider: string | null; model: string | null }>({
