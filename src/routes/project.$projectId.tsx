@@ -64,6 +64,8 @@ import { ChatSettings } from "@/components/ChatSettings";
 import { SyncValidationDrawer } from "@/components/SyncValidationDrawer";
 import { TeamChat } from "@/components/TeamChat";
 import { AssistantMessage } from "@/components/AssistantMessage";
+import { BuildHistoryDrawer } from "@/components/BuildHistoryDrawer";
+import { OrganizeProjectButton } from "@/components/OrganizeProjectButton";
 import { MessagesSquare } from "lucide-react";
 
 export const Route = createFileRoute("/project/$projectId")({
@@ -396,6 +398,7 @@ function ProjectEditor() {
   const FIX_COST = 2;
   const [revertedByMsg, setRevertedByMsg] = useState<Record<string, boolean>>({});
   const [revertingMsg, setRevertingMsg] = useState<string | null>(null);
+  const [showBuildHistory, setShowBuildHistory] = useState(false);
 
   const revertMessage = async (m: Msg) => {
     const snap: any[] = m.actions?.snapshot ?? [];
@@ -1963,6 +1966,14 @@ function ProjectEditor() {
                 >
                   <Trash2 className="h-3.5 w-3.5" />
                 </button>
+                <button
+                  onClick={() => setShowBuildHistory(true)}
+                  title="Build history — every AI batch with files/actions"
+                  className="h-7 w-7 grid place-items-center rounded-md text-muted-foreground hover:text-primary-glow hover:bg-primary/10 transition"
+                >
+                  <History className="h-3.5 w-3.5" />
+                </button>
+                <OrganizeProjectButton projectId={projectId} studioConnected={isStudioConnected} />
                 <ChatSettings
                   thinking={thinking}
                   onToggleThinking={setThinking}
@@ -2816,6 +2827,11 @@ function ProjectEditor() {
           </div>
         </div>
       )}
+      <BuildHistoryDrawer
+        projectId={projectId}
+        open={showBuildHistory}
+        onClose={() => setShowBuildHistory(false)}
+      />
     </div>
   );
 }
