@@ -1129,6 +1129,7 @@ end
 
 -- Create or overwrite a script (legacy file sync)
 function Actions.script(a)
+	normalizePersistentParent(a)
 	local parent = resolvePath(a.parent or a.service_location or "ServerScriptService", true)
 	if not parent then return false, "bad parent" end
 	local className = a.className or a.file_type or "Script"
@@ -1145,6 +1146,7 @@ end
 
 -- Create any Instance (Part, Model, Folder, Sound, ParticleEmitter, etc.)
 function Actions.create(a)
+	normalizePersistentParent(a)
 	local parent = resolvePath(a.parent or "Workspace", true)
 	if not parent then return false, "bad parent" end
 	local inst = Instance.new(a.className or "Part")
@@ -1163,6 +1165,7 @@ end
 
 -- Create a part with helper mapping for size, position, color, material, anchored properties
 function Actions.create_part(a)
+	normalizePersistentParent(a)
 	local parent = resolvePath(a.parent or "Workspace", true)
 	if not parent then return false, "bad parent" end
 	local part = Instance.new("Part")
