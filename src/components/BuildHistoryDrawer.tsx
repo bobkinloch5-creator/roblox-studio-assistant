@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { useServerFn } from "@tanstack/react-start";
 import { getBuildHistory, type BuildHistoryItem } from "@/lib/builds.functions";
-import { History, X, FileCode, Zap, AlertTriangle, Loader2, CheckCircle2, Clock } from "lucide-react";
+import { History, X, FileCode, Zap, AlertTriangle, Loader2, CheckCircle2, Clock, Coins } from "lucide-react";
 
 function timeAgo(iso: string) {
   const d = new Date(iso).getTime();
