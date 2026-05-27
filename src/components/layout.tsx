@@ -82,6 +82,7 @@ export function Header() {
           {user ? (
             <>
               <PluginStatus />
+              <McpStatus />
               <Link
                 to="/pricing"
                 className="inline-flex items-center gap-1.5 rounded-full bg-primary/10 border border-primary/20 px-3 py-1 text-xs font-semibold text-primary-glow hover:bg-primary/20 transition"
