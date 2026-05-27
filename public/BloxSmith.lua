@@ -19,6 +19,7 @@ local StarterGui            = game:GetService("StarterGui")
 local StarterPack           = game:GetService("StarterPack")
 local SoundService          = game:GetService("SoundService")
 local Teams                 = game:GetService("Teams")
+local RunService            = game:GetService("RunService")
 local Terrain               = Workspace.Terrain
 
 -- API base is user-configurable so the plugin works against bloxsmith.pro
