@@ -1969,6 +1969,13 @@ function ProjectEditor() {
                   <Trash2 className="h-3.5 w-3.5" />
                 </button>
                 <button
+                  onClick={() => setShowTaskBoard(true)}
+                  title="Task Board — Plan → Build → Test → Fix"
+                  className="h-7 w-7 grid place-items-center rounded-md text-muted-foreground hover:text-primary-glow hover:bg-primary/10 transition"
+                >
+                  <Kanban className="h-3.5 w-3.5" />
+                </button>
+                <button
                   onClick={() => setShowBuildHistory(true)}
                   title="Build history — every AI batch with files/actions"
                   className="h-7 w-7 grid place-items-center rounded-md text-muted-foreground hover:text-primary-glow hover:bg-primary/10 transition"
