@@ -7,6 +7,7 @@ import {
   BLOXSMITH_LARGE_MODEL,
   createGroqProvider,
 } from "./ai-gateway.server";
+import { SITE_PROVIDER_DEFAULT_MODEL, SITE_PROVIDER_MODELS } from "./ai-models";
 
 export type ProviderId = "openai" | "anthropic" | "google" | "groq" | "neokens";
 export type ModelKind = "chat" | "build" | "fast" | "large";
@@ -36,24 +37,12 @@ export const PROVIDER_MODELS: Record<ProviderId, string[]> = {
     "gemini-3-flash-preview",
   ],
   groq: [
-    "llama-3.3-70b-versatile",
-    "llama-3.1-8b-instant",
-    "openai/gpt-oss-120b",
-    "openai/gpt-oss-20b",
-    "meta-llama/llama-4-scout-17b-16e-instruct",
-    "meta-llama/llama-4-maverick-17b-128e-instruct",
-    "qwen/qwen3-32b",
-    "moonshotai/kimi-k2-instruct",
-    "deepseek-r1-distill-llama-70b",
+    ...SITE_PROVIDER_MODELS.groq,
   ],
   // Neokens proxies many models behind a single key — see neokens.com/docs.
   // Curated to cheaper models only (no Opus 4.7 / Sonnet 4.6 thinking).
   neokens: [
-    "gemini-3-flash",
-    "claude-haiku-4-5-20251001",
-    "gpt-5.3-codex",
-    "gemini-3.1-pro",
-    "gpt-5.1",
+    ...SITE_PROVIDER_MODELS.neokens,
   ],
 
 };
@@ -62,8 +51,8 @@ export const PROVIDER_DEFAULT_MODEL: Record<ProviderId, string> = {
   openai: "gpt-5-mini",
   anthropic: "claude-sonnet-4-5",
   google: "gemini-2.5-flash",
-  groq: "llama-3.3-70b-versatile",
-  neokens: "gemini-3-flash",
+  groq: SITE_PROVIDER_DEFAULT_MODEL.groq,
+  neokens: SITE_PROVIDER_DEFAULT_MODEL.neokens,
 };
 
 function providerEndpoint(provider: ProviderId): { name: string; baseURL: string } {
@@ -91,7 +80,7 @@ export function createProvider(provider: ProviderId, apiKey: string) {
   return createOpenAICompatible({
     name,
     baseURL,
-    headers: { Authorization: `Bearer ${apiKey}` },
+    apiKey,
   });
 }
 
