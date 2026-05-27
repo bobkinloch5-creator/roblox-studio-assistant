@@ -887,19 +887,55 @@ local function resolvePath(pathStr, createFolders)
 	return parent
 end
 
+-- Numeric getter that accepts {x=,y=,z=} / {X=,Y=,Z=} / [1,2,3] forms
+local function num(t, keyLower, keyUpper, idx, default)
+	if type(t) ~= "table" then return default end
+	local v = t[keyLower]
+	if v == nil then v = t[keyUpper] end
+	if v == nil and idx then v = t[idx] end
+	if type(v) == "number" then return v end
+	return default
+end
+
+local function tableLooksLikeXYZ(v)
+	if type(v) ~= "table" then return false end
+	if v.x ~= nil or v.X ~= nil or v.y ~= nil or v.Y ~= nil or v.z ~= nil or v.Z ~= nil then return true end
+	if type(v[1]) == "number" and type(v[2]) == "number" and type(v[3]) == "number" then return true end
+	return false
+end
+
+local function toVector3(v, fallback)
+	if typeof(v) == "Vector3" then return v end
+	if type(v) == "table" then
+		return Vector3.new(num(v,"x","X",1,0), num(v,"y","Y",2,0), num(v,"z","Z",3,0))
+	end
+	return fallback or Vector3.new(0,0,0)
+end
+
+local function toColor3(v, fallback)
+	if typeof(v) == "Color3" then return v end
+	if type(v) == "table" then
+		local r = num(v,"r","R",1,255)
+		local g = num(v,"g","G",2,255)
+		local b = num(v,"b","B",3,255)
+		if r <= 1 and g <= 1 and b <= 1 then return Color3.new(r,g,b) end
+		return Color3.fromRGB(r,g,b)
+	end
+	return fallback or Color3.fromRGB(255,255,255)
+end
+
 local function coerceValue(v)
 	if typeof(v) ~= "table" then return v end
 	local t = v.__t or v.type
-	if t == "Vector3" then return Vector3.new(v.x or 0, v.y or 0, v.z or 0) end
-	if t == "Vector2" then return Vector2.new(v.x or 0, v.y or 0) end
-	if t == "Color3"  then return Color3.fromRGB(v.r or 255, v.g or 255, v.b or 255) end
+	if t == "Vector3" then return toVector3(v) end
+	if t == "Vector2" then return Vector2.new(num(v,"x","X",1,0), num(v,"y","Y",2,0)) end
+	if t == "Color3"  then return toColor3(v) end
 	if t == "CFrame"  then
 		if v.lookAt then
-			return CFrame.new(Vector3.new(v.x or 0, v.y or 0, v.z or 0),
-				Vector3.new(v.lookAt.x or 0, v.lookAt.y or 0, v.lookAt.z or 0))
+			return CFrame.new(toVector3(v), toVector3(v.lookAt))
 		end
-		return CFrame.new(v.x or 0, v.y or 0, v.z or 0)
-			* CFrame.Angles(math.rad(v.rx or 0), math.rad(v.ry or 0), math.rad(v.rz or 0))
+		return CFrame.new(num(v,"x","X",1,0), num(v,"y","Y",2,0), num(v,"z","Z",3,0))
+			* CFrame.Angles(math.rad(v.rx or v.RX or 0), math.rad(v.ry or v.RY or 0), math.rad(v.rz or v.RZ or 0))
 	end
 	if t == "UDim2"   then return UDim2.new(v.xs or 0, v.xo or 0, v.ys or 0, v.yo or 0) end
 	if t == "UDim"    then return UDim.new(v.s or 0, v.o or 0) end
@@ -911,6 +947,17 @@ local function coerceValue(v)
 	return v
 end
 
+-- Property names whose expected type we can infer when the AI sends a bare table.
+local VECTOR3_PROPS = {
+	Size=true, Position=true, Velocity=true, RotVelocity=true, AssemblyLinearVelocity=true,
+	AssemblyAngularVelocity=true, Orientation=true, PivotOffset=true,
+}
+local COLOR3_PROPS = {
+	Color=true, BackgroundColor3=true, TextColor3=true, BorderColor3=true,
+	ImageColor3=true, OutlineColor=true, Ambient=true, OutdoorAmbient=true,
+	FogColor=true, ColorShift_Bottom=true, ColorShift_Top=true,
+}
+
 local function applyProps(inst, props)
 	if not props then return end
 	for k, raw in pairs(props) do
@@ -921,7 +968,18 @@ local function applyProps(inst, props)
 			end
 		else
 			local ok, val = pcall(coerceValue, raw)
-			if ok then pcall(function() inst[k] = val end) end
+			if not ok then val = raw end
+			-- Infer expected types when AI sent an untagged table.
+			if type(val) == "table" then
+				if VECTOR3_PROPS[k] and tableLooksLikeXYZ(val) then
+					val = toVector3(val)
+				elseif COLOR3_PROPS[k] then
+					val = toColor3(val)
+				elseif k == "CFrame" and tableLooksLikeXYZ(val) then
+					val = CFrame.new(toVector3(val))
+				end
+			end
+			pcall(function() inst[k] = val end)
 		end
 	end
 end
