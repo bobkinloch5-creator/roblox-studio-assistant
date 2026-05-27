@@ -1435,9 +1435,9 @@ export const Route = createFileRoute("/api/assistant/execute")({
 
                   rawText = "";
                   try {
-                    const systemWithRules = projectRules
+                    const systemWithRules = (projectRules
                       ? `${baseSystem}\n\n=== PROJECT-SPECIFIC RULES (override defaults) ===\n${projectRules}`
-                      : baseSystem;
+                      : baseSystem) + (modeAddendum ? `\n\n${modeAddendum}` : "");
                     const { generateTextWithToolFallback, extractToolActivity } = await import("@/lib/ai-retry.server");
                     const textRes = await withRateLimitRetry("ai-execute", () =>
                       generateTextWithToolFallback(generateText, {
