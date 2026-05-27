@@ -1003,10 +1003,76 @@ gui:Destroy()
   };
 }
 
+function getSoundTemplate(prompt: string): ExecuteResult {
+  const lower = prompt.toLowerCase();
+  // Curated free Roblox library sound asset IDs by category.
+  const library: Array<{ test: RegExp; id: string; label: string; volume?: number; looped?: boolean }> = [
+    { test: /\b(gun|pistol|shoot|shot|fire|blast)\b/, id: "rbxassetid://131961136", label: "Gunshot" },
+    { test: /\b(explos|boom|bomb|grenade|tnt)\b/, id: "rbxassetid://138186576", label: "Explosion" },
+    { test: /\b(coin|pickup|collect|ding|reward)\b/, id: "rbxassetid://131323304", label: "Coin pickup" },
+    { test: /\b(click|button|tap|ui|press)\b/, id: "rbxassetid://6895079853", label: "UI click" },
+    { test: /\b(jump|hop)\b/, id: "rbxassetid://9125402735", label: "Jump" },
+    { test: /\b(footstep|walk|step|run)\b/, id: "rbxassetid://9125604850", label: "Footsteps", looped: true },
+    { test: /\b(hit|punch|hurt|damage|impact)\b/, id: "rbxassetid://5810753638", label: "Hit" },
+    { test: /\b(death|die|dead|defeat|lose)\b/, id: "rbxassetid://5982740659", label: "Death sting" },
+    { test: /\b(win|victory|level\s*up|complete|success)\b/, id: "rbxassetid://9125483735", label: "Victory" },
+    { test: /\b(swing|sword|slash|blade|katana)\b/, id: "rbxassetid://12222216", label: "Sword swing" },
+    { test: /\b(reload)\b/, id: "rbxassetid://5755085759", label: "Gun reload" },
+    { test: /\b(door|open|close)\b/, id: "rbxassetid://9114126435", label: "Door open" },
+    { test: /\b(notif|message|popup|alert)\b/, id: "rbxassetid://6042053626", label: "Notification" },
+    { test: /\b(thunder|lightning|storm)\b/, id: "rbxassetid://133997824", label: "Thunder" },
+    { test: /\b(rain|water|drip)\b/, id: "rbxassetid://131961134", label: "Rain", looped: true, volume: 0.5 },
+    { test: /\b(wind|breeze|whoosh)\b/, id: "rbxassetid://9114223905", label: "Wind", looped: true, volume: 0.4 },
+    { test: /\b(fire|flame|burn|torch)\b/, id: "rbxassetid://9112854440", label: "Fire crackle", looped: true, volume: 0.5 },
+    { test: /\b(horror|scary|spooky|creepy|ambient.*dark)\b/, id: "rbxassetid://9046657432", label: "Horror ambience", looped: true, volume: 0.6 },
+    { test: /\b(epic|battle|boss|combat).*music\b|\bbattle\s*music\b/, id: "rbxassetid://1837854082", label: "Epic battle music", looped: true, volume: 0.5 },
+    { test: /\b(lobby|menu|chill|calm).*music\b|\blobby\s*music\b/, id: "rbxassetid://1837799774", label: "Lobby music", looped: true, volume: 0.5 },
+    { test: /\b(music|song|bgm|background\s*music|soundtrack)\b/, id: "rbxassetid://1837854082", label: "Background music", looped: true, volume: 0.5 },
+    { test: /\b(beep|alarm|siren)\b/, id: "rbxassetid://3744371091", label: "Alarm beep", looped: true, volume: 0.6 },
+    { test: /\b(teleport|warp|portal|magic)\b/, id: "rbxassetid://9113878839", label: "Teleport" },
+    { test: /\b(heal|potion|drink)\b/, id: "rbxassetid://9120154083", label: "Heal" },
+    { test: /\b(laser|beam|sci-?fi|sci\s*fi)\b/, id: "rbxassetid://9059409580", label: "Laser" },
+  ];
+  const match = library.find((s) => s.test.test(lower)) ?? library[library.length - 1];
+  const name = /["']([^"']{2,40})["']/.exec(prompt)?.[1] || match.label.replace(/\s+/g, "");
+  const looped = match.looped ?? /\b(loop|background|ambient|bgm|music|soundtrack)\b/.test(lower);
+  const volume = match.volume ?? 0.7;
+  const playOnSpawn = /\b(play|start|auto|on\s*spawn|when.*join)\b/.test(lower) || looped;
+
+  return {
+    message: `Queued a Sound (${match.label}) under SoundService named "${name}"${looped ? ", looping" : ""}${playOnSpawn ? ", auto-playing for every player" : ""}. Tweak the SoundId or volume any time.`,
+    files: playOnSpawn
+      ? [
+          {
+            path: `StarterPlayer/StarterPlayerScripts/Play_${name}.client.lua`,
+            file_type: "LocalScript",
+            service_location: "StarterPlayer/StarterPlayerScripts",
+            content: `-- BloxSmith sound player\nlocal SoundService = game:GetService("SoundService")\nlocal sound = SoundService:WaitForChild("${name}")\nif not sound.IsPlaying then sound:Play() end\n`,
+          },
+        ]
+      : [],
+    actions: [
+      {
+        type: "create",
+        className: "Sound",
+        name,
+        parent: "SoundService",
+        properties: {
+          SoundId: match.id,
+          Volume: volume,
+          Looped: looped,
+          Playing: false,
+        },
+      },
+    ],
+  };
+}
+
 function getFocusedFallbackTemplate(prompt: string): ExecuteResult {
   const lower = prompt.toLowerCase();
   if (/\b(gun|pistol|rifle|shotgun|sniper|smg|ak|m4|weapon|blaster|firearm)\b/.test(lower)) return getGunTemplate(prompt);
   if (/\bloading\s*screen|splash\s*screen|intro\s*screen|title\s*screen\b/.test(lower)) return getLoadingScreenTemplate(prompt);
+  if (/\b(sound|sfx|audio|music|bgm|soundtrack|noise)\b/.test(lower)) return getSoundTemplate(prompt);
   if (/\bshop|store\b/.test(lower)) return getShopTemplate() as ExecuteResult;
   if (/\bobby|obby|parkour\b/.test(lower)) return getObbyTemplate() as ExecuteResult;
   if (/\btycoon\b/.test(lower)) return getTycoonTemplate() as ExecuteResult;
