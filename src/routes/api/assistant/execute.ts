@@ -1662,18 +1662,23 @@ export const Route = createFileRoute("/api/assistant/execute")({
                 if (!result && lastErr) throw lastErr;
               } catch (outerErr: any) {
                 console.error("AI client initialisation/generation failed:", outerErr);
-                await refundOnFailure("ai generation failed");
                 const msg = String(outerErr?.message ?? outerErr);
-                if (/too large|context length|tpm/i.test(msg)) {
+                const isTimeout = /took too long|aborted|abort|timeout|timed out/i.test(msg);
+                if (isTimeout) {
+                  await refundOnFailure("ai generation timeout fallback");
+                  result = getFocusedFallbackTemplate(prompt);
+                } else if (/too large|context length|tpm/i.test(msg)) {
+                  await refundOnFailure("ai generation failed");
                   throw new Error(
                     "Your project context is too large for this model even after the AI compressed it down to just your prompt. Try a shorter, more focused request (e.g. 'add a jump pad' instead of 'build the whole game'), or split the build into smaller steps.",
                   );
+                } else {
+                  await refundOnFailure("ai generation failed");
+                  if (msg.includes("429")) throw new Error("AI rate limit. Try again in a moment.");
+                  if (msg.includes("402"))
+                    throw new Error("AI credits exhausted. Add credits in workspace settings.");
+                  throw new Error("AI generation failed: " + msg);
                 }
-
-                if (msg.includes("429")) throw new Error("AI rate limit. Try again in a moment.");
-                if (msg.includes("402"))
-                  throw new Error("AI credits exhausted. Add credits in workspace settings.");
-                throw new Error("AI generation failed: " + msg);
               }
             }
           }
@@ -1816,7 +1821,7 @@ export const Route = createFileRoute("/api/assistant/execute")({
               project_id: projectId,
               prompt,
               status: shouldAuto ? "success" : "pending",
-              credits_used: isOwner ? 0 : cost,
+              credits_used: charged.current ? cost : 0,
               result: { ...result, _queued: queued } as any,
             })
             .select("id")
