@@ -1436,14 +1436,15 @@ function Actions.insertAsset(a)
 		table.insert(moved, child)
 	end
 	model:Destroy()
-	if a.position and moved[1] and moved[1]:IsA("Model") and moved[1].PrimaryPart then
+	local placed = (typeof(targetParent) == "Instance" and targetParent ~= parent) and targetParent or moved[1]
+	if a.position and placed and placed:IsA("Model") then
 		local pos = coerceValue(a.position)
-		moved[1]:PivotTo(CFrame.new(pos))
-	elseif a.position and moved[1] and moved[1]:IsA("BasePart") then
-		moved[1].CFrame = CFrame.new(coerceValue(a.position))
+		placed:PivotTo(CFrame.new(pos))
+	elseif a.position and placed and placed:IsA("BasePart") then
+		placed.CFrame = CFrame.new(coerceValue(a.position))
 	end
-	if typeof(targetParent) == "Instance" and targetParent ~= parent then stabilizeGeneratedInstance(targetParent); return true, nil, targetParent end
-	return true, nil, moved[1]
+	if placed then stabilizeGeneratedInstance(placed) end
+	return true, nil, placed
 end
 
 -- Insert a safe free toolbox model by ID with safety scan & consent flow
@@ -1556,18 +1557,19 @@ function Actions.insert_toolbox_asset(a)
 	end
 	model:Destroy()
 
-	if a.position and moved[1] then
+	local placed = (typeof(targetParent) == "Instance" and targetParent ~= parent) and targetParent or moved[1]
+	if a.position and placed then
 		local pos = coerceValue(a.position)
-		if moved[1]:IsA("Model") then
-			moved[1]:PivotTo(CFrame.new(pos))
-		elseif moved[1]:IsA("BasePart") then
-			moved[1].CFrame = CFrame.new(pos)
+		if placed:IsA("Model") then
+			placed:PivotTo(CFrame.new(pos))
+		elseif placed:IsA("BasePart") then
+			placed.CFrame = CFrame.new(pos)
 		end
 	end
 
 	task.defer(pushSnapshot)
-	if typeof(targetParent) == "Instance" and targetParent ~= parent then stabilizeGeneratedInstance(targetParent); return true, nil, targetParent end
-	return true, nil, moved[1]
+	if placed then stabilizeGeneratedInstance(placed) end
+	return true, nil, placed
 end
 
 -- Update source code of an existing script
