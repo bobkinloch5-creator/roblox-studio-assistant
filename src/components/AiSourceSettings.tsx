@@ -33,7 +33,17 @@ const PROVIDER_MODELS: Record<ProviderId, string[]> = {
     "gemini-2.5-flash-lite",
     "gemini-3-flash-preview",
   ],
-  groq: ["llama-3.1-8b-instant", "openai/gpt-oss-120b", "llama-3.3-70b-versatile"],
+  groq: [
+    "llama-3.3-70b-versatile",
+    "llama-3.1-8b-instant",
+    "openai/gpt-oss-120b",
+    "openai/gpt-oss-20b",
+    "meta-llama/llama-4-scout-17b-16e-instruct",
+    "meta-llama/llama-4-maverick-17b-128e-instruct",
+    "qwen/qwen3-32b",
+    "moonshotai/kimi-k2-instruct",
+    "deepseek-r1-distill-llama-70b",
+  ],
   neokens: [
     "gemini-3-flash",
     "claude-haiku-4-5-20251001",
