@@ -434,3 +434,77 @@ Plain prose, no markdown headers, no code fences. Output text only.`;
 
     return { brief, task: { ...task, status: "in_progress" } };
   });
+
+// ---------------------------------------------------------------------------
+// importStudioErrors — turn recent Studio runtime errors into needs_fix
+// tasks on the board. Dedupes by normalized title within the project so the
+// same error doesn't spawn multiple tasks. This closes the Test → Fix loop
+// without spending AI credits.
+// ---------------------------------------------------------------------------
+export const importStudioErrors = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((i: unknown) =>
+    z.object({ projectId: z.string().uuid(), limit: z.number().min(1).max(50).default(20) }).parse(i),
+  )
+  .handler(async ({ data, context }) => {
+    const { supabase, userId } = context;
+
+    const [{ data: errs }, { data: existing }, { data: maxPos }] = await Promise.all([
+      supabase
+        .from("studio_errors")
+        .select("id,error_message,file_path,created_at")
+        .eq("project_id", data.projectId)
+        .order("created_at", { ascending: false })
+        .limit(data.limit),
+      supabase
+        .from("project_tasks")
+        .select("title,status")
+        .eq("project_id", data.projectId),
+      supabase
+        .from("project_tasks")
+        .select("position")
+        .eq("project_id", data.projectId)
+        .order("position", { ascending: false })
+        .limit(1)
+        .maybeSingle(),
+    ]);
+
+    if (!errs || errs.length === 0) {
+      return { created: 0, scanned: 0, reason: "No Studio errors recorded yet." };
+    }
+
+    const norm = (s: string) => s.toLowerCase().replace(/\s+/g, " ").trim().slice(0, 120);
+    const existingTitles = new Set((existing ?? []).map((t) => norm(t.title)));
+
+    // Group by normalized message so the same error doesn't make 5 tasks.
+    const seen = new Set<string>();
+    const rows: any[] = [];
+    let base = (maxPos?.position ?? -1) + 1;
+
+    for (const e of errs) {
+      const msg = (e.error_message ?? "").trim();
+      if (!msg) continue;
+      const key = norm(msg);
+      if (seen.has(key)) continue;
+      seen.add(key);
+      const title = `Fix: ${msg.split("\n")[0].slice(0, 120)}`;
+      if (existingTitles.has(norm(title))) continue;
+      rows.push({
+        project_id: data.projectId,
+        user_id: userId,
+        title,
+        kind: "bug",
+        status: "needs_fix",
+        position: base++,
+        payload: { source: "studio_error", error_id: e.id, file_path: e.file_path },
+      });
+    }
+
+    if (rows.length === 0) {
+      return { created: 0, scanned: errs.length, reason: "All recent errors already tracked." };
+    }
+
+    const { error } = await supabase.from("project_tasks").insert(rows);
+    if (error) throw new Error(error.message);
+    return { created: rows.length, scanned: errs.length };
+  });
