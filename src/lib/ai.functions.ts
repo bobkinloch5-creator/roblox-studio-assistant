@@ -410,20 +410,19 @@ export const planBuild = createServerFn({ method: "POST" })
       if (spendErr) throw new Error("Not enough credits. Buy more on the Pricing page.");
     }
 
-    const apiKey = process.env.GROQ_API_KEY;
-    if (!apiKey) {
+    const { generateText } = await import("ai");
+    const { resolveBuiltInGateway } = await import("./ai-providers.server");
+    let model;
+    try {
+      model = resolveBuiltInGateway({ kind: "fast", thinking }).model;
+    } catch (e) {
       if (!isOwner)
         await supabase.rpc("refund_credits", {
           _amount: PLAN_COST,
           _reason: "ai gateway not configured",
         });
-      throw new Error("AI gateway not configured — GROQ_API_KEY missing.");
+      throw e;
     }
-
-    const { generateText } = await import("ai");
-    const { createGroqProvider, BLOXSMITH_FAST_MODEL } = await import("./ai-gateway.server");
-    const gateway = createGroqProvider(apiKey);
-    const model = gateway(BLOXSMITH_FAST_MODEL);
 
     const { data: liveContext } = await supabase
       .from("plugin_context")
@@ -642,13 +641,9 @@ export const improvePrompt = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((input: unknown) => ImprovePromptSchema.parse(input))
   .handler(async ({ data }) => {
-    const apiKey = process.env.GROQ_API_KEY;
-    if (!apiKey) throw new Error("AI gateway not configured — GROQ_API_KEY missing.");
-
     const { generateText } = await import("ai");
-    const { createGroqProvider, BLOXSMITH_FAST_MODEL } = await import("./ai-gateway.server");
-    const gateway = createGroqProvider(apiKey);
-    const model = gateway(BLOXSMITH_FAST_MODEL);
+    const { resolveBuiltInGateway } = await import("./ai-providers.server");
+    const model = resolveBuiltInGateway({ kind: "fast" }).model;
 
     const system = `You rewrite short Roblox Studio build prompts into clearer, more specific build prompts for BloxSmith (an AI Roblox game builder).
 
