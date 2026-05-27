@@ -2,6 +2,7 @@ import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { Header } from "@/components/layout";
 import { AiSourceSettings } from "@/components/AiSourceSettings";
 import { ModelPicker } from "@/components/ModelPicker";
+import { useAiBusySounds } from "@/hooks/useSounds";
 
 import { useAuth } from "@/lib/auth-context";
 import { useEffect, useRef, useState } from "react";
@@ -377,6 +378,7 @@ function ProjectEditor() {
     const id = setInterval(() => setAiBusyElapsed(Math.floor((Date.now() - start) / 1000)), 500);
     return () => clearInterval(id);
   }, [aiBusy]);
+  useAiBusySounds(aiBusy);
   const [inviteEmail, setInviteEmail] = useState("");
   const [showInvite, setShowInvite] = useState(false);
   const [collabs, setCollabs] = useState<Array<{ user_id: string; role: string; email?: string }>>(
