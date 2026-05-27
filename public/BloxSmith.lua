@@ -49,14 +49,18 @@ local function setApiBase(v) plugin:SetSetting("bs_api_base", v) end
 ----------------------------------------------------------------
 -- Toolbar / widget
 ----------------------------------------------------------------
+local PLUGIN_VERSION = "1.4.0"
+print(string.format("[BloxSmith] plugin loaded v%s — look for the BloxSmith button in the PLUGINS tab.", PLUGIN_VERSION))
+
 local toolbar = plugin:CreateToolbar("BloxSmith")
-local button  = toolbar:CreateButton("BloxSmith", "Connect BloxSmith AI",
+local button  = toolbar:CreateButton("BloxSmith", "Open BloxSmith AI",
 	"rbxasset://textures/StudioToolbox/Search.png")
+button.ClickableWhenViewportHidden = true
 
 local widgetInfo = DockWidgetPluginGuiInfo.new(
 	Enum.InitialDockState.Right, false, false, 320, 460, 300, 420)
-local widget = plugin:CreateDockWidgetPluginGui("BloxSmith", widgetInfo)
-widget.Title = "BloxSmith AI"
+local widget = plugin:CreateDockWidgetPluginGui("BloxSmith_v14", widgetInfo)
+widget.Title = "BloxSmith AI v" .. PLUGIN_VERSION
 
 local function getToken()    return plugin:GetSetting("bs_token")    or "" end
 local function setToken(v)   plugin:SetSetting("bs_token", v) end
