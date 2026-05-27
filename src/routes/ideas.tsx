@@ -75,7 +75,12 @@ function IdeasPage() {
     setBuildingIdx(idx);
     try {
       const proj = await create({
-        data: { name: idea.name, gameType: idea.category, description: idea.loop },
+        data: {
+          name: idea.name,
+          game_type: idea.category,
+          template: "blank",
+          description: idea.loop,
+        },
       });
       // Pre-seed a build plan so the project opens with the plan ready
       const planRes = await plan({
