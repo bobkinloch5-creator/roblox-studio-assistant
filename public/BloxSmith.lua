@@ -1101,10 +1101,30 @@ function Actions.create_part(a)
 	return true, nil, part
 end
 
--- Update an existing instance's properties
+-- Update an existing instance's properties. If missing, optionally auto-create.
 function Actions.set(a)
 	local inst = resolvePath(a.path, false)
-	if not inst then return false, "not found: " .. tostring(a.path) end
+	if not inst then
+		if a.className and typeof(a.path) == "string" then
+			local parts = string.split(string.gsub(a.path, "/", "."), ".")
+			local leaf = table.remove(parts)
+			local parentPath = table.concat(parts, ".")
+			local parent = resolvePath(parentPath, true)
+			if parent then
+				local ok, created = pcall(function()
+					local c = Instance.new(a.className)
+					c.Name = leaf
+					c.Parent = parent
+					return c
+				end)
+				if ok and created then
+					applyProps(created, a.properties)
+					return true
+				end
+			end
+		end
+		return true, "skipped (path not found): " .. tostring(a.path)
+	end
 	applyProps(inst, a.properties)
 	return true
 end
@@ -1112,7 +1132,7 @@ end
 -- Delete an instance
 function Actions.delete(a)
 	local inst = resolvePath(a.path, false)
-	if not inst then return false, "not found: " .. tostring(a.path) end
+	if not inst then return true, "skipped (path not found): " .. tostring(a.path) end
 	if a.confirmed ~= true and a.force ~= true then
 		local decided = false
 		local approved = false
@@ -1148,7 +1168,7 @@ end
 -- Move an existing instance into a Folder/Model/service, creating folders as needed.
 function Actions.move(a)
 	local inst = resolvePath(a.path, false)
-	if not inst then return false, "not found: " .. tostring(a.path) end
+	if not inst then return true, "skipped (path not found): " .. tostring(a.path) end
 	local parent = resolvePath(a.newParent or a.parent or "Workspace", true)
 	if not parent then return false, "bad newParent" end
 	inst.Parent = parent
@@ -1159,13 +1179,14 @@ end
 -- Rename an existing instance.
 function Actions.rename(a)
 	local inst = resolvePath(a.path, false)
-	if not inst then return false, "not found: " .. tostring(a.path) end
+	if not inst then return true, "skipped (path not found): " .. tostring(a.path) end
 	local newName = a.newName or a.name
 	if not newName or tostring(newName) == "" then return false, "missing newName" end
 	inst.Name = tostring(newName)
 	task.defer(pushSnapshot)
 	return true
 end
+
 
 -- Create a Folder/Model and bulk-move listed instances into it.
 function Actions.organize(a)
