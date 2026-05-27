@@ -19,6 +19,7 @@ local StarterGui            = game:GetService("StarterGui")
 local StarterPack           = game:GetService("StarterPack")
 local SoundService          = game:GetService("SoundService")
 local Teams                 = game:GetService("Teams")
+local RunService            = game:GetService("RunService")
 local Terrain               = Workspace.Terrain
 
 -- API base is user-configurable so the plugin works against bloxsmith.pro
@@ -1030,8 +1031,159 @@ local function applyVisibleDefaults(inst, props)
 	end
 end
 
+local function pathHas(pathText, words)
+	local lower = string.lower(tostring(pathText or ""))
+	for _, word in ipairs(words) do
+		if string.find(lower, word, 1, true) then return true end
+	end
+	return false
+end
+
+local function ensurePath(pathText)
+	return resolvePath(pathText, true)
+end
+
+local function normalizePersistentParent(a)
+	if not a then return end
+	local t = a.type
+	local className = tostring(a.className or a.file_type or "")
+	local name = tostring(a.name or a.searchQuery or a.assetName or "")
+	local parent = tostring(a.parent or a.service_location or "")
+	local descriptor = table.concat({ t or "", className, name, parent }, " ")
+
+	if t == "script" then
+		if className == "Script" and (parent == "" or parent == "ServerScriptService") then a.parent = "ServerScriptService/Systems" end
+		if className == "LocalScript" and (parent == "" or parent == "StarterGui") then a.parent = "StarterGui/BloxsmithUI" end
+		return
+	end
+
+	if t == "create" then
+		if className == "RemoteEvent" or className == "RemoteFunction" then
+			if parent == "" or parent == "ReplicatedStorage" then a.parent = "ReplicatedStorage/Remotes" end
+		elseif className == "ScreenGui" or className == "BillboardGui" or className == "SurfaceGui" then
+			if parent == "" or parent == "StarterGui" then a.parent = "StarterGui/BloxsmithUI" end
+		elseif className == "Tool" then
+			if parent == "" or parent == "StarterPack" then a.parent = "StarterPack/Tools" end
+		elseif className == "Part" or className == "Model" or className == "Folder" or className == "MeshPart" or className == "SpawnLocation" then
+			if parent == "" or parent == "Workspace" then
+				if pathHas(descriptor, { "npc", "enemy", "zombie", "shopkeeper", "vendor" }) then
+					a.parent = "Workspace/NPCs"
+				elseif pathHas(descriptor, { "door", "lever", "button", "pickup", "interactable", "zone" }) then
+					a.parent = "Workspace/Interactables"
+				elseif pathHas(descriptor, { "map", "city", "road", "street", "building", "tree", "grass", "ground", "terrain", "floor", "baseplate", "prop", "decor" }) then
+					a.parent = "Workspace/Map"
+				else
+					a.parent = "Workspace/GeneratedAssets"
+				end
+			end
+		end
+		return
+	end
+
+	if t == "insertAsset" or t == "insert_toolbox_asset" then
+		if parent == "" or parent == "Workspace" then
+			if pathHas(descriptor, { "npc", "enemy", "zombie", "character" }) then
+				a.parent = "Workspace/NPCs"
+			elseif pathHas(descriptor, { "door", "lever", "pickup", "interactable", "zone" }) then
+				a.parent = "Workspace/Interactables"
+			elseif pathHas(descriptor, { "map", "city", "road", "street", "building", "tree", "grass", "ground", "terrain", "floor", "baseplate", "prop", "decor" }) then
+				a.parent = "Workspace/Map"
+			else
+				a.parent = "Workspace/GeneratedAssets"
+			end
+		end
+	end
+end
+
+local function asVector3(v, fallback)
+	if typeof(v) == "Vector3" then return v end
+	if typeof(v) == "table" then
+		if v.__t == "Vector3" or v.type == "Vector3" then return Vector3.new(v.x or 0, v.y or 0, v.z or 0) end
+		if #v >= 3 then return Vector3.new(v[1] or 0, v[2] or 0, v[3] or 0) end
+	end
+	return fallback or Vector3.new(0, 8, 0)
+end
+
+local function stabilizeGeneratedInstance(inst)
+	if not inst then return end
+	if inst:IsA("BasePart") then
+		applyVisibleDefaults(inst, nil)
+	elseif inst:IsA("Model") or inst:IsA("Folder") then
+		for _, desc in ipairs(inst:GetDescendants()) do
+			if desc:IsA("BasePart") then applyVisibleDefaults(desc, nil) end
+		end
+	end
+end
+
+local function ensureMapStructureIfNeeded()
+	local map = ensurePath("Workspace/Map")
+	ensurePath("Workspace/Map/Buildings")
+	ensurePath("Workspace/Map/Roads")
+	ensurePath("Workspace/Map/Trees")
+	ensurePath("Workspace/Map/Props")
+	ensurePath("Workspace/Map/Zones")
+	ensurePath("Workspace/Interactables")
+	ensurePath("Workspace/NPCs")
+	ensurePath("Workspace/GeneratedAssets")
+	return map
+end
+
+local function isWorldBuildAction(a)
+	if not a then return false end
+	local t = a.type
+	if t == "terrainFill" or t == "terrainGenerate" or t == "spawn" or t == "insertAsset" or t == "insert_toolbox_asset" then return true end
+	local descriptor = table.concat({ tostring(t or ""), tostring(a.className or ""), tostring(a.name or ""), tostring(a.parent or "") }, " ")
+	return pathHas(descriptor, { "workspace", "map", "city", "world", "terrain", "grass", "ground", "road", "building", "tree", "npc", "prop", "zone" })
+end
+
+local function getInstanceCenter(inst)
+	if not inst or not inst.Parent then return nil end
+	if inst:IsA("Model") then
+		local ok, pivot = pcall(function() return inst:GetPivot() end)
+		if ok and pivot then return pivot.Position end
+	elseif inst:IsA("BasePart") then
+		return inst.Position
+	end
+	return nil
+end
+
+local function findSpawnLocation()
+	for _, desc in ipairs(Workspace:GetDescendants()) do
+		if desc:IsA("SpawnLocation") then return desc end
+	end
+	return nil
+end
+
+local function ensurePersistentWorldAfterInsert(createdInstances)
+	local map = ensureMapStructureIfNeeded()
+	local center = Vector3.new(0, 6, 0)
+	for _, inst in ipairs(createdInstances or {}) do
+		local pos = getInstanceCenter(inst)
+		if pos then center = Vector3.new(pos.X, math.max(pos.Y + 6, 6), pos.Z); break end
+	end
+	local spawn = findSpawnLocation()
+	if not spawn then
+		spawn = Instance.new("SpawnLocation")
+		spawn.Name = "BloxsmithSpawn"
+		spawn.Size = Vector3.new(12, 1, 12)
+		spawn.Anchored = true
+		spawn.CanCollide = true
+		spawn.Neutral = true
+		spawn.AllowTeamChangeOnTouch = false
+		spawn.Material = Enum.Material.Neon
+		spawn.BrickColor = BrickColor.new("Electric blue")
+		spawn.Parent = map
+	end
+	if spawn.Position.Y < 3 then
+		spawn.CFrame = CFrame.new(center)
+	end
+	for _, inst in ipairs(createdInstances or {}) do stabilizeGeneratedInstance(inst) end
+	return spawn
+end
+
 -- Create or overwrite a script (legacy file sync)
 function Actions.script(a)
+	normalizePersistentParent(a)
 	local parent = resolvePath(a.parent or a.service_location or "ServerScriptService", true)
 	if not parent then return false, "bad parent" end
 	local className = a.className or a.file_type or "Script"
@@ -1048,6 +1200,7 @@ end
 
 -- Create any Instance (Part, Model, Folder, Sound, ParticleEmitter, etc.)
 function Actions.create(a)
+	normalizePersistentParent(a)
 	local parent = resolvePath(a.parent or "Workspace", true)
 	if not parent then return false, "bad parent" end
 	local inst = Instance.new(a.className or "Part")
@@ -1066,6 +1219,7 @@ end
 
 -- Create a part with helper mapping for size, position, color, material, anchored properties
 function Actions.create_part(a)
+	normalizePersistentParent(a)
 	local parent = resolvePath(a.parent or "Workspace", true)
 	if not parent then return false, "bad parent" end
 	local part = Instance.new("Part")
@@ -1267,7 +1421,10 @@ end
 
 -- Spawn point helper
 function Actions.spawn(a)
+	ensureMapStructureIfNeeded()
 	local pos = coerceValue(a.position or { __t="Vector3", x=0, y=10, z=0 })
+	if typeof(pos) == "Vector3" and pos.Y < 4 then pos = Vector3.new(pos.X, 6, pos.Z) end
+	local parent = resolvePath(a.parent or "Workspace/Map", true) or Workspace
 	local sp = Instance.new("SpawnLocation")
 	sp.Anchored = true; sp.CanCollide = true
 	sp.Size = Vector3.new(12, 1, 12)
@@ -1276,8 +1433,10 @@ function Actions.spawn(a)
 	sp.Material = Enum.Material.Neon
 	sp.BrickColor = BrickColor.new("Electric blue")
 	sp.Name = a.name or "SpawnLocation"
-	sp.Parent = Workspace
-	return true
+	sp.Neutral = true
+	sp.AllowTeamChangeOnTouch = false
+	sp.Parent = parent
+	return true, nil, sp
 end
 
 -- Select an instance in Studio (so the user sees what AI just built)
@@ -1310,6 +1469,7 @@ end
 
 -- Insert a Roblox free model / mesh / decal / animation from the toolbox by assetId.
 function Actions.insertAsset(a)
+	normalizePersistentParent(a)
 	local parent = resolvePath(a.parent or "Workspace", true)
 	if not parent then return false, "bad parent" end
 	local assetId = tonumber(a.assetId)
@@ -1317,23 +1477,34 @@ function Actions.insertAsset(a)
 	local model, err = tryLoadAssetById(assetId)
 	if not model then return false, err end
 	local moved = {}
-	for _, child in ipairs(model:GetChildren()) do
+	local children = model:GetChildren()
+	local targetParent = parent
+	if a.name and #children > 1 then
+		targetParent = Instance.new("Model")
+		targetParent.Name = a.name
+		targetParent.Parent = parent
+	end
+	for _, child in ipairs(children) do
 		if a.name and #model:GetChildren() == 1 then child.Name = a.name end
-		child.Parent = parent
+		child.Parent = targetParent
+		stabilizeGeneratedInstance(child)
 		table.insert(moved, child)
 	end
 	model:Destroy()
-	if a.position and moved[1] and moved[1]:IsA("Model") and moved[1].PrimaryPart then
-		local pos = coerceValue(a.position)
-		moved[1]:PivotTo(CFrame.new(pos))
-	elseif a.position and moved[1] and moved[1]:IsA("BasePart") then
-		moved[1].CFrame = CFrame.new(coerceValue(a.position))
+	local placed = (typeof(targetParent) == "Instance" and targetParent ~= parent) and targetParent or moved[1]
+	if a.position and placed and placed:IsA("Model") then
+		local pos = asVector3(a.position)
+		placed:PivotTo(CFrame.new(pos))
+	elseif a.position and placed and placed:IsA("BasePart") then
+		placed.CFrame = CFrame.new(asVector3(a.position))
 	end
-	return true
+	if placed then stabilizeGeneratedInstance(placed) end
+	return true, nil, placed
 end
 
 -- Insert a safe free toolbox model by ID with safety scan & consent flow
 function Actions.insert_toolbox_asset(a)
+	normalizePersistentParent(a)
 	local parent = resolvePath(a.parent or "Workspace", true)
 	if not parent then return false, "bad parent" end
 	local assetId = tonumber(a.assetId)
@@ -1423,24 +1594,34 @@ function Actions.insert_toolbox_asset(a)
 	end
 
 	local moved = {}
-	for _, child in ipairs(model:GetChildren()) do
+	local children = model:GetChildren()
+	local targetParent = parent
+	if a.name and #children > 1 then
+		targetParent = Instance.new("Model")
+		targetParent.Name = a.name
+		targetParent.Parent = parent
+	end
+	for _, child in ipairs(children) do
 		if a.name and #model:GetChildren() == 1 then child.Name = a.name end
-		child.Parent = parent
+		child.Parent = targetParent
+		stabilizeGeneratedInstance(child)
 		table.insert(moved, child)
 	end
 	model:Destroy()
 
-	if a.position and moved[1] then
-		local pos = coerceValue(a.position)
-		if moved[1]:IsA("Model") then
-			moved[1]:PivotTo(CFrame.new(pos))
-		elseif moved[1]:IsA("BasePart") then
-			moved[1].CFrame = CFrame.new(pos)
+	local placed = (typeof(targetParent) == "Instance" and targetParent ~= parent) and targetParent or moved[1]
+	if a.position and placed then
+		local pos = asVector3(a.position)
+		if placed:IsA("Model") then
+			placed:PivotTo(CFrame.new(pos))
+		elseif placed:IsA("BasePart") then
+			placed.CFrame = CFrame.new(pos)
 		end
 	end
 
 	task.defer(pushSnapshot)
-	return true
+	if placed then stabilizeGeneratedInstance(placed) end
+	return true, nil, placed
 end
 
 -- Update source code of an existing script
@@ -1915,6 +2096,7 @@ local function actionTouchesIgnored(action)
 end
 
 local function dispatch(action)
+	normalizePersistentParent(action)
 	local fn = Actions[action.type]
 	if not fn then return false, "unknown action: " .. tostring(action.type) end
 	if actionTouchesIgnored(action) then
@@ -1970,11 +2152,10 @@ end
 local function applyActions(actions, sourceLabel)
 	if #actions == 0 then return end
 
-	local RunService = game:GetService("RunService")
 	if not RunService:IsEdit() then
-		syncInfo.Text = "Stop Play mode first to apply changes!"
+		syncInfo.Text = "Play mode detected — stop Play to save BloxSmith changes permanently."
 		setPill("error")
-		warn("[BloxSmith] Stop Play mode first so I can apply this permanently in Studio edit mode.")
+		warn("[BloxSmith] Play mode changes may not save. Stop Play mode so I can insert generated content into persistent Studio services.")
 		local reports = {}
 		for _, a in ipairs(actions) do
 			if a.id then
@@ -2004,10 +2185,12 @@ local function applyActions(actions, sourceLabel)
 	end
 
 	local ok, fail = 0, 0
+	local touchedWorld = false
 	local reports = {}
 	local failedDetails = {}
 	local createdInstances = {}
 	for _, a in ipairs(actions) do
+		if isWorldBuildAction(a) then touchedWorld = true end
 		local pcOk, success, errOrInst, instMaybe = pcall(dispatch, a)
 		local executed = pcOk and success and success ~= false
 		local createdInst = nil
@@ -2066,6 +2249,12 @@ local function applyActions(actions, sourceLabel)
 		pcall(focusOn, createdInstances)
 	end
 
+	if touchedWorld then
+		local spawn = ensurePersistentWorldAfterInsert(createdInstances)
+		appendLog("Inserted generated world content into persistent Workspace folders; SpawnLocation verified for Play mode.")
+		if spawn then table.insert(createdInstances, spawn) end
+	end
+
 	if fail > 0 then setPill("error") else setPill("complete") end
 	appendLog(("Command executed: %d ok, %d failed"):format(ok, fail))
 
@@ -2079,8 +2268,9 @@ local function applyActions(actions, sourceLabel)
 		if connected then setPill("connected") end
 	end)
 
-	syncInfo.Text = ("[%s] Built %d action(s)%s · %s · undoable"):format(
-		activeProjectName or "project", ok, (fail > 0 and (" · " .. fail .. " failed") or ""), os.date("%H:%M:%S"))
+	local statusPrefix = touchedWorld and "Inserted into Workspace/Map — edit + play ready" or "Built"
+	syncInfo.Text = ("[%s] %s %d action(s)%s · %s · undoable"):format(
+		activeProjectName or "project", statusPrefix, ok, (fail > 0 and (" · " .. fail .. " failed") or ""), os.date("%H:%M:%S"))
 
 	return ok, fail, failedDetails
 end
