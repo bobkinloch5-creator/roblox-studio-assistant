@@ -1,0 +1,134 @@
+import { createServerFn } from "@tanstack/react-start";
+import { z } from "zod";
+import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
+
+// ---------------------------------------------------------------------------
+// Build History — aggregated view of every AI batch that produced files or
+// actions across all conversations in a project. Powers the History drawer.
+// ---------------------------------------------------------------------------
+export type BuildHistoryItem = {
+  id: string;
+  conversation_id: string;
+  conversation_title: string | null;
+  created_at: string;
+  preview: string;
+  files: number;
+  actions: number;
+  generationId: string | null;
+  reverted: boolean;
+  snapshotCount: number;
+  dangerCount: number;
+};
+
+export const getBuildHistory = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((i: unknown) =>
+    z.object({ projectId: z.string().uuid(), limit: z.number().int().min(1).max(200).default(50) }).parse(i),
+  )
+  .handler(async ({ data, context }): Promise<{ items: BuildHistoryItem[] }> => {
+    const { supabase } = context;
+    const { projectId, limit } = data;
+
+    // Conversations for this project (RLS scopes to members).
+    const { data: convos, error: cErr } = await supabase
+      .from("agent_conversations")
+      .select("id,title")
+      .eq("project_id", projectId);
+    if (cErr) throw new Error(cErr.message);
+    if (!convos || convos.length === 0) return { items: [] };
+
+    const convoMap = new Map(convos.map((c) => [c.id, c.title]));
+    const ids = convos.map((c) => c.id);
+
+    const { data: msgs, error: mErr } = await supabase
+      .from("agent_messages")
+      .select("id,conversation_id,content,actions,created_at")
+      .in("conversation_id", ids)
+      .eq("role", "assistant")
+      .order("created_at", { ascending: false })
+      .limit(limit * 2);
+    if (mErr) throw new Error(mErr.message);
+
+    const items: BuildHistoryItem[] = [];
+    for (const m of msgs ?? []) {
+      const a: any = m.actions ?? {};
+      const files = typeof a.files === "number" ? a.files : 0;
+      const actions = typeof a.actions === "number" ? a.actions : 0;
+      if (files === 0 && actions === 0) continue;
+      items.push({
+        id: m.id,
+        conversation_id: m.conversation_id,
+        conversation_title: convoMap.get(m.conversation_id) ?? null,
+        created_at: m.created_at,
+        preview: (m.content || "").replace(/\s+/g, " ").slice(0, 140),
+        files,
+        actions,
+        generationId: a.generationId ?? null,
+        reverted: a.reverted === true,
+        snapshotCount: Array.isArray(a.snapshot) ? a.snapshot.length : 0,
+        dangerCount: Array.isArray(a.dangers) ? a.dangers.length : 0,
+      });
+      if (items.length >= limit) break;
+    }
+    return { items };
+  });
+
+// ---------------------------------------------------------------------------
+// Smart Folder Organizer — queues plugin actions that create the standard
+// Roblox service folder layout so beginner projects look professional.
+// ---------------------------------------------------------------------------
+const STANDARD_LAYOUT: { parent: string; name: string }[] = [
+  { parent: "ReplicatedStorage", name: "Remotes" },
+  { parent: "ReplicatedStorage", name: "Modules" },
+  { parent: "ReplicatedStorage", name: "Assets" },
+  { parent: "ReplicatedStorage", name: "Shared" },
+  { parent: "ServerScriptService", name: "Systems" },
+  { parent: "ServerScriptService", name: "Services" },
+  { parent: "ServerScriptService", name: "Modules" },
+  { parent: "ServerStorage", name: "Modules" },
+  { parent: "ServerStorage", name: "Assets" },
+  { parent: "StarterGui", name: "MainUI" },
+  { parent: "StarterGui", name: "ShopUI" },
+  { parent: "StarterGui", name: "InventoryUI" },
+  { parent: "StarterPlayer/StarterPlayerScripts", name: "Client" },
+  { parent: "StarterPlayer/StarterCharacterScripts", name: "Character" },
+  { parent: "Workspace", name: "Map" },
+  { parent: "Workspace", name: "Interactables" },
+  { parent: "Workspace", name: "NPCs" },
+  { parent: "Workspace", name: "Spawns" },
+];
+
+export const organizeProject = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((i: unknown) => z.object({ projectId: z.string().uuid() }).parse(i))
+  .handler(async ({ data, context }) => {
+    const { supabase, userId } = context;
+    const { projectId } = data;
+
+    // Membership check via RLS-friendly read.
+    const { data: proj, error: pErr } = await supabase
+      .from("projects")
+      .select("id")
+      .eq("id", projectId)
+      .maybeSingle();
+    if (pErr || !proj) throw new Error("Project not found or not accessible.");
+
+    const rows = STANDARD_LAYOUT.map((f) => ({
+      project_id: projectId,
+      user_id: userId,
+      action_type: "create",
+      payload: {
+        type: "create",
+        className: "Folder",
+        parent: f.parent,
+        name: f.name,
+        organizer: true,
+      },
+      status: "pending",
+    }));
+
+    const { error } = await supabase.from("plugin_actions").insert(rows);
+    if (error) throw new Error(error.message);
+
+    return { queued: rows.length, layout: STANDARD_LAYOUT };
+  });
