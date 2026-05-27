@@ -251,3 +251,66 @@ export const revertBuild = createServerFn({ method: "POST" })
 
     return { restored, removed, queuedDeletes: queueDeletes.length, alreadyReverted: false };
   });
+
+// ---------------------------------------------------------------------------
+// Build Diff — returns before/after content for every file changed in a
+// specific assistant build. Powers the "View diff" expansion in the History
+// drawer. `before` is from the snapshot stored at build time; `after` is the
+// current content in project_files (or null if deleted/reverted).
+// ---------------------------------------------------------------------------
+export type BuildDiffFile = {
+  path: string;
+  existed: boolean;
+  before: string | null;
+  after: string | null;
+  beforeLines: number;
+  afterLines: number;
+  added: number;
+  removed: number;
+};
+
+export const getBuildDiff = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((i: unknown) =>
+    z.object({ projectId: z.string().uuid(), messageId: z.string().uuid() }).parse(i),
+  )
+  .handler(async ({ data, context }): Promise<{ files: BuildDiffFile[] }> => {
+    const { supabase } = context;
+
+    const { data: msg, error: mErr } = await supabase
+      .from("agent_messages")
+      .select("id,actions")
+      .eq("id", data.messageId)
+      .maybeSingle();
+    if (mErr || !msg) throw new Error("Build not found.");
+    const actions: any = msg.actions ?? {};
+    const snap: any[] = Array.isArray(actions.snapshot) ? actions.snapshot : [];
+    if (snap.length === 0) return { files: [] };
+
+    const paths = snap.map((s) => s?.path).filter((p): p is string => typeof p === "string");
+    const { data: cur } = await supabase
+      .from("project_files")
+      .select("path,content")
+      .eq("project_id", data.projectId)
+      .in("path", paths);
+    const afterMap = new Map((cur ?? []).map((f) => [f.path, f.content ?? ""]));
+
+    const files: BuildDiffFile[] = snap
+      .filter((s) => s && typeof s.path === "string")
+      .map((s) => {
+        const before: string | null = s.existed ? (typeof s.content === "string" ? s.content : "") : null;
+        const after: string | null = afterMap.has(s.path) ? afterMap.get(s.path)! : null;
+        const beforeLines = before == null ? 0 : before.split("\n").length;
+        const afterLines = after == null ? 0 : after.split("\n").length;
+        // Cheap line-set diff — good enough for "what changed" overview.
+        const beforeSet = new Set((before ?? "").split("\n"));
+        const afterSet = new Set((after ?? "").split("\n"));
+        let added = 0;
+        let removed = 0;
+        afterSet.forEach((l) => { if (!beforeSet.has(l)) added++; });
+        beforeSet.forEach((l) => { if (!afterSet.has(l)) removed++; });
+        return { path: s.path, existed: s.existed === true, before, after, beforeLines, afterLines, added, removed };
+      });
+
+    return { files };
+  });

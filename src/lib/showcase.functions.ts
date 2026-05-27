@@ -162,3 +162,60 @@ export const getFeaturedCreator = createServerFn({ method: "GET" })
       },
     };
   });
+
+// ---------------------------------------------------------------------------
+// Trending Showcase — time-decayed ranking that surfaces fresh hits over old
+// classics. Score formula (Hacker News-ish):
+//   score = (likes + 2 * remixes + 1) / (hours_since_pub + 2)^1.5
+// Recency wins early, but a project with many likes/remixes keeps climbing.
+// ---------------------------------------------------------------------------
+export type TrendingShowcaseItem = {
+  id: string;
+  title: string;
+  description: string | null;
+  thumbnailUrl: string | null;
+  likes: number;
+  remixes: number;
+  publishedAt: string | null;
+  gameType: string;
+  score: number;
+};
+
+export const getTrendingShowcase = createServerFn({ method: "GET" })
+  .handler(async (): Promise<{ items: TrendingShowcaseItem[] }> => {
+    const url = process.env.SUPABASE_URL!;
+    const key = process.env.SUPABASE_PUBLISHABLE_KEY!;
+    const sb = createClient(url, key);
+
+    // Pull the most recent 200 published projects — anything older than that
+    // has effectively zero time-decay score anyway.
+    const { data } = await sb
+      .from("projects")
+      .select("id,name,game_type,showcase_title,showcase_description,showcase_thumbnail_url,showcase_likes_count,showcase_remix_count,showcase_published_at")
+      .eq("showcase_published", true)
+      .order("showcase_published_at", { ascending: false })
+      .limit(200);
+
+    const now = Date.now();
+    const items: TrendingShowcaseItem[] = (data ?? []).map((p) => {
+      const publishedMs = p.showcase_published_at ? new Date(p.showcase_published_at).getTime() : now;
+      const hours = Math.max(0, (now - publishedMs) / (1000 * 60 * 60));
+      const likes = p.showcase_likes_count ?? 0;
+      const remixes = p.showcase_remix_count ?? 0;
+      const score = (likes + 2 * remixes + 1) / Math.pow(hours + 2, 1.5);
+      return {
+        id: p.id,
+        title: p.showcase_title || p.name,
+        description: p.showcase_description,
+        thumbnailUrl: p.showcase_thumbnail_url,
+        likes,
+        remixes,
+        publishedAt: p.showcase_published_at,
+        gameType: p.game_type,
+        score,
+      };
+    });
+
+    items.sort((a, b) => b.score - a.score);
+    return { items: items.slice(0, 60) };
+  });
