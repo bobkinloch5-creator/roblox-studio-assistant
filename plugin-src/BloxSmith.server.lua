@@ -146,6 +146,7 @@ local C = {
 	textMute  = Color3.fromRGB(110, 114, 132),
 	accent    = Color3.fromRGB(180, 170, 255),
 	success   = Color3.fromRGB(74, 222, 168),
+	warn      = Color3.fromRGB(245, 180, 90),
 	idle      = Color3.fromRGB(110, 114, 132),
 }
 
