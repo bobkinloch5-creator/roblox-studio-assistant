@@ -3,20 +3,14 @@ import { useServerFn } from "@tanstack/react-start";
 import { ChevronDown, Cpu, Check } from "lucide-react";
 import { saveProjectAiSettings } from "@/lib/project-ai.functions";
 
-type ProviderId = "openai" | "anthropic" | "google" | "groq" | "neokens";
+type ProviderId = "groq" | "neokens";
 
 const PROVIDER_LABELS: Record<ProviderId, string> = {
-  openai: "OpenAI",
-  anthropic: "Anthropic",
-  google: "Google",
   groq: "Groq (free)",
-  neokens: "Neokens",
+  neokens: "Neokens (free)",
 };
 
 const PROVIDER_MODELS: Record<ProviderId, string[]> = {
-  openai: ["gpt-5", "gpt-5-mini", "gpt-5-nano", "gpt-5-codex", "gpt-4.1", "gpt-4.1-mini"],
-  anthropic: ["claude-sonnet-4-5", "claude-opus-4-1", "claude-3-5-sonnet-latest", "claude-3-5-haiku-latest"],
-  google: ["gemini-2.5-pro", "gemini-2.5-flash", "gemini-2.5-flash-lite", "gemini-3-flash-preview"],
   groq: [
     "llama-3.3-70b-versatile",
     "llama-3.1-8b-instant",

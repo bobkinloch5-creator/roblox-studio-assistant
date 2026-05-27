@@ -2611,7 +2611,7 @@ function ProjectEditor() {
 
                   <ModelPicker
                     projectId={projectId}
-                    provider={aiSettings.provider as "openai" | "anthropic" | "google" | "groq" | "neokens" | null}
+                    provider={(aiSettings.provider === "groq" || aiSettings.provider === "neokens") ? aiSettings.provider : null}
                     model={aiSettings.model}
                     onChange={(p, m) => setAiSettings({ mode: "api_key", provider: p, model: m })}
                   />
