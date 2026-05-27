@@ -831,6 +831,7 @@ export type Database = {
           ai_rules: string | null
           created_at: string
           description: string | null
+          forked_from_project_id: string | null
           game_type: string
           id: string
           name: string
@@ -838,6 +839,13 @@ export type Database = {
           roblox_last_version: number | null
           roblox_place_id: string | null
           roblox_universe_id: string | null
+          showcase_description: string | null
+          showcase_likes_count: number
+          showcase_published: boolean
+          showcase_published_at: string | null
+          showcase_remix_count: number
+          showcase_thumbnail_url: string | null
+          showcase_title: string | null
           status: string
           updated_at: string
           user_id: string
@@ -846,6 +854,7 @@ export type Database = {
           ai_rules?: string | null
           created_at?: string
           description?: string | null
+          forked_from_project_id?: string | null
           game_type: string
           id?: string
           name: string
@@ -853,6 +862,13 @@ export type Database = {
           roblox_last_version?: number | null
           roblox_place_id?: string | null
           roblox_universe_id?: string | null
+          showcase_description?: string | null
+          showcase_likes_count?: number
+          showcase_published?: boolean
+          showcase_published_at?: string | null
+          showcase_remix_count?: number
+          showcase_thumbnail_url?: string | null
+          showcase_title?: string | null
           status?: string
           updated_at?: string
           user_id: string
@@ -861,6 +877,7 @@ export type Database = {
           ai_rules?: string | null
           created_at?: string
           description?: string | null
+          forked_from_project_id?: string | null
           game_type?: string
           id?: string
           name?: string
@@ -868,6 +885,13 @@ export type Database = {
           roblox_last_version?: number | null
           roblox_place_id?: string | null
           roblox_universe_id?: string | null
+          showcase_description?: string | null
+          showcase_likes_count?: number
+          showcase_published?: boolean
+          showcase_published_at?: string | null
+          showcase_remix_count?: number
+          showcase_thumbnail_url?: string | null
+          showcase_title?: string | null
           status?: string
           updated_at?: string
           user_id?: string
@@ -980,6 +1004,27 @@ export type Database = {
           reviewed_by?: string | null
           status?: string
           url?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      showcase_likes: {
+        Row: {
+          created_at: string
+          id: string
+          project_id: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          project_id: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          project_id?: string
           user_id?: string
         }
         Relationships: []
@@ -1259,6 +1304,10 @@ export type Database = {
       refund_credits: {
         Args: { _amount: number; _reason?: string }
         Returns: number
+      }
+      remix_showcase_project: {
+        Args: { _new_name: string; _source_id: string }
+        Returns: string
       }
       spend_credits_atomic: { Args: { _amount: number }; Returns: number }
     }
