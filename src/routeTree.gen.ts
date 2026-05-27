@@ -41,6 +41,7 @@ import { Route as ApiPublicPluginSyncRouteImport } from './routes/api/public/plu
 import { Route as ApiPublicPluginReportRouteImport } from './routes/api/public/plugin/report'
 import { Route as ApiPublicPluginOrganizeRouteImport } from './routes/api/public/plugin/organize'
 import { Route as ApiPublicPluginErrorsRouteImport } from './routes/api/public/plugin/errors'
+import { Route as ApiPublicPluginCreditsRouteImport } from './routes/api/public/plugin/credits'
 import { Route as ApiPublicPluginContextRouteImport } from './routes/api/public/plugin/context'
 import { Route as ApiPublicPluginAuthRouteImport } from './routes/api/public/plugin/auth'
 import { Route as ApiPublicPaypalWebhookRouteImport } from './routes/api/public/paypal/webhook'
@@ -209,6 +210,11 @@ const ApiPublicPluginErrorsRoute = ApiPublicPluginErrorsRouteImport.update({
   path: '/api/public/plugin/errors',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiPublicPluginCreditsRoute = ApiPublicPluginCreditsRouteImport.update({
+  id: '/api/public/plugin/credits',
+  path: '/api/public/plugin/credits',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiPublicPluginContextRoute = ApiPublicPluginContextRouteImport.update({
   id: '/api/public/plugin/context',
   path: '/api/public/plugin/context',
@@ -269,6 +275,7 @@ export interface FileRoutesByFullPath {
   '/api/public/paypal/webhook': typeof ApiPublicPaypalWebhookRoute
   '/api/public/plugin/auth': typeof ApiPublicPluginAuthRoute
   '/api/public/plugin/context': typeof ApiPublicPluginContextRoute
+  '/api/public/plugin/credits': typeof ApiPublicPluginCreditsRoute
   '/api/public/plugin/errors': typeof ApiPublicPluginErrorsRoute
   '/api/public/plugin/organize': typeof ApiPublicPluginOrganizeRoute
   '/api/public/plugin/report': typeof ApiPublicPluginReportRoute
@@ -308,6 +315,7 @@ export interface FileRoutesByTo {
   '/api/public/paypal/webhook': typeof ApiPublicPaypalWebhookRoute
   '/api/public/plugin/auth': typeof ApiPublicPluginAuthRoute
   '/api/public/plugin/context': typeof ApiPublicPluginContextRoute
+  '/api/public/plugin/credits': typeof ApiPublicPluginCreditsRoute
   '/api/public/plugin/errors': typeof ApiPublicPluginErrorsRoute
   '/api/public/plugin/organize': typeof ApiPublicPluginOrganizeRoute
   '/api/public/plugin/report': typeof ApiPublicPluginReportRoute
@@ -348,6 +356,7 @@ export interface FileRoutesById {
   '/api/public/paypal/webhook': typeof ApiPublicPaypalWebhookRoute
   '/api/public/plugin/auth': typeof ApiPublicPluginAuthRoute
   '/api/public/plugin/context': typeof ApiPublicPluginContextRoute
+  '/api/public/plugin/credits': typeof ApiPublicPluginCreditsRoute
   '/api/public/plugin/errors': typeof ApiPublicPluginErrorsRoute
   '/api/public/plugin/organize': typeof ApiPublicPluginOrganizeRoute
   '/api/public/plugin/report': typeof ApiPublicPluginReportRoute
@@ -389,6 +398,7 @@ export interface FileRouteTypes {
     | '/api/public/paypal/webhook'
     | '/api/public/plugin/auth'
     | '/api/public/plugin/context'
+    | '/api/public/plugin/credits'
     | '/api/public/plugin/errors'
     | '/api/public/plugin/organize'
     | '/api/public/plugin/report'
@@ -428,6 +438,7 @@ export interface FileRouteTypes {
     | '/api/public/paypal/webhook'
     | '/api/public/plugin/auth'
     | '/api/public/plugin/context'
+    | '/api/public/plugin/credits'
     | '/api/public/plugin/errors'
     | '/api/public/plugin/organize'
     | '/api/public/plugin/report'
@@ -467,6 +478,7 @@ export interface FileRouteTypes {
     | '/api/public/paypal/webhook'
     | '/api/public/plugin/auth'
     | '/api/public/plugin/context'
+    | '/api/public/plugin/credits'
     | '/api/public/plugin/errors'
     | '/api/public/plugin/organize'
     | '/api/public/plugin/report'
@@ -507,6 +519,7 @@ export interface RootRouteChildren {
   ApiPublicPaypalWebhookRoute: typeof ApiPublicPaypalWebhookRoute
   ApiPublicPluginAuthRoute: typeof ApiPublicPluginAuthRoute
   ApiPublicPluginContextRoute: typeof ApiPublicPluginContextRoute
+  ApiPublicPluginCreditsRoute: typeof ApiPublicPluginCreditsRoute
   ApiPublicPluginErrorsRoute: typeof ApiPublicPluginErrorsRoute
   ApiPublicPluginOrganizeRoute: typeof ApiPublicPluginOrganizeRoute
   ApiPublicPluginReportRoute: typeof ApiPublicPluginReportRoute
@@ -739,6 +752,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiPublicPluginErrorsRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/public/plugin/credits': {
+      id: '/api/public/plugin/credits'
+      path: '/api/public/plugin/credits'
+      fullPath: '/api/public/plugin/credits'
+      preLoaderRoute: typeof ApiPublicPluginCreditsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/public/plugin/context': {
       id: '/api/public/plugin/context'
       path: '/api/public/plugin/context'
@@ -813,6 +833,7 @@ const rootRouteChildren: RootRouteChildren = {
   ApiPublicPaypalWebhookRoute: ApiPublicPaypalWebhookRoute,
   ApiPublicPluginAuthRoute: ApiPublicPluginAuthRoute,
   ApiPublicPluginContextRoute: ApiPublicPluginContextRoute,
+  ApiPublicPluginCreditsRoute: ApiPublicPluginCreditsRoute,
   ApiPublicPluginErrorsRoute: ApiPublicPluginErrorsRoute,
   ApiPublicPluginOrganizeRoute: ApiPublicPluginOrganizeRoute,
   ApiPublicPluginReportRoute: ApiPublicPluginReportRoute,

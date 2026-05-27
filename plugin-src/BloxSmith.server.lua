@@ -311,6 +311,65 @@ register(subtitle, "textMute")
 subtitle.Text = "Build Roblox games with AI"
 subtitle.TextXAlignment = Enum.TextXAlignment.Left
 
+-- Live credit balance pill — refreshes after auth, after each sync, and on
+-- a slow timer so users always see how many credits they have left without
+-- leaving Studio.
+local creditsRow = Instance.new("Frame", root)
+creditsRow.LayoutOrder = 2
+creditsRow.BackgroundTransparency = 1
+creditsRow.Size = UDim2.new(1,0,0,22)
+
+local creditsChip = Instance.new("Frame", creditsRow)
+creditsChip.AnchorPoint = Vector2.new(0, 0.5)
+creditsChip.Position = UDim2.new(0, 0, 0.5, 0)
+creditsChip.AutomaticSize = Enum.AutomaticSize.X
+creditsChip.Size = UDim2.fromOffset(0, 20)
+creditsChip.BackgroundColor3 = C.panel
+register(creditsChip, "panel")
+creditsChip.BorderSizePixel = 0
+corner(creditsChip, 10)
+stroke(creditsChip, C.stroke, 1)
+
+local creditsPad = Instance.new("UIPadding", creditsChip)
+creditsPad.PaddingLeft = UDim.new(0, 10)
+creditsPad.PaddingRight = UDim.new(0, 10)
+
+local creditsLabel = Instance.new("TextLabel", creditsChip)
+creditsLabel.BackgroundTransparency = 1
+creditsLabel.AutomaticSize = Enum.AutomaticSize.X
+creditsLabel.Size = UDim2.new(0, 0, 1, 0)
+creditsLabel.Font = Enum.Font.BuilderSansMedium
+creditsLabel.TextSize = 11
+creditsLabel.TextColor3 = C.text
+creditsLabel.TextXAlignment = Enum.TextXAlignment.Left
+creditsLabel.Text = "◆ Credits: —"
+
+local function setCreditsDisplay(n)
+	if n == nil then
+		creditsLabel.Text = "◆ Credits: —"
+		creditsLabel.TextColor3 = C.textDim
+		return
+	end
+	creditsLabel.Text = "◆ Credits: " .. tostring(n)
+	creditsLabel.TextColor3 = (n <= 5) and C.warn or C.text
+end
+
+local lastCreditsAt = 0
+local function refreshCredits(force)
+	if getToken() == "" then setCreditsDisplay(nil); return end
+	local now = os.time()
+	if not force and (now - lastCreditsAt) < 8 then return end
+	lastCreditsAt = now
+	task.spawn(function()
+		local data = postJSON("/credits", {})
+		if data and data.credits ~= nil then
+			setCreditsDisplay(data.credits)
+		end
+	end)
+end
+
+
+
 -- Token label + input
 local tokenLabel = Instance.new("TextLabel", root)
 tokenLabel.LayoutOrder = 3
