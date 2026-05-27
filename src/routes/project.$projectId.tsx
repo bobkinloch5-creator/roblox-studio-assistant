@@ -393,6 +393,8 @@ function ProjectEditor() {
   const [fixLogs, setFixLogs] = useState("");
   const [fixBusy, setFixBusy] = useState(false);
   const FIX_COST = 2;
+  const [revertedByMsg, setRevertedByMsg] = useState<Record<string, boolean>>({});
+  const [revertingMsg, setRevertingMsg] = useState<string | null>(null);
   const AUTOPILOT_COST = 10;
   const [showAuto, setShowAuto] = useState(false);
   const [autoDesc, setAutoDesc] = useState("");
