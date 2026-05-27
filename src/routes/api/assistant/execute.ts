@@ -210,9 +210,9 @@ function normalizeResult(raw: any): ExecuteResult {
       ? raw.message.trim()
       : typeof raw.summary === "string" && raw.summary.trim()
         ? raw.summary.trim()
-        : files.length || actions.length
+          : files.length || actions.length
           ? "I prepared the build and queued the Studio operations."
-          : "I understood the request, but there is nothing to change in Studio.";
+          : "The model ran out of room before it could finalize the build. Try again — usually the second attempt succeeds, or split the request into smaller steps.";
 
   return { message, files, actions };
 }
