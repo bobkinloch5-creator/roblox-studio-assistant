@@ -35,14 +35,13 @@ const PROVIDER_MODELS: Record<ProviderId, string[]> = {
   ],
   groq: ["llama-3.1-8b-instant", "openai/gpt-oss-120b", "llama-3.3-70b-versatile"],
   neokens: [
-    "gpt-5.3-codex",
-    "gpt-5.1",
-    "claude-opus-4-7-thinking",
-    "claude-sonnet-4-6-thinking",
-    "claude-haiku-4-5-20251001",
-    "gemini-3.1-pro",
     "gemini-3-flash",
+    "claude-haiku-4-5-20251001",
+    "gpt-5.3-codex",
+    "gemini-3.1-pro",
+    "gpt-5.1",
   ],
+
 };
 
 const PROVIDER_KEY_HINTS: Record<ProviderId, string> = {
