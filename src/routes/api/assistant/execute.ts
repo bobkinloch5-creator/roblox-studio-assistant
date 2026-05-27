@@ -1418,14 +1418,14 @@ export const Route = createFileRoute("/api/assistant/execute")({
                 const attempts: Attempt[] = resolved.source === "api_key"
                   ? [
                       { level: 1, modelId: resolved.modelName, budget: BLOXSMITH_LARGE_MODEL_TOKEN_BUDGET, useResolved: true },
-                      { level: 2, modelId: resolved.modelName, budget: BLOXSMITH_LARGE_MODEL_TOKEN_BUDGET, useResolved: true },
                       { level: 3, modelId: resolved.modelName, budget: BLOXSMITH_LARGE_MODEL_TOKEN_BUDGET, useResolved: true },
                     ]
                   : [
+                      // Fast path: one attempt with the small model, one with the large
+                      // model as a fallback. Four attempts blew past Cloudflare's
+                      // worker wall-time and caused 502s.
                       { level: 0, modelId: thinking ? BLOXSMITH_THINK_MODEL : BLOXSMITH_MODEL, budget: BLOXSMITH_MODEL_TOKEN_BUDGET, useResolved: true },
-                      { level: 1, modelId: thinking ? BLOXSMITH_THINK_MODEL : BLOXSMITH_MODEL, budget: BLOXSMITH_MODEL_TOKEN_BUDGET, useResolved: false },
                       { level: 2, modelId: BLOXSMITH_LARGE_MODEL, budget: BLOXSMITH_LARGE_MODEL_TOKEN_BUDGET, useResolved: false },
-                      { level: 3, modelId: BLOXSMITH_LARGE_MODEL, budget: BLOXSMITH_LARGE_MODEL_TOKEN_BUDGET, useResolved: false },
                     ];
 
                 const systemTokens = estimateTokens(SYSTEM_PROMPT);
@@ -1506,18 +1506,32 @@ export const Route = createFileRoute("/api/assistant/execute")({
                     // Huge caps slow Groq + Gemini dramatically without improving quality.
                     const target = thinking ? 10000 : 5000;
                     const maxOut = Math.min(target, hardCap);
-                    const textRes = await withRateLimitRetry("ai-execute", () =>
-                      generateTextWithToolFallback(generateText, {
-                        model,
-                        system: systemWithRules,
-                        messages,
-                        tools: pickFastTools(prompt, { projectId, userId }) as any,
-                        // Fewer tool-loop steps = faster builds. Most builds need 2-4 steps.
-                        stopWhen: stepCountIs(thinking ? 16 : 8),
-                        maxOutputTokens: maxOut,
-                        abortSignal: request.signal,
-                      }, `ai-execute attempt#${i} src=${resolved.source} model=${att.modelId} slim=${useSlim} maxOut=${maxOut}`),
-                    );
+                    // Per-attempt wall-clock cap. Cloudflare workers will 502 if a
+                    // single request hangs. Give each attempt at most ~22s so a
+                    // 2-attempt chain still fits inside the 50s response window.
+                    const perAttemptMs = thinking ? 35000 : 22000;
+                    const attemptCtl = new AbortController();
+                    const timeoutId = setTimeout(() => attemptCtl.abort(), perAttemptMs);
+                    const combinedSignal: AbortSignal = (AbortSignal as any).any
+                      ? (AbortSignal as any).any([request.signal, attemptCtl.signal])
+                      : attemptCtl.signal;
+                    let textRes: any;
+                    try {
+                      textRes = await withRateLimitRetry("ai-execute", () =>
+                        generateTextWithToolFallback(generateText, {
+                          model,
+                          system: systemWithRules,
+                          messages,
+                          tools: pickFastTools(prompt, { projectId, userId }) as any,
+                          // Fewer tool-loop steps = faster builds. Most builds need 2-4 steps.
+                          stopWhen: stepCountIs(thinking ? 16 : 8),
+                          maxOutputTokens: maxOut,
+                          abortSignal: combinedSignal,
+                        }, `ai-execute attempt#${i} src=${resolved.source} model=${att.modelId} slim=${useSlim} maxOut=${maxOut}`),
+                      );
+                    } finally {
+                      clearTimeout(timeoutId);
+                    }
                     rawText = textRes.text;
                     // Capture tool calls so the UI can show the user what the AI did.
                     try {
