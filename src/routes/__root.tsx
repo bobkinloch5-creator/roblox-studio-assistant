@@ -102,6 +102,7 @@ function RootComponent() {
       <QueryClientProvider client={queryClient}>
         <AuthProvider>
           <Outlet />
+          <ClickRipple />
           <Toaster theme="dark" position="top-right" />
         </AuthProvider>
       </QueryClientProvider>
