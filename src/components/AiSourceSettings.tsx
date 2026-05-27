@@ -58,7 +58,7 @@ const PROVIDER_KEY_HINTS: Record<ProviderId, string> = {
   openai: "sk-... — platform.openai.com/api-keys",
   anthropic: "sk-ant-... — console.anthropic.com/settings/keys",
   google: "AI... — aistudio.google.com/apikey",
-  groq: "gsk_... — console.groq.com/keys",
+  groq: "Site-wide free key managed by admin (GROQ_API_KEY)",
   neokens: "Site-wide key managed by admin (NEOKENS_API_KEY)",
 };
 
