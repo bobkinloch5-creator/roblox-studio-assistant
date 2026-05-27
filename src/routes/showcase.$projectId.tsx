@@ -151,6 +151,26 @@ function ShowcaseDetail() {
                   {data.showcase_likes_count}
                 </button>
                 <button
+                  onClick={async () => {
+                    const url = typeof window !== "undefined" ? window.location.href : "";
+                    try {
+                      if (navigator.share) {
+                        await navigator.share({ title, text: desc.slice(0, 140), url });
+                      } else {
+                        await navigator.clipboard.writeText(url);
+                        toast.success("Share link copied!");
+                      }
+                    } catch {
+                      /* user cancelled share */
+                    }
+                  }}
+                  className="inline-flex items-center gap-1.5 rounded-lg border border-border hover:border-primary/40 hover:text-primary-glow px-3 py-2 text-sm transition"
+                  title="Share this build"
+                >
+                  <Share2 className="h-4 w-4" />
+                  Share
+                </button>
+                <button
                   onClick={() => {
                     if (!user) {
                       toast.info("Sign in to remix");
