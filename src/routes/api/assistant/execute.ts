@@ -845,31 +845,26 @@ function coerceActionValue(key: string, val: any): any {
 }
 
 async function resolveSearchQueries(actions: any[]): Promise<any[]> {
+  const { searchRobloxAssets } = await import("@/lib/ai-tools.server");
   const resolved: any[] = [];
   for (const a of actions) {
     if (a && a.type === "insert_toolbox_asset" && a.searchQuery && !a.assetId) {
       try {
-        const query = a.searchQuery;
-        const url = `https://catalog.roblox.com/v1/search/items/details?Category=Models&Keyword=${encodeURIComponent(query)}&Limit=8&SortType=Relevance`;
-        const r = await fetch(url, {
-          headers: { "User-Agent": "BloxSmith/1.0", Accept: "application/json" },
-        });
-        if (r.ok) {
-          const j: any = await r.json();
-          // Filter for free public models
-          const items = (j.data ?? []).filter((x: any) => (x.price ?? 0) === 0);
-          if (items.length > 0) {
-            const best = items[0];
-            resolved.push({
-              ...a,
-              assetId: best.id,
-              name: a.name || best.name,
-            });
-            console.log(
-              `[Execute API] Resolved searchQuery "${query}" to assetId ${best.id} ("${best.name}")`,
-            );
-            continue;
-          }
+        const items = await searchRobloxAssets(
+          a.searchQuery,
+          a.category || "Models",
+          5,
+          { freeOnly: true, verifiedOnly: false },
+        );
+        if (items.length > 0) {
+          const best = items[0];
+          resolved.push({ ...a, assetId: best.assetId, name: a.name || best.name });
+          console.log(
+            `[Execute API] Resolved searchQuery "${a.searchQuery}" → assetId ${best.assetId} ("${best.name}")`,
+          );
+          continue;
+        } else {
+          console.warn(`[Execute API] No free toolbox results for "${a.searchQuery}" — skipping`);
         }
       } catch (err) {
         console.error("Error resolving searchQuery for insert_toolbox_asset:", err);
@@ -877,7 +872,11 @@ async function resolveSearchQueries(actions: any[]): Promise<any[]> {
     }
     resolved.push(a);
   }
-  return resolved;
+  // Drop unresolved toolbox actions (no assetId + no searchQuery match) so we
+  // don't queue a no-op insertion the plugin will reject.
+  return resolved.filter(
+    (a) => !(a && a.type === "insert_toolbox_asset" && !a.assetId),
+  );
 }
 
 function mapGroqActionsToPlugin(actions: any[]): GenAction[] {
