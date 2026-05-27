@@ -14,6 +14,107 @@ export type BloxSmithToolCtx = {
   userId?: string | null;
 };
 
+// ── Roblox asset search (shared helper) ────────────────────────────────
+// Uses Roblox's toolbox-service for Models/Decals/Audio/Meshes/Animations/
+// Plugins (where catalog API doesn't work), and falls back to the catalog
+// API for wearables (Hats/Gear/Accessories/Faces).
+const TOOLBOX_CATEGORY_MAP: Record<string, number> = {
+  Models: 10,
+  Decals: 13,
+  Audio: 3,
+  Meshes: 40,
+  Animations: 24,
+  Plugins: 38,
+  All: 10,
+};
+
+async function fetchAssetDetails(assetId: number) {
+  try {
+    const r = await fetch(`https://economy.roblox.com/v2/assets/${assetId}/details`, {
+      headers: { "User-Agent": "BloxSmith/1.0", Accept: "application/json" },
+    });
+    if (!r.ok) return null;
+    const j: any = await r.json();
+    return {
+      assetId,
+      name: j.Name as string,
+      creator: j.Creator?.Name as string,
+      creatorId: j.Creator?.CreatorTargetId as number,
+      creatorType: j.Creator?.CreatorType as string,
+      verified: !!j.Creator?.HasVerifiedBadge || j.Creator?.CreatorTargetId === 1,
+      assetType: j.AssetTypeId as number,
+      price: (j.PriceInRobux ?? 0) as number,
+      isForSale: !!j.IsForSale,
+      isPublicDomain: !!j.IsPublicDomain,
+    };
+  } catch {
+    return null;
+  }
+}
+
+export async function searchRobloxAssets(
+  query: string,
+  category: string,
+  limit: number,
+  opts: { verifiedOnly?: boolean; freeOnly?: boolean } = {},
+): Promise<any[]> {
+  const freeOnly = opts.freeOnly !== false;
+  const verifiedOnly = !!opts.verifiedOnly;
+
+  const toolboxCat = TOOLBOX_CATEGORY_MAP[category];
+  if (toolboxCat) {
+    try {
+      const fetchLimit = Math.min(30, Math.max(limit * 3, 10));
+      const url = `https://apis.roblox.com/toolbox-service/v1/marketplace/${toolboxCat}?keyword=${encodeURIComponent(query)}&limit=${fetchLimit}`;
+      const r = await fetch(url, {
+        headers: { "User-Agent": "BloxSmith/1.0", Accept: "application/json" },
+      });
+      if (!r.ok) return [];
+      const j: any = await r.json();
+      const ids: number[] = (j.data ?? [])
+        .map((x: any) => x.id)
+        .filter((n: any) => typeof n === "number");
+      if (ids.length === 0) return [];
+      const detailCap = Math.min(ids.length, Math.max(limit * 2, 8), 16);
+      const enriched = (
+        await Promise.all(ids.slice(0, detailCap).map((id) => fetchAssetDetails(id)))
+      ).filter(Boolean) as any[];
+      let items = enriched;
+      if (freeOnly) items = items.filter((i) => (i.price ?? 0) === 0);
+      if (verifiedOnly) items = items.filter((i) => i.verified === true);
+      return items.slice(0, limit);
+    } catch {
+      return [];
+    }
+  }
+
+  try {
+    const url = `https://catalog.roblox.com/v1/search/items/details?Category=${encodeURIComponent(category)}&Keyword=${encodeURIComponent(query)}&Limit=30&SortType=Relevance`;
+    const r = await fetch(url, {
+      headers: { "User-Agent": "BloxSmith/1.0", Accept: "application/json" },
+    });
+    if (!r.ok) return [];
+    const j: any = await r.json();
+    let items = (j.data ?? []).map((x: any) => ({
+      assetId: x.id,
+      name: x.name,
+      creator: x.creatorName,
+      creatorId: x.creatorTargetId,
+      creatorType: x.creatorType,
+      verified: !!x.creatorHasVerifiedBadge || x.creatorTargetId === 1,
+      assetType: x.assetType,
+      price: x.price ?? 0,
+      favorites: x.favoriteCount ?? 0,
+    }));
+    if (freeOnly) items = items.filter((i: any) => (i.price ?? 0) === 0);
+    if (verifiedOnly) items = items.filter((i: any) => i.verified === true);
+    return items.slice(0, limit);
+  } catch {
+    return [];
+  }
+}
+
+
 export const buildBloxSmithTools = (ctx: BloxSmithToolCtx = {}) => ({
   web_search: tool({
     description:
@@ -144,7 +245,7 @@ export const buildBloxSmithTools = (ctx: BloxSmithToolCtx = {}) => ({
   // ── Roblox catalog (verified creators only by default) ──────────────
   roblox_asset_search: tool({
     description:
-      "Search the Roblox catalog / toolbox for free assets to insert. Returns assetIds, names, creators. Filtered to VERIFIED creators only by default (Roblox + verified-badge users) for safety. Categories: Models, Decals, Audio, Meshes, Animations, Gear, Hats, Plugins, Accessories, Faces.",
+      "Search the Roblox Toolbox / Creator Store for FREE assets to insert. Returns real assetIds, names, creators. Defaults to free-only (price=0). Categories: Models, Decals, Audio, Meshes, Animations, Plugins (toolbox), or Hats/Gear/Accessories/Faces (catalog wearables).",
     inputSchema: z.object({
       query: z.string().min(1).max(120),
       category: z
@@ -165,40 +266,12 @@ export const buildBloxSmithTools = (ctx: BloxSmithToolCtx = {}) => ({
       limit: z.number().int().min(1).max(20).default(8),
       verifiedOnly: z
         .boolean()
-        .default(true)
-        .describe("If true, only return assets from Roblox or verified-badge creators."),
+        .default(false)
+        .describe("If true, only return assets from Roblox or verified-badge creators. Default false — most free toolbox models are made by ordinary users."),
     }),
     execute: async ({ query, category, limit, verifiedOnly }) => {
-      try {
-        // Pull more than asked so verified filter still gives `limit` results.
-        const fetchLimit = Math.min(30, Math.max(limit * 3, 10));
-        const url = `https://catalog.roblox.com/v1/search/items/details?Category=${encodeURIComponent(
-          category
-        )}&Keyword=${encodeURIComponent(query)}&Limit=${fetchLimit}&SortType=Relevance`;
-        const r = await fetch(url, {
-          headers: { "User-Agent": "BloxSmith/1.0", Accept: "application/json" },
-        });
-        if (!r.ok) return { error: `Catalog HTTP ${r.status}`, items: [] };
-        const j: any = await r.json();
-        let items = (j.data ?? []).map((x: any) => ({
-          assetId: x.id,
-          name: x.name,
-          creator: x.creatorName,
-          creatorId: x.creatorTargetId,
-          creatorType: x.creatorType, // 1=User, 2=Group
-          verified: !!x.creatorHasVerifiedBadge || x.creatorTargetId === 1,
-          assetType: x.assetType,
-          price: x.price ?? 0,
-          favorites: x.favoriteCount ?? 0,
-        }));
-        if (verifiedOnly) {
-          items = items.filter((i: any) => i.verified === true && (i.price ?? 0) === 0);
-        }
-        items = items.slice(0, limit);
-        return { count: items.length, verifiedOnly, items };
-      } catch (e: any) {
-        return { error: String(e?.message ?? e), items: [] };
-      }
+      const items = await searchRobloxAssets(query, category, limit, { verifiedOnly });
+      return { count: items.length, verifiedOnly, items };
     },
   }),
 
