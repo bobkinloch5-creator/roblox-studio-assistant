@@ -2497,7 +2497,19 @@ local function showConsentDialog(onAccept)
 end
 
 local function doConnect()
-	setToken(tokenBox.Text)
+	-- Trim whitespace/newlines from pasted token to avoid silent 401s
+	local raw = tokenBox.Text or ""
+	local trimmed = (raw:gsub("^%s+", ""):gsub("%s+$", ""))
+	if trimmed ~= raw then tokenBox.Text = trimmed end
+	if trimmed == "" then
+		status.Text = "Paste a plugin token first"
+		status.TextColor3 = C.warn
+		setPill("offline")
+		appendLog("No plugin token entered. Generate one at bloxsmith.pro → Settings → Plugin.")
+		shouldBeConnected = false
+		return false
+	end
+	setToken(trimmed)
 	status.Text = "Connecting..."
 	setPill("connecting")
 	local data, err = postJSON("/auth", {})
@@ -2508,10 +2520,12 @@ local function doConnect()
 		-- If it's a permanent authentication error (401 or 403), stop auto-retrying
 		if err and (string.find(err, "401") or string.find(err, "403")) then
 			shouldBeConnected = false
-			status.Text = "Auth Failed (check token)"
+			status.Text = "Invalid token — get a new one at bloxsmith.pro"
+			appendLog("Token rejected. Open bloxsmith.pro → Settings → Plugin, click 'Generate token', and paste it here.")
 		end
 		return false
 	end
+
 	connected = true
 	if data.user.credits ~= nil then setCreditsDisplay(data.user.credits); lastCreditsAt = os.time() end
 	local creditsTxt = (data.user.credits ~= nil) and (" · " .. tostring(data.user.credits) .. " credits") or ""
