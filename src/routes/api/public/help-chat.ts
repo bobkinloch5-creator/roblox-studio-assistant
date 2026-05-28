@@ -171,11 +171,17 @@ export const Route = createFileRoute("/api/public/help-chat")({
 
           const gateway = pickGateway();
           if (!gateway) {
+            // Log server-side so the admin can see this in logs, since the
+            // user-facing message has to stay generic for security reasons
+            // (don't tell random visitors which env vars are missing).
+            console.error(
+              "[help-chat] not configured: neither NEOKENS_API_KEY nor GROQ_API_KEY is set in the server environment.",
+            );
             return new Response(
               JSON.stringify({
                 error: "not_configured",
                 message:
-                  "The help bot isn't configured yet. Try the /faq or /docs pages, or email support.",
+                  "The help bot is temporarily unavailable. Please check the /faq or /docs pages for now.",
               }),
               { status: 503, headers: cors },
             );
