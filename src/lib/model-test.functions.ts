@@ -20,12 +20,18 @@ export type ModelTestResult = {
 };
 
 // Per-model wall-clock cap. The diagnostic isn't trying to stress-test —
-// it just wants to know if the model responds at all. 15s is more than
-// enough for a one-sentence prompt on every model we expose; anything
-// slower than that is broken from a UX standpoint anyway.
-const PER_MODEL_TIMEOUT_MS = 15_000;
+// it just wants to know if the model responds at all. 30s covers
+// reasoning models (Claude thinking, GPT-5 reasoning, Gemini Pro) that
+// can legitimately take 15-25s before producing output; anything slower
+// than that is broken from a UX standpoint anyway.
+const PER_MODEL_TIMEOUT_MS = 30_000;
 
-const PING_PROMPT = 'Reply with the exact word "ok". No punctuation, no other words.';
+// Test prompt. The earlier "reply with the exact word ok" wording made
+// reasoning/responses-API models (GPT-5.x) return empty text — they
+// burned their output budget on internal reasoning tokens and had
+// nothing left for the visible reply. A short open-ended prompt gets a
+// real text response from every model family.
+const PING_PROMPT = "Say hi in one short sentence.";
 
 function classifyError(err: any): { kind: ModelTestResult["errorKind"]; message: string } {
   const message = String(err?.message ?? err ?? "unknown error");
@@ -111,15 +117,30 @@ async function testOneModel(provider: SiteProviderId, modelId: string): Promise<
     const out = await generateText({
       model,
       prompt: PING_PROMPT,
-      maxOutputTokens: 20,
+      // Reasoning models (GPT-5.x, Claude thinking) burn output tokens on
+      // internal reasoning before emitting visible text. 20 tokens left
+      // nothing for the reply; 500 is generous enough for any model to
+      // produce a one-sentence "hi there" while still capping cost.
+      maxOutputTokens: 500,
       maxRetries: 0,
       abortSignal: AbortSignal.timeout(PER_MODEL_TIMEOUT_MS),
     });
     const sample = (out.text ?? "").trim().slice(0, 200);
+    // An empty reply is suspicious — the call technically succeeded
+    // but the model produced no visible text. That's distinct from
+    // both pass and fail; flag it so an admin can investigate.
+    if (!sample) {
+      return {
+        provider, modelId, realModel: aliased.realModel,
+        ok: false, durationMs: Date.now() - started,
+        errorKind: "unknown",
+        errorMessage: "Model returned no visible text. Likely a request-shape issue (e.g. reasoning model needs the Responses API).",
+      };
+    }
     return {
       provider, modelId, realModel: aliased.realModel,
       ok: true, durationMs: Date.now() - started,
-      sample: sample || "(empty response)",
+      sample,
     };
   } catch (err) {
     const { kind, message } = classifyError(err);
