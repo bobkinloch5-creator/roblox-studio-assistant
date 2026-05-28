@@ -1577,11 +1577,12 @@ export const Route = createFileRoute("/api/assistant/execute")({
           const { getAiModeAddendum } = await import("@/lib/ai-modes");
           const modeAddendum = getAiModeAddendum(typeof aiMode === "string" ? aiMode : null);
 
-          // RLS only returns projects the authenticated user can access.
+          // Projects are private: only the owning user can run AI against them.
           const { data: project, error: projectErr } = await supabaseUser
             .from("projects")
             .select("id,user_id,name,ai_rules")
             .eq("id", projectId)
+            .eq("user_id", userId)
             .maybeSingle();
           if (projectErr || !project)
             return new Response(JSON.stringify({ error: "Project not found" }), {

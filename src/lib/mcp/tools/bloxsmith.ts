@@ -21,13 +21,7 @@ async function assertProjectAccess(projectId: string, userId: string | null, isA
     .maybeSingle();
   if (!proj) throw new Error(`Project ${projectId} not found.`);
   if (proj.user_id === userId) return;
-  const { data: collab } = await supabaseAdmin
-    .from("project_collaborators")
-    .select("id")
-    .eq("project_id", projectId)
-    .eq("user_id", userId)
-    .maybeSingle();
-  if (!collab) throw new Error("Forbidden: you do not have access to that project.");
+  throw new Error("Forbidden: you do not own that project.");
 }
 
 // Internal helper: run the same generation pipeline used by the website,
@@ -285,12 +279,6 @@ export const listProjectsTool = defineTool({
         .eq("user_id", userId);
       (owned ?? []).forEach((p) => ownedIds.add(p.id));
 
-      // Collaborator projects
-      const { data: collabs } = await supabaseAdmin
-        .from("project_collaborators")
-        .select("project_id")
-        .eq("user_id", userId);
-      (collabs ?? []).forEach((c) => ownedIds.add(c.project_id));
     }
 
     let query = supabaseAdmin

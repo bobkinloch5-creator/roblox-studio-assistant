@@ -30,14 +30,23 @@ export const getBuildHistory = createServerFn({ method: "POST" })
     z.object({ projectId: z.string().uuid(), limit: z.number().int().min(1).max(200).default(50) }).parse(i),
   )
   .handler(async ({ data, context }): Promise<{ items: BuildHistoryItem[] }> => {
-    const { supabase } = context;
+    const { supabase, userId } = context;
     const { projectId, limit } = data;
 
-    // Conversations for this project (RLS scopes to members).
+    const { data: project } = await supabase
+      .from("projects")
+      .select("id")
+      .eq("id", projectId)
+      .eq("user_id", userId)
+      .maybeSingle();
+    if (!project) throw new Error("Project not found or unauthorized.");
+
+    // Conversations for this user's private project chat.
     const { data: convos, error: cErr } = await supabase
       .from("agent_conversations")
       .select("id,title")
-      .eq("project_id", projectId);
+      .eq("project_id", projectId)
+      .eq("user_id", userId);
     if (cErr) throw new Error(cErr.message);
     if (!convos || convos.length === 0) return { items: [] };
 
@@ -132,11 +141,12 @@ export const organizeProject = createServerFn({ method: "POST" })
     const { supabase, userId } = context;
     const { projectId } = data;
 
-    // Membership check via RLS-friendly read.
+    // Owner check via RLS-friendly read.
     const { data: proj, error: pErr } = await supabase
       .from("projects")
       .select("id")
       .eq("id", projectId)
+      .eq("user_id", userId)
       .maybeSingle();
     if (pErr || !proj) throw new Error("Project not found or not accessible.");
 
@@ -174,11 +184,12 @@ export const revertBuild = createServerFn({ method: "POST" })
     const { supabase, userId } = context;
     const { projectId, messageId } = data;
 
-    // Membership check via RLS-friendly read.
+    // Owner check via RLS-friendly read.
     const { data: proj, error: pErr } = await supabase
       .from("projects")
       .select("id")
       .eq("id", projectId)
+      .eq("user_id", userId)
       .maybeSingle();
     if (pErr || !proj) throw new Error("Project not found or not accessible.");
 
@@ -275,7 +286,15 @@ export const getBuildDiff = createServerFn({ method: "POST" })
     z.object({ projectId: z.string().uuid(), messageId: z.string().uuid() }).parse(i),
   )
   .handler(async ({ data, context }): Promise<{ files: BuildDiffFile[] }> => {
-    const { supabase } = context;
+    const { supabase, userId } = context;
+
+    const { data: project } = await supabase
+      .from("projects")
+      .select("id")
+      .eq("id", data.projectId)
+      .eq("user_id", userId)
+      .maybeSingle();
+    if (!project) throw new Error("Project not found or unauthorized.");
 
     const { data: msg, error: mErr } = await supabase
       .from("agent_messages")

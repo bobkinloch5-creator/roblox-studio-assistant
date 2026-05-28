@@ -88,7 +88,11 @@ function Dashboard() {
   useEffect(() => {
     if (!user) return;
     const loadProjects = async () => {
-      const { data } = await supabase.from("projects").select("id,name,game_type,updated_at,status").order("updated_at", { ascending: false });
+      const { data } = await supabase
+        .from("projects")
+        .select("id,name,game_type,updated_at,status")
+        .eq("user_id", user.id)
+        .order("updated_at", { ascending: false });
       const list = (data ?? []) as Project[];
       setProjects(list);
       // Auto-create starter project for brand-new users (once).
@@ -99,7 +103,11 @@ function Dashboard() {
           const res = await runEnsureStarter({});
           if (res.created) {
             toast.success("We created a starter project to get you going 🚀");
-            const { data: refreshed } = await supabase.from("projects").select("id,name,game_type,updated_at,status").order("updated_at", { ascending: false });
+            const { data: refreshed } = await supabase
+              .from("projects")
+              .select("id,name,game_type,updated_at,status")
+              .eq("user_id", user.id)
+              .order("updated_at", { ascending: false });
             setProjects((refreshed ?? []) as Project[]);
           }
         } catch { /* ignore */ }
@@ -121,7 +129,7 @@ function Dashboard() {
 
   const deleteProject = async (id: string) => {
     if (!confirm("Delete this project?")) return;
-    const { error } = await supabase.from("projects").delete().eq("id", id);
+    const { error } = await supabase.from("projects").delete().eq("id", id).eq("user_id", user.id);
     if (error) return toast.error(error.message);
     setProjects((p) => p.filter((x) => x.id !== id));
   };

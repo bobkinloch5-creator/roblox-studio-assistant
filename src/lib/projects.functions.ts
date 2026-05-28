@@ -76,24 +76,7 @@ export const inviteCollaborator = createServerFn({ method: "POST" })
     }).parse(input)
   )
   .handler(async ({ data, context }) => {
-    const { supabase, userId } = context;
-    const { data: project } = await supabase
-      .from("projects")
-      .select("user_id")
-      .eq("id", data.projectId)
-      .maybeSingle();
-    if (!project || project.user_id !== userId) throw new Error("Not the project owner");
-    const { data: invitee } = await supabase
-      .from("profiles")
-      .select("id")
-      .eq("email", data.email.toLowerCase())
-      .maybeSingle();
-    if (!invitee) throw new Error("That user hasn't signed up for BloxSmith yet.");
-    const { error } = await supabase.from("project_collaborators").insert({
-      project_id: data.projectId,
-      user_id: invitee.id,
-      role: data.role,
-    });
-    if (error && !error.message.includes("duplicate")) throw new Error(error.message);
-    return { ok: true };
+    void data;
+    void context;
+    throw new Error("Project sharing is disabled. Projects are private to their owner.");
   });

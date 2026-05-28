@@ -44,17 +44,7 @@ export const Route = createFileRoute("/api/public/plugin/context")({
           .eq("id", projectId)
           .maybeSingle();
         if (!project) return new Response(JSON.stringify({ error: "not found" }), { status: 404, headers: cors });
-        let allowed = project.user_id === userId;
-        if (!allowed) {
-          const { data: c } = await supabaseAdmin
-            .from("project_collaborators")
-            .select("id")
-            .eq("project_id", projectId)
-            .eq("user_id", userId)
-            .maybeSingle();
-          allowed = !!c;
-        }
-        if (!allowed) return new Response(JSON.stringify({ error: "forbidden" }), { status: 403, headers: cors });
+        if (project.user_id !== userId) return new Response(JSON.stringify({ error: "forbidden" }), { status: 403, headers: cors });
 
         const instanceCount = typeof ctx?.instanceCount === "number" ? ctx.instanceCount : 0;
 

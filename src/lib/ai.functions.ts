@@ -24,6 +24,16 @@ type GenFile = {
 
 type GenAction = { type: string; [k: string]: any };
 
+async function assertProjectOwner(supabase: any, projectId: string, userId: string) {
+  const { data: project, error } = await supabase
+    .from("projects")
+    .select("id,user_id")
+    .eq("id", projectId)
+    .eq("user_id", userId)
+    .maybeSingle();
+  if (error || !project) throw new Error("Project not found or unauthorized.");
+}
+
 function compactForAI(value: string, maxChars: number): string {
   const text = String(value ?? "")
     .replace(/data:image\/[a-zA-Z0-9.+-]+;base64,[A-Za-z0-9+/=]+/g, "[image omitted]")
@@ -158,6 +168,7 @@ export const generateWithAI = createServerFn({ method: "POST" })
   .handler(async ({ data, context }) => {
     const { supabase, userId } = context;
     const { projectId, prompt, mode, preview, imageDataUrl, thinking } = data;
+    await assertProjectOwner(supabase, projectId, userId);
 
     const { data: roles } = await supabase.from("user_roles").select("role").eq("user_id", userId);
     const isOwner = (roles ?? []).some((r) => r.role === "owner" || r.role === "admin");
@@ -469,6 +480,7 @@ export const applyGeneration = createServerFn({ method: "POST" })
     if (gen.user_id !== userId) throw new Error("Not your preview.");
     const projectIdRef: string | null = gen.project_id;
     if (!projectIdRef) throw new Error("Preview has no project.");
+    await assertProjectOwner(supabase, projectIdRef, userId);
 
     // Refuse double-apply.
     const { data: already } = await supabase
@@ -559,6 +571,7 @@ export const planBuild = createServerFn({ method: "POST" })
   .handler(async ({ data, context }) => {
     const { supabase, userId } = context;
     const { projectId, prompt, imageDataUrl, thinking } = data;
+    await assertProjectOwner(supabase, projectId, userId);
 
     const { data: roles } = await supabase.from("user_roles").select("role").eq("user_id", userId);
     const isOwner = (roles ?? []).some((r) => r.role === "owner" || r.role === "admin");
@@ -728,6 +741,7 @@ export const chatWithAI = createServerFn({ method: "POST" })
   .handler(async ({ data, context }) => {
     const { supabase, userId } = context;
     const { projectId, prompt, history, thinking, attachments } = data;
+    if (projectId) await assertProjectOwner(supabase, projectId, userId);
 
     const { data: roles } = await supabase.from("user_roles").select("role").eq("user_id", userId);
     const isOwner = (roles ?? []).some((r) => r.role === "owner" || r.role === "admin");
@@ -1079,6 +1093,7 @@ export const fixErrorsWithAI = createServerFn({ method: "POST" })
   .handler(async ({ data, context }) => {
     const { supabase, userId } = context;
     const { projectId, logs } = data;
+    await assertProjectOwner(supabase, projectId, userId);
 
     const { data: roles } = await supabase.from("user_roles").select("role").eq("user_id", userId);
     const isOwner = (roles ?? []).some((r) => r.role === "owner" || r.role === "admin");
@@ -1301,6 +1316,7 @@ export const autopilotBuild = createServerFn({ method: "POST" })
   .handler(async ({ data, context }) => {
     const { supabase, userId } = context;
     const { projectId, description } = data;
+    await assertProjectOwner(supabase, projectId, userId);
 
     const { data: roles } = await supabase.from("user_roles").select("role").eq("user_id", userId);
     const isOwner = (roles ?? []).some((r) => r.role === "owner" || r.role === "admin");
@@ -1676,17 +1692,7 @@ export const queuePluginAction = createServerFn({ method: "POST" })
   .handler(async ({ data, context }) => {
     const { supabase: userSupabase, userId } = context;
     const { projectId, actionType, payload } = data;
-
-    // Verify project authorization (owner or collaborator)
-    const { data: project } = await userSupabase
-      .from("projects")
-      .select("id")
-      .eq("id", projectId)
-      .maybeSingle();
-
-    if (!project) {
-      throw new Error("Project not found or unauthorized");
-    }
+    await assertProjectOwner(userSupabase, projectId, userId);
 
     const { data: inserted, error } = await userSupabase
       .from("plugin_actions")

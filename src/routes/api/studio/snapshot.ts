@@ -38,15 +38,10 @@ export const Route = createFileRoute("/api/studio/snapshot")({
             return new Response(JSON.stringify({ error: "missing projectId or files" }), { status: 400, headers: cors });
           }
 
-          // Verify project access
+          // Verify ownership. Projects are private per account.
           const { data: project } = await supabaseAdmin.from("projects").select("id,user_id").eq("id", projectId).maybeSingle();
           if (!project) return new Response(JSON.stringify({ error: "not found" }), { status: 404, headers: cors });
-          let allowed = project.user_id === userId;
-          if (!allowed) {
-            const { data: c } = await supabaseAdmin.from("project_collaborators").select("id").eq("project_id", projectId).eq("user_id", userId).maybeSingle();
-            allowed = !!c;
-          }
-          if (!allowed) return new Response(JSON.stringify({ error: "forbidden" }), { status: 403, headers: cors });
+          if (project.user_id !== userId) return new Response(JSON.stringify({ error: "forbidden" }), { status: 403, headers: cors });
 
           // Fetch current project files
           const { data: currentFiles } = await supabaseAdmin

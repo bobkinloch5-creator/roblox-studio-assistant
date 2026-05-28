@@ -17,13 +17,11 @@ import {
   improvePrompt,
   chatWithAI,
 } from "@/lib/ai.functions";
-import { inviteCollaborator } from "@/lib/projects.functions";
 import {
   Loader2,
   Plus,
   Send,
   Trash2,
-  Users,
   FileCode,
   ArrowLeft,
   Save,
@@ -67,7 +65,6 @@ import { PluginStatus } from "@/components/PluginStatus";
 import { PushPreview, type PreviewPayload } from "@/components/PushPreview";
 import { ChatSettings } from "@/components/ChatSettings";
 import { SyncValidationDrawer } from "@/components/SyncValidationDrawer";
-import { TeamChat } from "@/components/TeamChat";
 import { AssistantMessage } from "@/components/AssistantMessage";
 import { BuildHistoryDrawer } from "@/components/BuildHistoryDrawer";
 import { OrganizeProjectButton } from "@/components/OrganizeProjectButton";
@@ -385,11 +382,6 @@ function ProjectEditor() {
     return () => clearInterval(id);
   }, [aiBusy]);
   useAiBusySounds(aiBusy);
-  const [inviteEmail, setInviteEmail] = useState("");
-  const [showInvite, setShowInvite] = useState(false);
-  const [collabs, setCollabs] = useState<Array<{ user_id: string; role: string; email?: string }>>(
-    [],
-  );
   const [credits, setCredits] = useState<number | null>(null);
   const GENERATE_COST = 3;
   const outOfCredits = credits !== null && credits < GENERATE_COST;
@@ -397,7 +389,6 @@ function ProjectEditor() {
   const runAI = useServerFn(generateWithAI);
   const runFixErrors = useServerFn(fixErrorsWithAI);
   const runAutopilot = useServerFn(autopilotBuild);
-  const runInvite = useServerFn(inviteCollaborator);
   const runQueuePluginAction = useServerFn(queuePluginAction);
   const runImprovePrompt = useServerFn(improvePrompt);
   const [improving, setImproving] = useState(false);
@@ -600,6 +591,7 @@ function ProjectEditor() {
         .from("projects")
         .select("*")
         .eq("id", projectId)
+        .eq("user_id", user.id)
         .maybeSingle();
       if (!p) return toast.error("Project not found");
       setProject(p as Project);
@@ -611,11 +603,6 @@ function ProjectEditor() {
       setFiles((f ?? []) as ProjectFile[]);
       if ((f ?? []).length) setActiveId(f![0].id);
 
-      const { data: c } = await supabase
-        .from("project_collaborators")
-        .select("user_id,role")
-        .eq("project_id", projectId);
-      setCollabs((c ?? []) as any);
       refreshCredits();
       refreshAiContext();
 
@@ -624,6 +611,7 @@ function ProjectEditor() {
         .from("agent_conversations")
         .select("id,title,updated_at")
         .eq("project_id", projectId)
+        .eq("user_id", user.id)
         .order("updated_at", { ascending: false });
       setConversations((allConvos ?? []) as any);
       let cid = allConvos?.[0]?.id ?? null;
@@ -751,7 +739,7 @@ function ProjectEditor() {
     };
   }, [user, projectId]);
 
-  // realtime AI chat (so collaborators see each other's prompts + AI replies live)
+  // realtime AI chat for the current user's private conversation
   useEffect(() => {
     if (!convoId) return;
     const ch = supabase
@@ -1500,30 +1488,11 @@ function ProjectEditor() {
     }
   };
 
-  const doInvite = async () => {
-    if (!inviteEmail.trim()) return;
-    try {
-      await runInvite({ data: { projectId, email: inviteEmail.trim(), role: "editor" } });
-      toast.success("Collaborator added");
-      setInviteEmail("");
-      setShowInvite(false);
-      const { data: c } = await supabase
-        .from("project_collaborators")
-        .select("user_id,role")
-        .eq("project_id", projectId);
-      setCollabs((c ?? []) as any);
-    } catch (e: any) {
-      toast.error(e.message ?? "Failed");
-    }
-  };
-
   if (loading || !project)
-    return (
-      <div className="min-h-screen grid place-items-center text-muted-foreground">Loading...</div>
-    );
+    return <div className="h-screen grid place-items-center text-muted-foreground">Loading...</div>;
 
   return (
-    <div className="min-h-screen flex flex-col">
+    <div className="h-screen flex flex-col overflow-hidden">
       <Header />
       <SyncValidationDrawer
         open={syncDrawerOpen}
@@ -1536,7 +1505,7 @@ function ProjectEditor() {
         outOfCredits={outOfCredits}
         fixCost={GENERATE_COST}
       />
-      <div className="border-b border-border bg-surface/40">
+      <div className="shrink-0 border-b border-border bg-surface/40">
         <div className="mx-auto max-w-7xl px-3 sm:px-4 py-3 flex items-center justify-between gap-2 sm:gap-3 flex-wrap">
           <div className="flex items-center gap-2 sm:gap-3 min-w-0 flex-1">
             <Link to="/dashboard" className="text-muted-foreground hover:text-foreground shrink-0">
@@ -1549,19 +1518,6 @@ function ProjectEditor() {
           </div>
           <div className="flex items-center gap-1.5 sm:gap-2 flex-wrap">
             <PluginStatus />
-            <TeamChat projectId={projectId} />
-
-            <button
-              onClick={() => setShowInvite((s) => !s)}
-              className="rounded-lg border border-border px-2 sm:px-3 py-1.5 text-xs flex items-center gap-1.5 hover:bg-surface"
-              aria-label="Collaborators"
-            >
-              <Users className="h-3.5 w-3.5" />{" "}
-              <span className="hidden sm:inline">
-                {collabs.length} collaborator{collabs.length !== 1 && "s"}
-              </span>
-              <span className="sm:hidden">{collabs.length}</span>
-            </button>
             <button
               onClick={() => {
                 if (!files.length) return toast.error("No files yet — generate some first");
@@ -1599,26 +1555,10 @@ function ProjectEditor() {
             </Link>
           </div>
         </div>
-        {showInvite && (
-          <div className="mx-auto max-w-7xl px-3 sm:px-4 pb-3 flex gap-2">
-            <input
-              value={inviteEmail}
-              onChange={(e) => setInviteEmail(e.target.value)}
-              placeholder="friend@email.com"
-              className="flex-1 min-w-0 rounded-lg bg-surface-elevated border border-border px-3 py-1.5 text-sm"
-            />
-            <button
-              onClick={doInvite}
-              className="rounded-lg bg-primary px-4 py-1.5 text-sm font-semibold text-primary-foreground shrink-0"
-            >
-              Invite
-            </button>
-          </div>
-        )}
       </div>
 
       {/* Mobile panel switcher */}
-      <div className="lg:hidden border-b border-border bg-surface/30 sticky top-[57px] z-30">
+      <div className="shrink-0 lg:hidden border-b border-border bg-surface/30 sticky top-[57px] z-30">
         <div className="mx-auto max-w-7xl px-3 grid grid-cols-3 text-xs">
           {(
             [
@@ -1639,7 +1579,7 @@ function ProjectEditor() {
       </div>
 
       <main
-        className="flex-1 grid gap-0 relative lg:[grid-template-columns:var(--files-w)_minmax(0,1fr)_var(--chat-col-w)]"
+        className="flex-1 min-h-0 overflow-hidden grid gap-0 relative lg:[grid-template-columns:var(--files-w)_minmax(0,1fr)_var(--chat-col-w)]"
         style={{
           ["--chat-w" as any]: `${chatWidth}px`,
           ["--files-w" as any]: showFiles ? "240px" : "0px",
@@ -1667,7 +1607,7 @@ function ProjectEditor() {
         )}
         {/* File tree */}
         <aside
-          className={`${mobileTab === "files" ? "block" : "hidden"} ${showFiles ? "lg:block" : "lg:hidden"} border-r border-border bg-surface/20 overflow-y-auto max-h-[calc(100vh-8rem)] flex flex-col`}
+          className={`${mobileTab === "files" ? "flex" : "hidden"} ${showFiles ? "lg:flex" : "lg:hidden"} min-h-0 h-full border-r border-border bg-surface/20 overflow-hidden flex-col`}
         >
           <div className="p-3 space-y-3 border-b border-border/40 shrink-0">
             <div className="flex items-center justify-between">
@@ -1792,7 +1732,7 @@ function ProjectEditor() {
 
         {/* Editor */}
         <section
-          className={`${mobileTab === "editor" ? "flex" : "hidden"} lg:flex flex-col min-h-[60vh] flex-1 min-w-0 bg-background/20`}
+          className={`${mobileTab === "editor" ? "flex" : "hidden"} lg:flex flex-col min-h-0 h-full flex-1 min-w-0 bg-background/20 overflow-hidden`}
         >
           {active ? (
             <div className="flex flex-col flex-1 min-h-0">
@@ -1901,7 +1841,7 @@ function ProjectEditor() {
 
         {/* AI chat */}
         <aside
-          className={`${mobileTab === "chat" ? "flex" : "hidden"} ${showChat ? "lg:flex" : "lg:hidden"} relative border-l border-border bg-surface/20 flex-col max-h-[calc(100vh-8rem)] min-h-[60vh]`}
+          className={`${mobileTab === "chat" ? "flex" : "hidden"} ${showChat ? "lg:flex" : "lg:hidden"} relative min-h-0 h-full border-l border-border bg-surface/20 flex-col overflow-hidden`}
         >
           {/* Drag handle to stretch chat panel wider/narrower */}
           <div
@@ -1920,7 +1860,7 @@ function ProjectEditor() {
             }}
             className="hidden lg:block absolute left-0 top-0 h-full w-1.5 -ml-[3px] cursor-col-resize z-20 hover:bg-primary/40 active:bg-primary/60 transition-colors"
           />
-          <div className="px-4 py-3 border-b border-border/60 space-y-3">
+          <div className="shrink-0 px-4 py-3 border-b border-border/60 space-y-3">
             <div className="flex items-center justify-between gap-2">
               {(() => {
                 const hasLive = aiContext?.updatedAt != null;
@@ -2156,7 +2096,7 @@ function ProjectEditor() {
             </div>
           </div>
 
-          <div className="flex-1 overflow-y-auto px-4 py-5 space-y-4 scroll-smooth">
+          <div className="flex-1 min-h-0 overflow-y-auto px-4 py-5 space-y-4 scroll-smooth">
             {messages.length === 0 && (
               <div className="flex flex-col items-center justify-center h-full py-8 px-2">
                 <div className="relative mb-6">
@@ -2464,7 +2404,7 @@ function ProjectEditor() {
 
 
           {outOfCredits && !(chatMode && credits !== null && credits >= CHAT_COST) ? (
-            <div className="border-t border-border p-3 space-y-2 bg-destructive/5">
+            <div className="shrink-0 border-t border-border p-3 space-y-2 bg-destructive/5">
               <p className="text-sm font-semibold text-destructive">You're out of credits</p>
               <p className="text-xs text-muted-foreground">
                 Each build costs {GENERATE_COST} credits. Your balance gets +10 free credits daily
@@ -2478,7 +2418,7 @@ function ProjectEditor() {
               </Link>
             </div>
           ) : (
-            <div className="border-t border-border p-3 space-y-2">
+            <div className="shrink-0 border-t border-border p-3 space-y-2">
               <div
                 className={`rounded-xl border bg-background/45 p-2 transition ${chatMode ? "border-accent/40" : planMode ? "border-primary/40" : "border-border focus-within:border-primary/40"}`}
               >

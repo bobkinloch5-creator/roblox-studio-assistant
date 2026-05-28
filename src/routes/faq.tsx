@@ -36,10 +36,10 @@ const QA = [
   { q: "Do credits expire?", a: "No. Credits never expire." },
   { q: "Can I get a refund?", a: "Credits already spent on AI generations are non-refundable. Unused credits from a purchase can be refunded within 7 days if requested before they're spent." },
   { q: "How does the Roblox Studio plugin work?", a: "Install the BloxSmith plugin in Roblox Studio, paste your plugin token from the Account page, and click Connect. Any file the AI generates on the web is auto-synced into Studio every few seconds." },
-  { q: "Can I work with friends?", a: "Yes. Open any project and invite collaborators by email. Changes sync in realtime." },
+  { q: "Can I work with friends?", a: "Project sharing is currently disabled so every account stays fully private." },
   { q: "Is BloxSmith affiliated with Roblox?", a: "No. BloxSmith is an independent tool. Roblox and Roblox Studio are trademarks of Roblox Corporation." },
   { q: "What AI model do you use?", a: "We use Google Gemini models through a secure gateway. You don't need any API keys." },
-  { q: "Is my code private?", a: "Yes. Your projects are private to you and your invited collaborators." },
+  { q: "Is my code private?", a: "Yes. Your projects, chats, generations, and saved data are private to your account." },
 ];
 
 function FAQ() {

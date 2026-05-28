@@ -27,24 +27,9 @@ export const Route = createFileRoute("/api/public/plugin/auth")({
         const { data: profile } = await supabaseAdmin.from("profiles").select("id,email,display_name,credits").eq("id", tokenRow.user_id).maybeSingle();
         if (!profile) return new Response(JSON.stringify({ error: "invalid token" }), { status: 401, headers: cors });
 
-        // Fetch owned projects
+        // Fetch only projects owned by this token's user. Project data is private per account.
         const { data: ownedProjects } = await supabaseAdmin.from("projects").select("id,name,game_type,updated_at").eq("user_id", profile.id).order("updated_at", { ascending: false });
-
-        // Also fetch projects where the user is a collaborator
-        const { data: collabRows } = await supabaseAdmin.from("project_collaborators").select("project_id").eq("user_id", profile.id);
-        let collabProjects: typeof ownedProjects = [];
-        if (collabRows && collabRows.length > 0) {
-          const collabIds = collabRows.map((c) => c.project_id);
-          const { data: cp } = await supabaseAdmin.from("projects").select("id,name,game_type,updated_at").in("id", collabIds).order("updated_at", { ascending: false });
-          collabProjects = cp ?? [];
-        }
-
-        // Merge owned + collaborator projects, deduplicate
-        const seenIds = new Set<string>();
-        const projects: typeof ownedProjects = [];
-        for (const p of [...(ownedProjects ?? []), ...(collabProjects ?? [])]) {
-          if (!seenIds.has(p.id)) { seenIds.add(p.id); projects.push(p); }
-        }
+        const projects = ownedProjects ?? [];
 
         const { data: existing } = await supabaseAdmin.from("plugin_connections").select("id").eq("token_hash", hash).maybeSingle();
         if (existing) {

@@ -24,12 +24,23 @@ const GetSchema = z.object({
   projectId: z.string().uuid(),
 });
 
+async function assertProjectOwner(supabase: any, projectId: string, userId: string) {
+  const { data: project, error } = await supabase
+    .from("projects")
+    .select("id")
+    .eq("id", projectId)
+    .eq("user_id", userId)
+    .maybeSingle();
+  if (error || !project) throw new Error("Project not found or unauthorized.");
+}
+
 export const getProjectAiConfig = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((input: unknown) => GetSchema.parse(input))
   .handler(async ({ data, context }) => {
     const { supabase, userId } = context;
     const { projectId } = data;
+    await assertProjectOwner(supabase, projectId, userId);
 
     const [settingsRes, keysRes] = await Promise.all([
       supabase
@@ -60,6 +71,7 @@ export const saveProjectAiSettings = createServerFn({ method: "POST" })
   .inputValidator((input: unknown) => SaveSettingsSchema.parse(input))
   .handler(async ({ data, context }) => {
     const { supabase, userId } = context;
+    await assertProjectOwner(supabase, data.projectId, userId);
     const payload = {
       project_id: data.projectId,
       user_id: userId,

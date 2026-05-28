@@ -67,18 +67,7 @@ export const Route = createFileRoute("/api/public/plugin/report")({
 
           if (!project) continue;
 
-          let allowed = project.user_id === userId;
-          if (!allowed) {
-            const { data: c } = await supabaseAdmin
-              .from("project_collaborators")
-              .select("id")
-              .eq("project_id", action.project_id)
-              .eq("user_id", userId)
-              .maybeSingle();
-            allowed = !!c;
-          }
-
-          if (!allowed) continue;
+          if (project.user_id !== userId) continue;
 
           const { error } = await supabaseAdmin
             .from("plugin_actions")
