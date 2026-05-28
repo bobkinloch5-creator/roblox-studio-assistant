@@ -72,8 +72,10 @@ export const PROVIDER_LABELS: Record<ProviderId, string> = {
 // Curated model lists per provider. Keep the lists short — only models that
 // reliably handle Lua/Luau and tool calling.
 export const PROVIDER_MODELS: Record<ProviderId, string[]> = {
-  openai: ["gpt-5", "gpt-5-mini", "gpt-5-nano", "gpt-5-codex", "gpt-4.1", "gpt-4.1-mini"],
+  openai: ["gpt-5.5", "gpt-5", "gpt-5-mini", "gpt-5-nano", "gpt-5-codex", "gpt-4.1", "gpt-4.1-mini"],
   anthropic: [
+    "claude-sonnet-4-6",
+    "claude-sonnet-4-6-thinking",
     "claude-sonnet-4-5",
     "claude-opus-4-1",
     "claude-3-5-sonnet-latest",
@@ -89,7 +91,8 @@ export const PROVIDER_MODELS: Record<ProviderId, string[]> = {
     ...SITE_PROVIDER_MODELS.groq,
   ],
   // Neokens proxies many models behind a single key — see neokens.com/docs.
-  // Curated to cheaper models only (no Opus 4.7 / Sonnet 4.6 thinking).
+  // Includes the frontier picks (gpt-5.5, claude-sonnet-4-6-thinking,
+  // gemini-3.1-pro) and the cheaper everyday options.
   neokens: [
     ...SITE_PROVIDER_MODELS.neokens,
   ],
@@ -97,12 +100,31 @@ export const PROVIDER_MODELS: Record<ProviderId, string[]> = {
 };
 
 export const PROVIDER_DEFAULT_MODEL: Record<ProviderId, string> = {
-  openai: "gpt-5-mini",
-  anthropic: "claude-sonnet-4-5",
+  openai: "gpt-5.5",
+  anthropic: "claude-sonnet-4-6",
   google: "gemini-2.5-flash",
   groq: SITE_PROVIDER_DEFAULT_MODEL.groq,
   neokens: SITE_PROVIDER_DEFAULT_MODEL.neokens,
 };
+
+// Some model IDs in the UI are virtual aliases — they map to a real provider
+// model plus a request-time flag. The "-thinking" variants reuse the same
+// underlying model with adaptive thinking enabled at call time.
+const VIRTUAL_MODEL_ALIASES: Record<string, { realModel: string; thinking?: boolean }> = {
+  "claude-sonnet-4-7-thinking": { realModel: "claude-sonnet-4-7", thinking: true },
+  "claude-sonnet-4-6-thinking": { realModel: "claude-sonnet-4-6", thinking: true },
+};
+
+/**
+ * Resolves a user-facing model ID (which may be a virtual alias like
+ * "claude-sonnet-4-6-thinking") to the real model name the provider's API
+ * actually accepts, plus any implicit request flags (thinking on/off).
+ */
+export function resolveModelAlias(modelName: string): { realModel: string; thinking: boolean } {
+  const alias = VIRTUAL_MODEL_ALIASES[modelName];
+  if (alias) return { realModel: alias.realModel, thinking: !!alias.thinking };
+  return { realModel: modelName, thinking: false };
+}
 
 export function getModelProfile(
   provider: ProviderId,
@@ -123,6 +145,7 @@ export function getModelProfile(
     id.includes("gpt-5-codex") ||
     id.includes("gpt-5.3") ||
     id.includes("gpt-5.4") ||
+    id.includes("gpt-5.5") ||
     id.includes("70b") ||
     id.includes("sonnet");
   const isGemini = provider === "google" || id.includes("gemini");
@@ -133,26 +156,30 @@ export function getModelProfile(
   const maxOutputTokens = opts.thinking
     ? isHuge ? 16_000 : 9_000
     : opts.retry
-      ? isHuge ? 10_000 : 7_000
+      ? isHuge ? 8_000 : 5_500
       : opts.heavyBuild
-        ? isHuge ? 12_000 : 8_000
-        : isHuge ? 8_000 : 5_500;
+        ? isHuge ? 10_000 : 6_500
+        : isHuge ? 6_500 : 4_500;
 
   return {
     inputTokenBudget,
     maxOutputTokens,
-    chatOutputTokens: opts.thinking ? (isHuge ? 2_000 : 1_600) : isSmall ? 900 : 1_300,
-    timeoutMs: opts.thinking ? 45_000 : opts.heavyBuild ? 42_000 : isSmall ? 22_000 : 30_000,
-    chatTimeoutMs: opts.thinking ? 40_000 : isSmall ? 12_000 : 18_000,
+    chatOutputTokens: opts.thinking ? (isHuge ? 2_000 : 1_600) : isSmall ? 700 : 1_100,
+    // Tighter timeouts — the previous values were tuned for the slow 8B
+    // default and starved fast calls of a quick-fail signal. Frontier
+    // models on Neokens/Anthropic typically settle in under 12s for chat
+    // and under 25s for a full build response.
+    timeoutMs: opts.thinking ? 40_000 : opts.heavyBuild ? 32_000 : isSmall ? 16_000 : 24_000,
+    chatTimeoutMs: opts.thinking ? 35_000 : isSmall ? 10_000 : 14_000,
     stopSteps: opts.thinking ? 12 : isSmall ? 3 : 6,
     supportsTools: !opts.retry && !(provider === "groq" && id.includes("gemma")),
     supportsVision:
       isGemini ||
       isClaude ||
       (isOpenAI && !id.includes("nano")) ||
-      (provider === "neokens" && (id.includes("gemini") || id.includes("gpt-5"))),
-    historyTurns: opts.thinking ? (isHuge ? 8 : 5) : isSmall ? 3 : 6,
-    historyChars: opts.thinking ? (isHuge ? 1_800 : 1_200) : isSmall ? 700 : 1_200,
+      (provider === "neokens" && (id.includes("gemini") || id.includes("gpt-5") || id.includes("claude"))),
+    historyTurns: opts.thinking ? (isHuge ? 8 : 5) : isSmall ? 3 : 5,
+    historyChars: opts.thinking ? (isHuge ? 1_800 : 1_200) : isSmall ? 700 : 1_000,
   };
 }
 
@@ -273,7 +300,13 @@ export async function resolveAiGateway(opts: {
   }
 
   const provider = settings.provider as ProviderId;
-  const modelName = settings.model || PROVIDER_DEFAULT_MODEL[provider];
+  const rawModel = settings.model || PROVIDER_DEFAULT_MODEL[provider];
+  // Map virtual aliases (e.g. "claude-sonnet-4-6-thinking") to the real
+  // model ID + implicit flags. The thinking flag is OR-ed onto whatever
+  // the caller passed in opts, so an explicit Thinking toggle still works.
+  const aliased = resolveModelAlias(rawModel);
+  const modelName = aliased.realModel;
+  if (aliased.thinking) opts.thinking = true;
 
   // Neokens & Groq are site-wide gateways — use env keys, no per-user key.
   if (provider === "neokens") {

@@ -1807,10 +1807,18 @@ export const Route = createFileRoute("/api/assistant/execute")({
                 for (let i = 0; i < attempts.length; i++) {
                   const att = attempts[i];
                   const built = buildContextBlock(att.level, ctxInputs);
-                  // Default to the slim prompt for speed; only use the full prompt
-                  // in thinking mode or as a fallback escalation (level >= 2 already
-                  // uses slim anyway). Cuts ~5-10k input tokens per call.
-                  const useSlim = thinking ? att.level >= 2 : true;
+                  // Use the full system prompt by default — it carries the
+                  // Universal Builder Mandate, UI polish recipe, toolbox-first
+                  // workflow, and engineering rules. The slim prompt drops most
+                  // of that and was the main reason builds came back generic
+                  // or refused with "I can't do that". Only fall back to slim
+                  // when we've already escalated to a higher-budget attempt
+                  // and the full prompt would push us over the budget.
+                  const fullPromptTokens =
+                    systemTokens +
+                    estimateTokens(built.contextBlock) +
+                    built.trimmedHistory.reduce((sum, m) => sum + estimateTokens(m.content), 0);
+                  const useSlim = att.level >= 2 && fullPromptTokens > att.budget;
                   const baseSystem = useSlim ? SLIM_SYSTEM_PROMPT : SYSTEM_PROMPT;
                   const baseSystemTokens = useSlim ? slimSystemTokens : systemTokens;
                   const promptTokens =

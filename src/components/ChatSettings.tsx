@@ -15,10 +15,12 @@ import {
   Server,
   ExternalLink,
   Hand,
+  Volume2,
 } from "lucide-react";
 import { Link } from "@tanstack/react-router";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
+import { soundsEnabled, setSoundsEnabled } from "@/hooks/useSounds";
 
 type Props = {
   thinking: boolean;
@@ -397,6 +399,7 @@ function LinkRow({
 
 export function ChatSettings(props: Props) {
   const [open, setOpen] = useState(false);
+  const [sounds, setSounds] = useState<boolean>(() => soundsEnabled());
   const ref = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -466,6 +469,16 @@ export function ChatSettings(props: Props) {
                   desc="Execute non-destructive actions in Studio automatically."
                   checked={props.autoExecute}
                   onChange={props.onToggleAutoExecute}
+                />
+                <Row
+                  icon={<Volume2 className="h-3.5 w-3.5" />}
+                  title="Sound effects"
+                  desc="Chime when the AI starts and finishes. Off by default."
+                  checked={sounds}
+                  onChange={(v) => {
+                    setSounds(v);
+                    setSoundsEnabled(v);
+                  }}
                 />
               </div>
 

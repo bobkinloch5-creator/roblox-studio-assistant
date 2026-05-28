@@ -38,19 +38,25 @@ export const createGroqProvider = (groqApiKey: string) =>
 
 
 // Model picks for the Groq backend.
-// Default/fast now prioritize low-latency responses; thinking/large keep the
-// stronger model available for explicitly complex builds and fallbacks.
-export const BLOXSMITH_MODEL = "llama-3.1-8b-instant";
+// Default is the 70B for build quality — the 8B model was the previous
+// default but it routinely produced broken JSON, hallucinated Roblox
+// classes (e.g. "DirectionalLight"), and skipped the toolbox workflow.
+// The 70B has the same ~128k context on Groq and is still latency-friendly
+// at the API level. The 8B stays available as an explicit fast-path
+// fallback if a request is small and the user enables it.
+export const BLOXSMITH_MODEL = "llama-3.3-70b-versatile";
 export const BLOXSMITH_THINK_MODEL = "llama-3.3-70b-versatile";
 export const BLOXSMITH_FAST_MODEL = "llama-3.1-8b-instant";
 // Large-context fallback when the request is still too big. Same family,
 // max headroom (~128k context window on Groq).
 export const BLOXSMITH_LARGE_MODEL = "llama-3.3-70b-versatile";
 
-// Token budgets. gpt-oss-120b on Groq has a ~128k context window, so we
-// can afford much more workspace context than the old 8b limit allowed.
-export const BLOXSMITH_MODEL_TOKEN_BUDGET = 30000;
-export const BLOXSMITH_LARGE_MODEL_TOKEN_BUDGET = 100000;
+// Token budgets. The 70B model on Groq has a ~128k context window. We
+// keep the default budget conservative to leave room for tool results
+// and large workspace trees, and use the LARGE budget as the escalation
+// when the prompt + context overflows.
+export const BLOXSMITH_MODEL_TOKEN_BUDGET = 60000;
+export const BLOXSMITH_LARGE_MODEL_TOKEN_BUDGET = 110000;
 
 
 export const SYSTEM_PROMPT = `You are BloxSmith — a friendly, premium AI Roblox game builder. Think of yourself as the user's senior Roblox dev pair-programming with them. You are warm, fast, and confident. You build things; you don't lecture.

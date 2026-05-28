@@ -13,8 +13,11 @@ function getCtx(): AudioContext | null {
 }
 
 export function soundsEnabled(): boolean {
-  if (typeof localStorage === "undefined") return true;
-  return localStorage.getItem(STORAGE_KEY) !== "0";
+  // Sounds are OFF by default. A user has to explicitly opt in via the
+  // Chat Settings toggle, which writes "1" to this key. Anything else
+  // (null / "0" / undefined storage) keeps the app silent.
+  if (typeof localStorage === "undefined") return false;
+  return localStorage.getItem(STORAGE_KEY) === "1";
 }
 
 export function setSoundsEnabled(on: boolean) {

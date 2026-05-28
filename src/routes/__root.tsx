@@ -6,6 +6,7 @@ import { AuthProvider } from "@/lib/auth-context";
 import { ThemeProvider } from "@/hooks/useTheme";
 import { useUnlockAudio } from "@/hooks/useSounds";
 import { ClickRipple } from "@/components/ClickRipple";
+import { HelpChat } from "@/components/HelpChat";
 
 function NotFoundComponent() {
   return (
@@ -149,6 +150,7 @@ function RootComponent() {
         <AuthProvider>
           <Outlet />
           <ClickRipple />
+          <HelpChat />
           <Toaster theme="dark" position="top-right" />
         </AuthProvider>
       </QueryClientProvider>
