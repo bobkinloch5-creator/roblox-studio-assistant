@@ -8,6 +8,7 @@ export const SITE_PROVIDER_LABELS: Record<SiteProviderId, string> = {
 export const SITE_PROVIDER_MODELS: Record<SiteProviderId, string[]> = {
   groq: ["llama-3.3-70b-versatile", "llama-3.1-8b-instant", "gemma2-9b-it"],
   neokens: [
+    "claude-opus-4-7-thinking",
     "claude-sonnet-4-7-thinking",
     "claude-opus-4-6-thinking",
     "claude-sonnet-4-6-thinking",
@@ -27,6 +28,7 @@ export const SITE_PROVIDER_DEFAULT_MODEL: Record<SiteProviderId, string> = {
 };
 
 export const SITE_MODEL_DESCRIPTIONS: Record<string, string> = {
+  "claude-opus-4-7-thinking": "Frontier Claude Opus 4.7 with adaptive thinking. Top pick for the largest Roblox systems and deep multi-file reasoning.",
   "claude-sonnet-4-7-thinking": "Newest Claude Sonnet with adaptive thinking. Top pick for the hardest Roblox builds — full-game architecture, tricky anti-exploit, multi-system refactors.",
   "claude-opus-4-6-thinking": "Premium Claude Opus reasoning for huge, high-stakes Roblox systems, multi-file architecture, and deep debugging passes.",
   "claude-sonnet-4-6-thinking": "Frontier reasoning with adaptive thinking. Best for full-game architecture, complex anti-exploit, and hard debugging where it should slow down and think first.",
