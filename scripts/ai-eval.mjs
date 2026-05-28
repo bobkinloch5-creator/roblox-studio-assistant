@@ -38,12 +38,47 @@ const checks = [
   {
     name: "Roblox safety validation blocks common backdoors",
     file: "src/lib/sync-validation.ts",
-    must: [/BACKDOOR_PATTERNS/, /require\\s\*\\\(/, /loadstring/, /InsertService/],
+    must: [/BACKDOOR_PATTERNS/, /require\s*\(/, /loadstring/, /InsertService/],
   },
   {
     name: "Knowledge core tells models when to check official docs",
     file: "src/lib/roblox-knowledge.ts",
     must: [/roblox_docs_search/, /DataStores/, /Remote/, /MarketplaceService/],
+  },
+  {
+    name: "Smartest builder core exists with strict Roblox placement rules",
+    file: "src/lib/ai-smartest-builder-core.ts",
+    must: [
+      /SMART_BUILDER_SYSTEM_UPGRADE/,
+      /ServerScriptService\/<FeatureName>/,
+      /ReplicatedStorage\/Remotes\/<FeatureName>/,
+      /StarterGui\/<GuiName>/,
+      /Workspace\/<FeatureName>/,
+    ],
+  },
+  {
+    name: "Smartest builder core enforces safety and server authority",
+    file: "src/lib/ai-smartest-builder-core.ts",
+    must: [
+      /Safe server authority/,
+      /RemoteEvent validation/,
+      /pcall and UpdateAsync/,
+      /loadstring/,
+      /require\(assetId\)/,
+    ],
+  },
+  {
+    name: "Smartest builder docs explain workflow and product standard",
+    file: "docs/SMART_AI_BUILDER_UPGRADE.md",
+    must: [
+      /Understand/,
+      /Scan/,
+      /Classify/,
+      /Generate/,
+      /Validate/,
+      /Queue/,
+      /Remember/,
+    ],
   },
 ];
 
@@ -78,6 +113,22 @@ const evalCases = [
   {
     prompt: "Use a free Roblox model for a lobby map",
     expected: ["assetId", "scan", "unsafe scripts"],
+  },
+  {
+    prompt: "Make me a mining simulator with pets, backpacks, ores, rebirths and a shop",
+    expected: ["Workspace", "ServerScriptService", "StarterGui", "ReplicatedStorage", "DataStore"],
+  },
+  {
+    prompt: "My RemoteEvent gives coins but exploiters can spam it fix it",
+    expected: ["server authority", "cooldown", "type check", "rate limit"],
+  },
+  {
+    prompt: "Make the UI premium and animated for mobile",
+    expected: ["TweenService", "UIScale", "StarterGui", "mobile"],
+  },
+  {
+    prompt: "Make a horror game flashlight, chase NPC, scary lighting and doors",
+    expected: ["Lighting", "PathfindingService", "StarterPlayerScripts", "Workspace"],
   },
 ];
 
