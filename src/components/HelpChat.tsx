@@ -8,15 +8,31 @@ const STORAGE_OPEN_KEY = "bloxsmith.helpchat.open";
 const STORAGE_POS_KEY = "bloxsmith.helpchat.pos";
 const MAX_STORED_TURNS = 12;
 
-// Approximate bubble/panel sizes used for off-screen clamping. The actual
-// elements are sized by CSS so these are just safe lower bounds — the
-// clamp keeps at least this much of the widget on-screen at all times.
-const BUBBLE_SIZE = 56;
+const BUBBLE_SIZE = 52;
 const PANEL_WIDTH = 352;
 const PANEL_HEIGHT = 512;
 const EDGE_PAD = 16;
+const MOBILE_EDGE_PAD = 12;
+const MOBILE_BREAKPOINT = 640;
 
 type Pos = { left: number; top: number };
+
+function isMobileViewport() {
+  return typeof window !== "undefined" && window.innerWidth < MOBILE_BREAKPOINT;
+}
+
+function getWidgetSize(open: boolean) {
+  if (!open || typeof window === "undefined") {
+    return { width: BUBBLE_SIZE, height: BUBBLE_SIZE };
+  }
+  if (isMobileViewport()) {
+    return {
+      width: Math.min(window.innerWidth - MOBILE_EDGE_PAD * 2, 360),
+      height: Math.min(Math.round(window.innerHeight * 0.56), 420),
+    };
+  }
+  return { width: PANEL_WIDTH, height: PANEL_HEIGHT };
+}
 
 function loadPos(): Pos | null {
   if (typeof localStorage === "undefined") return null;
@@ -42,32 +58,42 @@ function savePos(pos: Pos) {
   }
 }
 
-// Default position: bottom-right with a generous gap so the bubble is
-// clearly visible rather than tucked into the corner.
 function defaultPos(open: boolean): Pos {
   if (typeof window === "undefined") {
-    return { left: 1000, top: 600 }; // SSR placeholder — never visible
+    return { left: 1000, top: 600 };
   }
-  const w = open ? PANEL_WIDTH : BUBBLE_SIZE;
-  const h = open ? PANEL_HEIGHT : BUBBLE_SIZE;
+  const { width, height } = getWidgetSize(open);
+  if (open && isMobileViewport()) {
+    return {
+      left: MOBILE_EDGE_PAD,
+      top: Math.max(MOBILE_EDGE_PAD, window.innerHeight - height - MOBILE_EDGE_PAD),
+    };
+  }
   return {
-    left: Math.max(0, window.innerWidth - w - EDGE_PAD),
-    top: Math.max(0, window.innerHeight - h - EDGE_PAD),
+    left: Math.max(EDGE_PAD, window.innerWidth - width - EDGE_PAD),
+    top: Math.max(EDGE_PAD, window.innerHeight - height - EDGE_PAD),
   };
 }
 
 function clampPos(pos: Pos, open: boolean): Pos {
   if (typeof window === "undefined") return pos;
-  const w = open ? PANEL_WIDTH : BUBBLE_SIZE;
-  const h = open ? PANEL_HEIGHT : BUBBLE_SIZE;
-  
-  // Relaxed clamping: allow dragging to the very edges of the screen,
-  // and allow the bubble or panel to be dragged partially off-screen (leaving at least 20px visible)
-  const minLeft = -w + 20;
+  const { width, height } = getWidgetSize(open);
+
+  if (open && isMobileViewport()) {
+    return {
+      left: MOBILE_EDGE_PAD,
+      top: Math.min(
+        Math.max(MOBILE_EDGE_PAD, pos.top),
+        Math.max(MOBILE_EDGE_PAD, window.innerHeight - height - MOBILE_EDGE_PAD),
+      ),
+    };
+  }
+
+  const minLeft = -width + 20;
   const maxLeft = window.innerWidth - 20;
-  const minTop = 0; // Don't let the header drag handle go above the top edge so it can always be dragged back
+  const minTop = 0;
   const maxTop = window.innerHeight - 20;
-  
+
   return {
     left: Math.min(Math.max(minLeft, pos.left), maxLeft),
     top: Math.min(Math.max(minTop, pos.top), maxTop),
@@ -111,23 +137,13 @@ export function HelpChat() {
   const [input, setInput] = useState("");
   const [sending, setSending] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  // Position is null until mount so server-rendered HTML matches the
-  // client's first render (which also doesn't know the viewport size).
   const [pos, setPos] = useState<Pos | null>(null);
   const [dragging, setDragging] = useState(false);
   const scrollRef = useRef<HTMLDivElement | null>(null);
   const inputRef = useRef<HTMLInputElement | null>(null);
-  // Track whether the current pointerdown turned into a real drag (vs a
-  // click). Set during pointermove; checked during pointerup to decide
-  // whether the click should toggle open/closed.
   const dragMovedRef = useRef(false);
-  // Where the pointer was relative to the widget's top-left when the
-  // drag started. Lets us follow the pointer without snapping the
-  // widget's origin to the cursor.
   const dragOffsetRef = useRef<{ dx: number; dy: number }>({ dx: 0, dy: 0 });
 
-  // Restore state on mount. Kept inside an effect (not lazy state init) so
-  // we don't trip SSR hydration mismatches.
   useEffect(() => {
     setMessages(loadHistory());
     const openStored = typeof localStorage !== "undefined" && localStorage.getItem(STORAGE_OPEN_KEY) === "1";
@@ -136,23 +152,21 @@ export function HelpChat() {
     setPos(clampPos(stored ?? defaultPos(openStored), openStored));
   }, []);
 
-  // Persist position whenever it changes (but not the initial null).
   useEffect(() => {
     if (pos) savePos(pos);
   }, [pos]);
 
-  // Re-clamp when the window resizes — otherwise the widget can end up
-  // hanging off-screen if the user shrinks their window.
   useEffect(() => {
     if (!pos) return;
     const onResize = () => setPos((p) => (p ? clampPos(p, open) : p));
     window.addEventListener("resize", onResize);
-    return () => window.removeEventListener("resize", onResize);
+    window.addEventListener("orientationchange", onResize);
+    return () => {
+      window.removeEventListener("resize", onResize);
+      window.removeEventListener("orientationchange", onResize);
+    };
   }, [pos, open]);
 
-  // Re-clamp when toggling open/closed since the panel is much larger
-  // than the bubble. A position that fit the bubble may push the panel
-  // off the right edge.
   useEffect(() => {
     if (!pos) return;
     setPos((p) => (p ? clampPos(p, open) : p));
@@ -168,32 +182,28 @@ export function HelpChat() {
     saveHistory(messages);
   }, [messages]);
 
-  // Auto-scroll to bottom on new message.
   useEffect(() => {
     const el = scrollRef.current;
     if (!el) return;
     el.scrollTop = el.scrollHeight;
   }, [messages, sending]);
 
-  // Focus the input when the panel opens.
   useEffect(() => {
     if (!open) return;
     const t = setTimeout(() => inputRef.current?.focus(), 80);
     return () => clearTimeout(t);
   }, [open]);
 
-  // Lock body scroll when panel is open
   useEffect(() => {
-    if (open) {
-      const origBodyOverflow = document.body.style.overflow;
-      const origHtmlOverflow = document.documentElement.style.overflow;
-      document.body.style.overflow = "hidden";
-      document.documentElement.style.overflow = "hidden";
-      return () => {
-        document.body.style.overflow = origBodyOverflow;
-        document.documentElement.style.overflow = origHtmlOverflow;
-      };
-    }
+    if (!open) return;
+    const origBodyOverflow = document.body.style.overflow;
+    const origHtmlOverflow = document.documentElement.style.overflow;
+    document.body.style.overflow = "hidden";
+    document.documentElement.style.overflow = "hidden";
+    return () => {
+      document.body.style.overflow = origBodyOverflow;
+      document.documentElement.style.overflow = origHtmlOverflow;
+    };
   }, [open]);
 
   async function send(text: string) {
@@ -210,17 +220,12 @@ export function HelpChat() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           message: trimmed,
-          // Send the prior history (not the just-added user message — the
-          // server appends that itself from the `message` field).
           history: messages.slice(-8),
         }),
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) {
-        const msg =
-          typeof data?.message === "string"
-            ? data.message
-            : "Sorry — I couldn't answer that. Please try again.";
+        const msg = typeof data?.message === "string" ? data.message : "Sorry — I couldn't answer that. Please try again.";
         setError(msg);
         return;
       }
@@ -230,7 +235,7 @@ export function HelpChat() {
         return;
       }
       setMessages((prev) => [...prev, { role: "assistant", content: reply }]);
-    } catch (err) {
+    } catch {
       setError("Network error — please check your connection and try again.");
     } finally {
       setSending(false);
@@ -242,24 +247,16 @@ export function HelpChat() {
     send(input);
   }
 
-  // Drag handler. Returns the pointerdown listener wired up so that a
-  // tap (under a few px of movement) is still treated as a click, but
-  // anything bigger captures the pointer and follows it until release.
   function clearChat() {
     setMessages([]);
     setError(null);
     if (typeof localStorage !== "undefined") localStorage.removeItem(STORAGE_KEY);
   }
 
-  // Drag handler. Returns the pointerdown listener wired up so that a
-  // tap (under a few px of movement) is still treated as a click, but
-  // anything bigger captures the pointer and follows it until release.
   function startDrag(e: ReactPointerEvent<HTMLElement>) {
     if (!pos) return;
-    // Right-click / middle-click shouldn't drag.
+    if (open && isMobileViewport()) return;
     if (e.button !== 0) return;
-    // Form controls inside the widget (input, textarea) must not be
-    // hijacked into a drag — let normal interaction work.
     const target = e.target as HTMLElement;
     if (target.closest("input, textarea, button:not([data-helpchat-handle])")) return;
 
@@ -271,12 +268,10 @@ export function HelpChat() {
     };
     dragMovedRef.current = false;
 
-    // pointerId capture means we keep getting moves even if the cursor
-    // leaves the element (e.g. moves fast across the page).
     try {
       el.setPointerCapture(e.pointerId);
     } catch {
-      // Some browsers refuse capture on synthetic events — ignore.
+      // ignore
     }
 
     const startX = e.clientX;
@@ -299,14 +294,11 @@ export function HelpChat() {
       el.removeEventListener("pointermove", onMove);
       el.removeEventListener("pointerup", onUp);
       el.removeEventListener("pointercancel", onUp);
-      // Defer clearing dragging so the click handler that fires right
-      // after pointerup can read it and suppress the open/close toggle.
       const wasDrag = dragMovedRef.current;
       setTimeout(() => {
         setDragging(false);
         dragMovedRef.current = false;
       }, 0);
-      // Suppress the next click if it was a drag.
       if (wasDrag) {
         const suppress = (clickEv: Event) => {
           clickEv.stopPropagation();
@@ -322,16 +314,16 @@ export function HelpChat() {
     el.addEventListener("pointercancel", onUp);
   }
 
-  // Render nothing until position is initialized — avoids a one-frame
-  // flash at the wrong location and prevents SSR hydration mismatches.
   if (!pos) return null;
 
   const cursorClass = dragging ? "cursor-grabbing" : "cursor-grab";
+  const mobileOpen = open && isMobileViewport();
+  const panelStyle = mobileOpen
+    ? { left: MOBILE_EDGE_PAD, right: MOBILE_EDGE_PAD, bottom: "max(0.75rem, env(safe-area-inset-bottom))" as const, top: "auto" as const }
+    : { left: pos.left, top: pos.top };
 
   return (
     <>
-      {/* Floating bubble — draggable. Positioned inline so the user can
-          move it anywhere; persists across page loads via localStorage. */}
       {!open && (
         <div
           className="fixed z-[60] flex items-center gap-2"
@@ -342,48 +334,42 @@ export function HelpChat() {
             type="button"
             data-helpchat-handle
             onClick={() => {
-              // Suppress the toggle if the pointer-up just ended a drag.
               if (dragMovedRef.current) return;
               setOpen(true);
             }}
             aria-label="Open help chat"
-            className={`h-14 w-14 rounded-full bg-primary text-primary-foreground shadow-2xl shadow-primary/40 grid place-items-center hover:scale-105 transition-transform ring-2 ring-primary/30 ring-offset-2 ring-offset-background ${cursorClass}`}
+            className={`h-13 w-13 sm:h-14 sm:w-14 rounded-full bg-primary text-primary-foreground shadow-2xl shadow-primary/40 grid place-items-center hover:scale-105 transition-transform ring-2 ring-primary/30 ring-offset-2 ring-offset-background ${cursorClass}`}
           >
-            <MessageCircle className="h-6 w-6" />
+            <MessageCircle className="h-5 w-5 sm:h-6 sm:w-6" />
           </button>
-          {/* "Need help?" pill — visible until the user has chatted at
-              least once. Helps people notice the bubble exists. */}
           {messages.length === 0 && (
-            <span
-              className="hidden sm:inline-flex items-center rounded-full bg-surface-elevated/95 border border-border px-3 py-1.5 text-xs font-medium shadow-lg pointer-events-none select-none"
-            >
+            <span className="hidden sm:inline-flex items-center rounded-full bg-surface-elevated/95 border border-border px-3 py-1.5 text-xs font-medium shadow-lg pointer-events-none select-none">
               Need help?
             </span>
           )}
         </div>
       )}
 
-      {/* Panel — draggable via the header. */}
       {open && (
         <aside
-          className="fixed z-[60] w-[22rem] max-w-[calc(100vw-2rem)] h-[32rem] max-h-[calc(100vh-2rem)] rounded-2xl border border-border bg-surface-elevated/95 backdrop-blur-xl shadow-2xl flex flex-col overflow-hidden"
-          style={{ left: pos.left, top: pos.top }}
+          className="fixed z-[60] w-[22rem] max-w-[calc(100vw-2rem)] h-[32rem] max-h-[calc(100vh-2rem)] max-sm:w-auto max-sm:max-w-none max-sm:h-[min(56dvh,26rem)] max-sm:max-h-[56dvh] rounded-2xl border border-border bg-surface-elevated/95 backdrop-blur-xl shadow-2xl flex flex-col overflow-hidden"
+          style={panelStyle}
           role="dialog"
           aria-label="BloxSmith help chat"
         >
           <header
-            className={`flex items-center justify-between border-b border-border px-3 py-2.5 select-none ${cursorClass}`}
-            style={{ touchAction: "none" }}
+            className={`flex items-center justify-between border-b border-border px-3 py-2 select-none ${mobileOpen ? "cursor-default" : cursorClass}`}
+            style={{ touchAction: mobileOpen ? "auto" : "none" }}
             onPointerDown={startDrag}
           >
-            <div className="flex items-center gap-2 pointer-events-none">
-              <div className="h-7 w-7 rounded-full bg-primary/15 grid place-items-center">
+            <div className="flex min-w-0 items-center gap-2 pointer-events-none">
+              <div className="h-7 w-7 shrink-0 rounded-full bg-primary/15 grid place-items-center">
                 <MessageCircle className="h-3.5 w-3.5 text-primary" />
               </div>
-              <div>
+              <div className="min-w-0">
                 <div className="text-xs font-semibold leading-tight">Help</div>
-                <div className="text-[10px] text-muted-foreground leading-tight">
-                  Drag to move · ask anything about BloxSmith
+                <div className="truncate text-[10px] text-muted-foreground leading-tight">
+                  {mobileOpen ? "Ask anything about BloxSmith" : "Drag to move · ask anything about BloxSmith"}
                 </div>
               </div>
             </div>
@@ -401,34 +387,27 @@ export function HelpChat() {
                 type="button"
                 onClick={() => setOpen(false)}
                 aria-label="Close help chat"
-                className="h-7 w-7 grid place-items-center rounded-md text-muted-foreground hover:text-foreground hover:bg-surface transition cursor-pointer"
+                className="h-8 w-8 sm:h-7 sm:w-7 grid place-items-center rounded-md text-muted-foreground hover:text-foreground hover:bg-surface transition cursor-pointer"
               >
                 <X className="h-4 w-4" />
               </button>
             </div>
           </header>
 
-          <div
-            ref={scrollRef}
-            className="flex-1 overflow-y-auto overscroll-contain px-3 py-3 space-y-2.5"
-          >
+          <div ref={scrollRef} className="flex-1 overflow-y-auto overscroll-contain px-3 py-3 max-sm:px-3 max-sm:py-2.5 space-y-2.5">
             {messages.length === 0 && (
-              <div className="space-y-3">
-                <p className="text-xs text-muted-foreground leading-relaxed">
-                  Hi! I'm the BloxSmith help bot. I can answer questions about credits,
-                  the Roblox Studio plugin, MCP, or how the site works. What do you
-                  want to know?
+              <div className="space-y-2.5">
+                <p className="text-xs max-sm:text-[11px] text-muted-foreground leading-relaxed">
+                  Hi! I'm the BloxSmith help bot. Ask about credits, the Roblox Studio plugin, MCP, or how the site works.
                 </p>
                 <div className="space-y-1.5">
-                  <div className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold">
-                    Try asking
-                  </div>
+                  <div className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold">Try asking</div>
                   {SUGGESTED.map((s) => (
                     <button
                       key={s}
                       type="button"
                       onClick={() => send(s)}
-                      className="w-full text-left rounded-md border border-border/60 bg-background/40 px-2.5 py-1.5 text-xs hover:border-primary/50 hover:bg-surface transition"
+                      className="w-full text-left rounded-md border border-border/60 bg-background/40 px-2.5 py-1.5 max-sm:py-2 text-xs max-sm:text-[11px] hover:border-primary/50 hover:bg-surface transition"
                     >
                       {s}
                     </button>
@@ -438,10 +417,7 @@ export function HelpChat() {
             )}
 
             {messages.map((m, i) => (
-              <div
-                key={i}
-                className={`flex ${m.role === "user" ? "justify-end" : "justify-start"}`}
-              >
+              <div key={i} className={`flex ${m.role === "user" ? "justify-end" : "justify-start"}`}>
                 <div
                   className={`max-w-[85%] rounded-xl px-3 py-2 text-xs leading-relaxed whitespace-pre-wrap break-words ${
                     m.role === "user"
@@ -470,10 +446,7 @@ export function HelpChat() {
             )}
           </div>
 
-          <form
-            onSubmit={onSubmit}
-            className="border-t border-border p-2 flex items-center gap-2"
-          >
+          <form onSubmit={onSubmit} className="border-t border-border p-2 flex items-center gap-2">
             <input
               ref={inputRef}
               type="text"
@@ -482,15 +455,15 @@ export function HelpChat() {
               placeholder="Ask a question…"
               disabled={sending}
               maxLength={1500}
-              className="flex-1 rounded-md border border-border bg-background/60 px-2.5 py-1.5 text-xs focus:outline-none focus:border-primary/50 disabled:opacity-50"
+              className="min-w-0 flex-1 rounded-md border border-border bg-background/60 px-2.5 py-2 sm:py-1.5 text-xs focus:outline-none focus:border-primary/50 disabled:opacity-50"
             />
             <button
               type="submit"
               disabled={sending || !input.trim()}
               aria-label="Send message"
-              className="h-7 w-7 grid place-items-center rounded-md bg-primary text-primary-foreground disabled:opacity-40 hover:opacity-90 transition"
+              className="h-9 w-9 sm:h-7 sm:w-7 shrink-0 grid place-items-center rounded-md bg-primary text-primary-foreground disabled:opacity-40 hover:opacity-90 transition"
             >
-              <Send className="h-3.5 w-3.5" />
+              <Send className="h-4 w-4 sm:h-3.5 sm:w-3.5" />
             </button>
           </form>
         </aside>
