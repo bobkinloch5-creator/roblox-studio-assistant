@@ -5,9 +5,15 @@ import type { Database } from "./types";
 function readSupabaseEnv() {
   // Use import.meta.env for client-side (Vite build-time replacement)
   // Fall back to process.env for SSR (server-side rendering)
-  const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL;
+  // Hardcoded fallbacks ensure build works even if environment variables are missing during deployment
+  const SUPABASE_URL =
+    import.meta.env.VITE_SUPABASE_URL ||
+    process.env.SUPABASE_URL ||
+    "https://rgxejfnssrqzztgypdre.supabase.co";
   const SUPABASE_PUBLISHABLE_KEY =
-    import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY || process.env.SUPABASE_PUBLISHABLE_KEY;
+    import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY ||
+    process.env.SUPABASE_PUBLISHABLE_KEY ||
+    "sb_publishable_iDVUjs3WSq1V-L0ck8U7RA_Q3awFlmT";
   return { SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY };
 }
 
