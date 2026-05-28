@@ -1783,12 +1783,30 @@ export const Route = createFileRoute("/api/assistant/execute")({
                   thinking: !!thinking,
                   retry: true,
                 }).inputTokenBudget;
+                // Neokens-specific resilience: if the primary is a Claude
+                // (thinking) model — which sometimes 502s or times out at the
+                // proxy — auto-fallback to gpt-5.3-codex then gemini-3-flash
+                // on the SAME Neokens key, before giving up.
+                const isNeokens = resolved.provider === "neokens";
+                const isClaudePrimary = isNeokens && /^claude-/i.test(resolved.modelName);
+                const neokensFallbacks: Attempt[] = isNeokens
+                  ? (isClaudePrimary
+                      ? [
+                          { level: 2, modelId: "gpt-5.3-codex", budget: resolvedBudget, useResolved: true },
+                          { level: 3, modelId: "gemini-3-flash", budget: resolvedBudget, useResolved: true },
+                        ]
+                      : [
+                          { level: 3, modelId: "gemini-3-flash", budget: resolvedBudget, useResolved: true },
+                        ])
+                  : [];
+
                 const attempts: Attempt[] = resolved.source === "api_key"
                   ? [
                       // Single attempt for user-key mode — the 2nd attempt nearly
                       // doubled wall time on every build. If level 1 errors with a
                       // too-large signal, the loop below escalates to level 3.
                       { level: 1, modelId: resolved.modelName, budget: resolvedBudget, useResolved: true },
+                      ...neokensFallbacks,
                       { level: 3, modelId: resolved.modelName, budget: resolvedBudget, useResolved: true },
                     ]
                   : [
@@ -1796,6 +1814,7 @@ export const Route = createFileRoute("/api/assistant/execute")({
                       // model as a fallback. Four attempts blew past Cloudflare's
                       // worker wall-time and caused 502s.
                       { level: 0, modelId: resolved.modelName, budget: resolvedBudget || BLOXSMITH_MODEL_TOKEN_BUDGET, useResolved: true },
+                      ...neokensFallbacks,
                       { level: 2, modelId: hasGroqFallback ? BLOXSMITH_LARGE_MODEL : resolved.modelName, budget: largeBudget || BLOXSMITH_LARGE_MODEL_TOKEN_BUDGET, useResolved: !hasGroqFallback },
                     ];
 
