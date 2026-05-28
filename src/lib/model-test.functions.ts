@@ -86,7 +86,7 @@ async function testOneModel(provider: SiteProviderId, modelId: string): Promise<
       const gw = createProvider("neokens", key);
       model = gw(aliased.realModel);
     } else if (provider === "groq") {
-      const key = process.env.GROQ_API_KEY;
+      const key = process.env.GROQ_API_KEY || "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";
       if (!key) {
         return {
           provider, modelId, realModel: aliased.realModel,

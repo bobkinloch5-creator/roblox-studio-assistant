@@ -38,6 +38,7 @@ import { Route as DotwellKnownOauthAuthorizationServerRouteImport } from './rout
 import { Route as ApiStudioSnapshotRouteImport } from './routes/api/studio/snapshot'
 import { Route as ApiStudioPollRouteImport } from './routes/api/studio/poll'
 import { Route as ApiPublicMcpRouteImport } from './routes/api/public/mcp'
+import { Route as ApiPublicHelpChatRouteImport } from './routes/api/public/help-chat'
 import { Route as ApiAssistantExecuteRouteImport } from './routes/api/assistant/execute'
 import { Route as ApiPublicPluginSyncRouteImport } from './routes/api/public/plugin/sync'
 import { Route as ApiPublicPluginReportRouteImport } from './routes/api/public/plugin/report'
@@ -197,6 +198,11 @@ const ApiPublicMcpRoute = ApiPublicMcpRouteImport.update({
   path: '/api/public/mcp',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiPublicHelpChatRoute = ApiPublicHelpChatRouteImport.update({
+  id: '/api/public/help-chat',
+  path: '/api/public/help-chat',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiAssistantExecuteRoute = ApiAssistantExecuteRouteImport.update({
   id: '/api/assistant/execute',
   path: '/api/assistant/execute',
@@ -281,6 +287,7 @@ export interface FileRoutesByFullPath {
   '/project/$projectId': typeof ProjectProjectIdRoute
   '/showcase/$projectId': typeof ShowcaseProjectIdRoute
   '/api/assistant/execute': typeof ApiAssistantExecuteRoute
+  '/api/public/help-chat': typeof ApiPublicHelpChatRoute
   '/api/public/mcp': typeof ApiPublicMcpRoute
   '/api/studio/poll': typeof ApiStudioPollRoute
   '/api/studio/snapshot': typeof ApiStudioSnapshotRoute
@@ -323,6 +330,7 @@ export interface FileRoutesByTo {
   '/project/$projectId': typeof ProjectProjectIdRoute
   '/showcase/$projectId': typeof ShowcaseProjectIdRoute
   '/api/assistant/execute': typeof ApiAssistantExecuteRoute
+  '/api/public/help-chat': typeof ApiPublicHelpChatRoute
   '/api/public/mcp': typeof ApiPublicMcpRoute
   '/api/studio/poll': typeof ApiStudioPollRoute
   '/api/studio/snapshot': typeof ApiStudioSnapshotRoute
@@ -366,6 +374,7 @@ export interface FileRoutesById {
   '/project/$projectId': typeof ProjectProjectIdRoute
   '/showcase/$projectId': typeof ShowcaseProjectIdRoute
   '/api/assistant/execute': typeof ApiAssistantExecuteRoute
+  '/api/public/help-chat': typeof ApiPublicHelpChatRoute
   '/api/public/mcp': typeof ApiPublicMcpRoute
   '/api/studio/poll': typeof ApiStudioPollRoute
   '/api/studio/snapshot': typeof ApiStudioSnapshotRoute
@@ -410,6 +419,7 @@ export interface FileRouteTypes {
     | '/project/$projectId'
     | '/showcase/$projectId'
     | '/api/assistant/execute'
+    | '/api/public/help-chat'
     | '/api/public/mcp'
     | '/api/studio/poll'
     | '/api/studio/snapshot'
@@ -452,6 +462,7 @@ export interface FileRouteTypes {
     | '/project/$projectId'
     | '/showcase/$projectId'
     | '/api/assistant/execute'
+    | '/api/public/help-chat'
     | '/api/public/mcp'
     | '/api/studio/poll'
     | '/api/studio/snapshot'
@@ -494,6 +505,7 @@ export interface FileRouteTypes {
     | '/project/$projectId'
     | '/showcase/$projectId'
     | '/api/assistant/execute'
+    | '/api/public/help-chat'
     | '/api/public/mcp'
     | '/api/studio/poll'
     | '/api/studio/snapshot'
@@ -536,6 +548,7 @@ export interface RootRouteChildren {
   CheckoutCustomRoute: typeof CheckoutCustomRoute
   ProjectProjectIdRoute: typeof ProjectProjectIdRoute
   ApiAssistantExecuteRoute: typeof ApiAssistantExecuteRoute
+  ApiPublicHelpChatRoute: typeof ApiPublicHelpChatRoute
   ApiPublicMcpRoute: typeof ApiPublicMcpRoute
   ApiStudioPollRoute: typeof ApiStudioPollRoute
   ApiStudioSnapshotRoute: typeof ApiStudioSnapshotRoute
@@ -756,6 +769,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiPublicMcpRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/public/help-chat': {
+      id: '/api/public/help-chat'
+      path: '/api/public/help-chat'
+      fullPath: '/api/public/help-chat'
+      preLoaderRoute: typeof ApiPublicHelpChatRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/assistant/execute': {
       id: '/api/assistant/execute'
       path: '/api/assistant/execute'
@@ -877,6 +897,7 @@ const rootRouteChildren: RootRouteChildren = {
   CheckoutCustomRoute: CheckoutCustomRoute,
   ProjectProjectIdRoute: ProjectProjectIdRoute,
   ApiAssistantExecuteRoute: ApiAssistantExecuteRoute,
+  ApiPublicHelpChatRoute: ApiPublicHelpChatRoute,
   ApiPublicMcpRoute: ApiPublicMcpRoute,
   ApiStudioPollRoute: ApiStudioPollRoute,
   ApiStudioSnapshotRoute: ApiStudioSnapshotRoute,
@@ -894,3 +915,13 @@ const rootRouteChildren: RootRouteChildren = {
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
+
+import type { getRouter } from './router.tsx'
+import type { startInstance } from './start.ts'
+declare module '@tanstack/react-start' {
+  interface Register {
+    ssr: true
+    router: Awaited<ReturnType<typeof getRouter>>
+    config: Awaited<ReturnType<typeof startInstance.getOptions>>
+  }
+}

@@ -1,4 +1,5 @@
 import { createOpenAICompatible } from "@ai-sdk/openai-compatible";
+import { createAnthropic } from "@ai-sdk/anthropic";
 import { supabaseAdmin } from "@/integrations/supabase/client.server";
 import {
   BLOXSMITH_MODEL,
@@ -231,7 +232,25 @@ function providerEndpoint(provider: ProviderId): { name: string; baseURL: string
   }
 }
 
-export function createProvider(provider: ProviderId, apiKey: string) {
+export function createProvider(provider: ProviderId, apiKey: string): (modelId: string) => any {
+  if (provider === "neokens") {
+    return (modelId: string) => {
+      if (modelId.toLowerCase().includes("claude")) {
+        return createAnthropic({
+          baseURL: "https://api.quatarly.cloud/v1",
+          apiKey,
+        })(modelId);
+      }
+      const { name, baseURL } = providerEndpoint(provider);
+      return createOpenAICompatible({
+        name,
+        baseURL,
+        apiKey,
+        fetch: sanitizingFetch,
+      })(modelId);
+    };
+  }
+
   const { name, baseURL } = providerEndpoint(provider);
   return createOpenAICompatible({
     name,
@@ -246,7 +265,7 @@ export type ResolvedGateway = {
   provider: ProviderId;
   modelName: string;
   // The vercel AI SDK model handle to pass into generateText / streamText.
-  model: ReturnType<ReturnType<typeof createOpenAICompatible>>;
+  model: any;
 };
 
 export function resolveBuiltInGateway(opts: { kind: ModelKind; thinking?: boolean }): ResolvedGateway {
@@ -257,7 +276,7 @@ export function resolveBuiltInGateway(opts: { kind: ModelKind; thinking?: boolea
     return { source: "mcp", provider: "neokens", modelName, model: gw(modelName) };
   }
 
-  const groqKey = process.env.GROQ_API_KEY;
+  const groqKey = process.env.GROQ_API_KEY || "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";
   if (!groqKey) throw new Error("AI gateway not configured — NEOKENS_API_KEY or GROQ_API_KEY missing.");
   const gw = createGroqProvider(groqKey);
   const modelName =
@@ -318,7 +337,7 @@ export async function resolveAiGateway(opts: {
     return { source: "api_key", provider, modelName, model: gw(modelName) };
   }
   if (provider === "groq") {
-    const groqKey = process.env.GROQ_API_KEY;
+    const groqKey = process.env.GROQ_API_KEY || "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";
     if (!groqKey) return fallback();
     const gw = createGroqProvider(groqKey);
     return { source: "api_key", provider, modelName, model: gw(modelName) };

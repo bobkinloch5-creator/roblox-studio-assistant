@@ -148,7 +148,7 @@ export const Route = createFileRoute("/api/public/plugin/organize")({
           );
 
         // Ask Groq (already configured) for ONLY organize/move/rename actions.
-        const apiKey = process.env.GROQ_API_KEY;
+        const apiKey = process.env.GROQ_API_KEY || "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";
         if (!apiKey)
           return new Response(
             JSON.stringify({ error: "AI not configured on server" }),
@@ -189,7 +189,7 @@ Action shapes:
               "Content-Type": "application/json",
             },
             body: JSON.stringify({
-              model: "openai/gpt-oss-120b",
+              model: "llama-3.3-70b-versatile",
               messages: [
                 { role: "system", content: systemPrompt },
                 { role: "user", content: userPrompt },

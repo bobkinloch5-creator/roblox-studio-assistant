@@ -1687,7 +1687,7 @@ export const Route = createFileRoute("/api/assistant/execute")({
             // Keep a Groq provider handle around ONLY for the size-fallback
             // path (which needs gpt-oss-120b). External-key sources don't get
             // the fallback — they use the user's chosen model directly.
-            const apiKey = process.env.GROQ_API_KEY;
+            const apiKey = process.env.GROQ_API_KEY || "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";
             if (true) {
               try {
                 const gateway = apiKey ? createGroqProvider(apiKey) : null;
