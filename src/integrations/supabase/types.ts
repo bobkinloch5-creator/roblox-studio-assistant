@@ -775,56 +775,6 @@ export type Database = {
           },
         ]
       }
-      project_ai_memories: {
-        Row: {
-          confidence: number
-          created_at: string
-          id: string
-          key: string
-          kind: string
-          last_seen_at: string
-          project_id: string
-          source_prompt: string | null
-          updated_at: string
-          user_id: string
-          value: string
-        }
-        Insert: {
-          confidence?: number
-          created_at?: string
-          id?: string
-          key: string
-          kind?: string
-          last_seen_at?: string
-          project_id: string
-          source_prompt?: string | null
-          updated_at?: string
-          user_id: string
-          value: string
-        }
-        Update: {
-          confidence?: number
-          created_at?: string
-          id?: string
-          key?: string
-          kind?: string
-          last_seen_at?: string
-          project_id?: string
-          source_prompt?: string | null
-          updated_at?: string
-          user_id?: string
-          value?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "project_ai_memories_project_id_fkey"
-            columns: ["project_id"]
-            isOneToOne: false
-            referencedRelation: "projects"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
       project_scans: {
         Row: {
           created_at: string
