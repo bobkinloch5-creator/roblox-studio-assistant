@@ -68,6 +68,29 @@ const checks = [
     ],
   },
   {
+    name: "Smartest builder core supports mobile-first builder UI",
+    file: "src/lib/ai-smartest-builder-core.ts",
+    must: [
+      /Mobile-first website and chat rule/,
+      /360px/,
+      /safe-area-inset-bottom/,
+      /44px tap targets/,
+      /Dedicated Generate Image button/,
+    ],
+  },
+  {
+    name: "Smartest builder core supports Roblox image generation",
+    file: "src/lib/ai-smartest-builder-core.ts",
+    must: [
+      /Image generation rule for Roblox thumbnails\/icons\/decals/,
+      /ROBLOX_IMAGE_PRESETS/,
+      /thumbnail/,
+      /icon/,
+      /decal/,
+      /verticalPromo/,
+    ],
+  },
+  {
     name: "Smartest builder docs explain workflow and product standard",
     file: "docs/SMART_AI_BUILDER_UPGRADE.md",
     must: [
@@ -78,6 +101,18 @@ const checks = [
       /Validate/,
       /Queue/,
       /Remember/,
+    ],
+  },
+  {
+    name: "Smartest builder docs include mobile and image requirements",
+    file: "docs/SMART_AI_BUILDER_UPGRADE.md",
+    must: [
+      /Mobile-first builder requirements/,
+      /Image generation button requirement/,
+      /Game Thumbnail/,
+      /Game Icon/,
+      /Decal \/ Badge \/ Gamepass/,
+      /Mobile Promo/,
     ],
   },
 ];
@@ -129,6 +164,22 @@ const evalCases = [
   {
     prompt: "Make a horror game flashlight, chase NPC, scary lighting and doors",
     expected: ["Lighting", "PathfindingService", "StarterPlayerScripts", "Workspace"],
+  },
+  {
+    prompt: "Generate a Roblox thumbnail for my obby game",
+    expected: ["generate_image", "16:9", "thumbnail"],
+  },
+  {
+    prompt: "Make me a 1:1 Roblox game icon with a cute dog",
+    expected: ["generate_image", "1:1", "icon"],
+  },
+  {
+    prompt: "Create a decal image for a pet simulator egg",
+    expected: ["generate_image", "1:1", "decal"],
+  },
+  {
+    prompt: "Fix the mobile chat because the message box is too wide on iPhone",
+    expected: ["360px", "safe-area", "no horizontal overflow", "44px"],
   },
 ];
 
