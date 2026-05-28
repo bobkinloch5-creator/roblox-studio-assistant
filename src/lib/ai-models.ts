@@ -8,6 +8,7 @@ export const SITE_PROVIDER_LABELS: Record<SiteProviderId, string> = {
 export const SITE_PROVIDER_MODELS: Record<SiteProviderId, string[]> = {
   groq: ["llama-3.3-70b-versatile", "llama-3.1-8b-instant", "gemma2-9b-it"],
   neokens: [
+    "claude-opus-4-7-thinking",
     "claude-sonnet-4-7-thinking",
     "claude-opus-4-6-thinking",
     "claude-sonnet-4-6-thinking",
