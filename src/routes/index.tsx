@@ -118,6 +118,53 @@ const builderModes = [
   { icon: Wrench, title: "Game Fixer", desc: "Paste errors or describe bugs and get safe fixes fast." },
 ];
 
+const trustBadges = [
+  { icon: Sparkles, label: "Free to start" },
+  { icon: Shield, label: "No card needed" },
+  { icon: Plug, label: "Roblox Studio plugin" },
+  { icon: CreditCard, label: "Daily free credits" },
+  { icon: Code2, label: "Built for Luau" },
+  { icon: Users, label: "Beginner friendly" },
+];
+
+const liveDemoFlow = [
+  { icon: MessageSquare, title: "Prompt", desc: "Make me a mining simulator with ores, backpacks, pets, and upgrades." },
+  { icon: Brain, title: "AI plan", desc: "BloxSmith designs the services, folders, remotes, data, GUI, and gameplay loop." },
+  { icon: FileCode, title: "Generated files", desc: "Server scripts, LocalScripts, modules, UI actions, and test steps are created." },
+  { icon: Send, title: "Studio sync", desc: "The plugin places the build into Roblox Studio so you can test faster." },
+];
+
+const pluginPreview = [
+  "Connects your BloxSmith account",
+  "Sends scripts into Roblox Studio",
+  "Places files in the right services",
+  "Scans your project for better context",
+  "Helps fix Studio errors",
+  "Inserts toolbox assets safely",
+];
+
+const beginnerWins = [
+  "No scripting experience needed",
+  "Plain-English prompts work",
+  "Explains where everything goes",
+  "Helps you test and fix errors",
+];
+
+const painPoints = [
+  "Stop spending hours searching tutorials.",
+  "Stop fighting broken copy-paste scripts.",
+  "Stop guessing where files belong in Studio.",
+  "Build, organize, test, and improve faster.",
+];
+
+const comingSoon = [
+  { icon: Brain, title: "Smarter project scanner", desc: "Deeper project awareness so BloxSmith understands your game better." },
+  { icon: Image, title: "AI thumbnail generator", desc: "Create Roblox-ready icons, thumbnails, decals, badges, and promo art." },
+  { icon: Package, title: "Better toolbox search", desc: "Find safer, cleaner, more useful free marketplace assets." },
+  { icon: Users, title: "Team project building", desc: "Invite friends and build together inside shared BloxSmith projects." },
+  { icon: CreditCard, title: "More payment options", desc: "More ways to buy credits and keep building without friction." },
+];
+
 const comparison = [
   ["Made for Roblox", "Yes — Roblox Studio, Luau, services, and plugin workflow", "Generic coding only"],
   ["Studio plugin", "Sync generated files and actions into the right Roblox services", "Manual copy/paste"],
@@ -222,16 +269,26 @@ function Landing() {
               </p>
               <div className="mt-6 sm:mt-10 grid grid-cols-1 xs:grid-cols-2 sm:flex sm:flex-wrap gap-3">
                 <Link to="/signup" className="btn-shine group inline-flex justify-center items-center gap-2 rounded-xl bg-primary px-5 py-3 text-sm font-semibold text-primary-foreground glow-ring hover:bg-primary/90 transition">
-                  Start building free <ArrowRight className="h-4 w-4 transition group-hover:translate-x-0.5" />
+                  🚀 Start Building Free <ArrowRight className="h-4 w-4 transition group-hover:translate-x-0.5" />
                 </Link>
                 <Link to="/plugin" className="inline-flex justify-center items-center gap-2 rounded-xl glass-strong px-5 py-3 text-sm font-semibold hover:bg-surface transition">
-                  <Play className="h-4 w-4 text-primary-glow" /> Get the plugin
+                  <Play className="h-4 w-4 text-primary-glow" /> 🎮 Download Plugin
                 </Link>
+                <a href="#prompt-ideas" className="inline-flex justify-center items-center gap-2 rounded-xl border border-primary/25 bg-primary/10 px-5 py-3 text-sm font-semibold text-primary-glow hover:bg-primary/15 transition">
+                  ✨ Try Example Prompts
+                </a>
               </div>
               <div className="mt-5 sm:mt-8 grid gap-2 text-xs text-muted-foreground sm:flex sm:flex-wrap sm:items-center sm:gap-x-6">
                 <span className="inline-flex items-center gap-1.5"><CheckCircle2 className="h-3.5 w-3.5 text-success" /> 150 free starter credits + 10 daily</span>
                 <span className="inline-flex items-center gap-1.5"><CheckCircle2 className="h-3.5 w-3.5 text-success" /> No card required</span>
                 <span className="inline-flex items-center gap-1.5"><CheckCircle2 className="h-3.5 w-3.5 text-success" /> Pay per use</span>
+              </div>
+              <div className="mt-5 grid grid-cols-2 sm:grid-cols-3 gap-2 max-w-xl">
+                {trustBadges.map((badge) => (
+                  <div key={badge.label} className="rounded-xl border border-border bg-surface/35 px-3 py-2 text-[11px] font-medium text-muted-foreground inline-flex items-center gap-1.5">
+                    <badge.icon className="h-3.5 w-3.5 text-primary-glow shrink-0" /> {badge.label}
+                  </div>
+                ))}
               </div>
             </div>
 
@@ -275,9 +332,60 @@ function Landing() {
         </div>
       </section>
 
+      <section className="mx-auto max-w-7xl px-4 sm:px-6 py-12 sm:py-20">
+        <div className="rounded-3xl glass-strong gradient-border p-5 sm:p-8 lg:p-10">
+          <SectionTitle badge="Live demo" icon={Eye} title="See how a Roblox idea becomes a Studio build" desc="This preview shows the exact BloxSmith flow: prompt, plan, generated files, then plugin sync." />
+          <div className="mt-8 grid gap-4 lg:grid-cols-4">
+            {liveDemoFlow.map((step, i) => (
+              <div key={step.title} className="relative rounded-2xl border border-border bg-background/40 p-5">
+                <div className="absolute right-4 top-4 text-4xl font-black text-primary/10">{i + 1}</div>
+                <step.icon className="h-5 w-5 text-primary-glow" />
+                <h3 className="mt-3 font-semibold">{step.title}</h3>
+                <p className="mt-1.5 text-sm text-muted-foreground">{step.desc}</p>
+              </div>
+            ))}
+          </div>
+          <div className="mt-8 flex flex-col sm:flex-row justify-center gap-3">
+            <Link to="/signup" className="inline-flex justify-center items-center gap-2 rounded-xl bg-primary px-5 py-3 text-sm font-semibold text-primary-foreground shadow-[var(--shadow-glow)] hover:bg-primary/90 transition">
+              Try the demo prompt <ArrowRight className="h-4 w-4" />
+            </Link>
+            <a href="#prompt-ideas" className="inline-flex justify-center items-center gap-2 rounded-xl glass px-5 py-3 text-sm font-semibold hover:bg-surface transition">
+              View more prompts
+            </a>
+          </div>
+        </div>
+      </section>
+
+      <section className="mx-auto max-w-7xl px-4 sm:px-6 py-12 sm:py-20">
+        <div className="grid gap-6 lg:grid-cols-[1.1fr_0.9fr] items-stretch">
+          <div className="rounded-3xl glass-strong gradient-border p-6 sm:p-8">
+            <SectionTitle badge="Plugin preview" icon={Plug} title="What the Roblox Studio plugin does" desc="Connect your account once, then let BloxSmith place generated work where it belongs." />
+            <div className="mt-8 grid gap-3 sm:grid-cols-2">
+              {pluginPreview.map((item) => (
+                <div key={item} className="rounded-xl border border-border bg-background/40 px-4 py-3 text-sm inline-flex items-center gap-2">
+                  <CheckCircle2 className="h-4 w-4 text-success shrink-0" /> {item}
+                </div>
+              ))}
+            </div>
+          </div>
+          <div className="rounded-3xl glass p-6 sm:p-8">
+            <div className="inline-flex h-11 w-11 items-center justify-center rounded-xl bg-primary/15 border border-primary/20 text-primary-glow"><Users className="h-5 w-5" /></div>
+            <h2 className="mt-4 text-2xl font-bold">Beginner friendly</h2>
+            <p className="mt-3 text-sm text-muted-foreground leading-relaxed">
+              No scripting experience needed. Describe what you want and BloxSmith helps create the code, UI, systems, and setup steps for you.
+            </p>
+            <div className="mt-6 space-y-2">
+              {beginnerWins.map((win) => (
+                <div key={win} className="text-sm text-muted-foreground inline-flex items-center gap-2"><Sparkles className="h-3.5 w-3.5 text-primary-glow" /> {win}</div>
+              ))}
+            </div>
+          </div>
+        </div>
+      </section>
+
       <section className="py-10 sm:py-14">
         <div className="mx-auto max-w-7xl px-4 sm:px-6">
-          <div className="text-center text-xs uppercase tracking-[0.2em] text-muted-foreground mb-6">Build any genre</div>
+          <div className="text-center text-xs uppercase tracking-[0.2em] text-muted-foreground mb-6">Popular Roblox games you can build</div>
           <div className="flex flex-wrap justify-center gap-2">
             {gameTypes.map((g) => (
               <div key={g} className="inline-flex items-center gap-1.5 rounded-full glass px-3 py-1.5 text-xs sm:text-sm"><Gamepad2 className="h-3.5 w-3.5 text-primary-glow" /> {g}</div>
@@ -299,7 +407,7 @@ function Landing() {
         </div>
       </section>
 
-      <section className="mx-auto max-w-7xl px-4 sm:px-6 py-12 sm:py-20">
+      <section id="prompt-ideas" className="mx-auto max-w-7xl px-4 sm:px-6 py-12 sm:py-20 scroll-mt-24">
         <div className="rounded-3xl glass-strong gradient-border p-5 sm:p-8 lg:p-10">
           <SectionTitle badge="Prompt ideas" icon={MessageSquare} title="Try a prompt and start building fast" desc="Use these examples as your first message, then let BloxSmith generate the structure, scripts, and next steps." />
           <div className="mt-8 grid gap-3 md:grid-cols-2">
@@ -327,8 +435,8 @@ function Landing() {
 
       <section className="mx-auto max-w-7xl px-4 sm:px-6 py-12 sm:py-20">
         <SectionTitle badge="Why BloxSmith" icon={Trophy} title="Built different for Roblox creators" desc="BloxSmith focuses on Roblox Studio, Luau, plugin sync, and game-building features from day one." />
-        <div className="mt-10 overflow-hidden rounded-3xl glass-strong gradient-border">
-          <div className="grid grid-cols-[1fr_1.15fr_1fr] gap-px bg-border/60 text-xs sm:text-sm">
+        <div className="mt-10 overflow-x-auto rounded-3xl glass-strong gradient-border">
+          <div className="min-w-[680px] grid grid-cols-[1fr_1.15fr_1fr] gap-px bg-border/60 text-xs sm:text-sm">
             <div className="bg-surface-elevated p-3 sm:p-4 font-semibold">Feature</div>
             <div className="bg-primary/10 p-3 sm:p-4 font-semibold text-primary-glow">BloxSmith</div>
             <div className="bg-surface-elevated p-3 sm:p-4 font-semibold">Generic AI</div>
@@ -338,6 +446,23 @@ function Landing() {
                 <div key={`${feature}-b`} className="bg-background/80 p-3 sm:p-4 text-muted-foreground">{blox}</div>
                 <div key={`${feature}-c`} className="bg-background/80 p-3 sm:p-4 text-muted-foreground">{generic}</div>
               </>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      <section className="mx-auto max-w-7xl px-4 sm:px-6 py-12 sm:py-20">
+        <div className="rounded-3xl glass-strong p-6 sm:p-10 grid gap-8 lg:grid-cols-[0.9fr_1.1fr] items-center">
+          <div>
+            <div className="inline-flex items-center gap-1.5 rounded-full glass px-3 py-1 text-xs text-muted-foreground"><Wrench className="h-3 w-3 text-primary-glow" /> Why creators need this</div>
+            <h2 className="mt-4 text-2xl sm:text-4xl font-bold tracking-tight">Build faster without getting stuck for hours</h2>
+            <p className="mt-3 text-sm sm:text-base text-muted-foreground leading-relaxed">
+              BloxSmith helps you go from idea to working Roblox systems without digging through endless tutorials, broken free models, or confusing service placement.
+            </p>
+          </div>
+          <div className="grid gap-3 sm:grid-cols-2">
+            {painPoints.map((point) => (
+              <div key={point} className="rounded-2xl border border-border bg-background/40 p-4 text-sm inline-flex items-start gap-2"><CheckCircle2 className="mt-0.5 h-4 w-4 text-success shrink-0" /> {point}</div>
             ))}
           </div>
         </div>
@@ -402,6 +527,22 @@ function Landing() {
       </section>
 
       <section className="mx-auto max-w-7xl px-4 sm:px-6 py-12 sm:py-20">
+        <div className="relative overflow-hidden rounded-3xl glass-strong gradient-border p-6 sm:p-10 text-center">
+          <div aria-hidden className="absolute inset-0 opacity-60 pointer-events-none" style={{ background: "linear-gradient(135deg, #5865F233, transparent 48%, oklch(0.73 0.17 158 / 0.16))" }} />
+          <div className="relative mx-auto max-w-2xl">
+            <Users className="h-8 w-8 mx-auto text-primary-glow" />
+            <h2 className="mt-4 text-2xl sm:text-4xl font-bold tracking-tight">Join the BloxSmith Discord community</h2>
+            <p className="mt-3 text-sm sm:text-base text-muted-foreground">
+              Get support, updates, free-credit announcements, prompt ideas, plugin help, and a place to share your Roblox creations.
+            </p>
+            <a href="https://discord.gg/J9TU7syJCr" target="_blank" rel="noopener noreferrer" className="mt-6 inline-flex items-center justify-center gap-2 rounded-xl bg-[#5865F2] px-6 py-3 text-sm font-bold text-white shadow-lg hover:opacity-90 transition">
+              Join Discord +5 credits <ArrowRight className="h-4 w-4" />
+            </a>
+          </div>
+        </div>
+      </section>
+
+      <section className="mx-auto max-w-7xl px-4 sm:px-6 py-12 sm:py-20">
         <SectionTitle badge="Pricing" icon={Trophy} title="Simple credit packs" desc="Pay only for what you generate. Credits never expire." />
         <div className="mt-10 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
           {CREDIT_PACKS.map((p) => {
@@ -415,6 +556,19 @@ function Landing() {
           })}
         </div>
         <p className="mt-6 text-center text-xs text-muted-foreground inline-flex items-center justify-center gap-1.5 w-full"><Shield className="h-3 w-3" /> Manually verified payments. Credits added within minutes.</p>
+      </section>
+
+      <section className="mx-auto max-w-7xl px-4 sm:px-6 py-12 sm:py-20">
+        <SectionTitle badge="Coming soon" icon={Rocket} title="BloxSmith keeps getting smarter" desc="Upcoming upgrades planned to make Roblox building even faster and more powerful." />
+        <div className="mt-10 grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
+          {comingSoon.map((item) => (
+            <div key={item.title} className="glass rounded-2xl p-5">
+              <item.icon className="h-5 w-5 text-primary-glow" />
+              <h3 className="mt-3 font-semibold text-sm">{item.title}</h3>
+              <p className="mt-1 text-xs text-muted-foreground leading-relaxed">{item.desc}</p>
+            </div>
+          ))}
+        </div>
       </section>
 
       <section className="mx-auto max-w-7xl px-4 sm:px-6 py-12 sm:py-20">
