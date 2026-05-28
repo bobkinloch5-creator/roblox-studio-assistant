@@ -30,6 +30,17 @@ import { toast } from "sonner";
 import { useDailyClaimCooldown } from "@/hooks/useDailyClaimCooldown";
 import { DiscordRewards } from "@/components/DiscordRewards";
 import { PromoteAndEarn } from "@/components/PromoteAndEarn";
+import {
+  ResponsiveContainer,
+  AreaChart,
+  Area,
+  XAxis,
+  YAxis,
+  Tooltip,
+  PieChart,
+  Pie,
+  Cell,
+} from "recharts";
 
 export const Route = createFileRoute("/account")({
   component: Account,
@@ -65,6 +76,10 @@ function Account() {
   const [confirmText, setConfirmText] = useState("");
   const [deleting, setDeleting] = useState(false);
   const [promoCode, setPromoCode] = useState("");
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => {
+    setMounted(true);
+  }, []);
   const [redeeming, setRedeeming] = useState(false);
   const [claiming, setClaiming] = useState(false);
   const dailyCd = useDailyClaimCooldown(user?.id);
@@ -161,7 +176,7 @@ function Account() {
       .select("*")
       .eq("user_id", user.id)
       .order("created_at", { ascending: false })
-      .limit(25)
+      .limit(100)
       .then(({ data }) => setTxs((data ?? []) as Tx[]));
     supabase
       .from("payment_requests")
@@ -217,6 +232,108 @@ function Account() {
     : "—";
 
   if (loading || !user) return null;
+
+  // Process credit transactions to extract model usage stats
+  const spendTxs = txs.filter((t) => t.amount < 0);
+  const totalCreditsUsed = spendTxs.reduce((sum, t) => sum + Math.abs(t.amount), 0);
+  const totalSpendUsd = totalCreditsUsed * 0.05; // $0.05 per credit (from PayPal packs: $5 for 100 credits)
+
+  // Map transactions to models based on amount
+  const enrichedTxs = spendTxs.map((t) => {
+    let modelName = "gemini-3-flash";
+    let actionType = "AI Action";
+    
+    const absAmt = Math.abs(t.amount);
+    if (absAmt === 15) {
+      modelName = "gpt-5.5";
+      actionType = "AI Generation";
+    } else if (absAmt === 5) {
+      modelName = "claude-sonnet-4-6-thinking";
+      actionType = "Workspace Plan";
+    } else if (absAmt === 1) {
+      modelName = "gemini-3-flash";
+      actionType = "Help Chat Support";
+    } else if (absAmt === 3) {
+      modelName = "gemini-3-flash";
+      actionType = "Code Fix / Chat";
+    }
+
+    // Try to parse model name if it was somehow appended in reason
+    if (t.reason) {
+      const lowerReason = t.reason.toLowerCase();
+      if (lowerReason.includes("gemini-3-flash") || lowerReason.includes("flash")) {
+        modelName = "gemini-3-flash";
+      } else if (lowerReason.includes("gemini-3.1-pro") || lowerReason.includes("gemini-pro")) {
+        modelName = "gemini-3.1-pro";
+      } else if (lowerReason.includes("sonnet")) {
+        modelName = "claude-sonnet-4-6-thinking";
+      } else if (lowerReason.includes("gpt-5")) {
+        modelName = "gpt-5.5";
+      } else if (lowerReason.includes("haiku")) {
+        modelName = "claude-haiku-4-5-20251001";
+      }
+    }
+
+    return {
+      ...t,
+      modelName,
+      actionType,
+      costUsd: absAmt * 0.05,
+    };
+  });
+
+  // Calculate top/most active model
+  const modelCounts: Record<string, number> = {};
+  enrichedTxs.forEach((t) => {
+    modelCounts[t.modelName] = (modelCounts[t.modelName] || 0) + 1;
+  });
+  let mostActiveModel = "None";
+  let maxCount = 0;
+  Object.entries(modelCounts).forEach(([model, count]) => {
+    if (count > maxCount) {
+      mostActiveModel = model;
+      maxCount = count;
+    }
+  });
+
+  // Daily spend grouping for the line/bar chart (last 7 days with activity or chronologically)
+  const dailySpendMap: Record<string, number> = {};
+  // Initialize last 7 days to ensure they exist on the chart
+  for (let i = 6; i >= 0; i--) {
+    const d = new Date();
+    d.setDate(d.getDate() - i);
+    const dateStr = d.toLocaleDateString("en-US", { month: "short", day: "numeric" });
+    dailySpendMap[dateStr] = 0;
+  }
+
+  // Populate daily spend
+  enrichedTxs.forEach((t) => {
+    const dateStr = new Date(t.created_at).toLocaleDateString("en-US", { month: "short", day: "numeric" });
+    if (dateStr in dailySpendMap) {
+      dailySpendMap[dateStr] += Math.abs(t.amount);
+    } else {
+      dailySpendMap[dateStr] = Math.abs(t.amount);
+    }
+  });
+
+  const dailySpendData = Object.entries(dailySpendMap).map(([date, credits]) => ({
+    date,
+    Credits: credits,
+    Spend: Number((credits * 0.05).toFixed(2)),
+  }));
+
+  // Model spend distribution data for pie chart
+  const modelSpendMap: Record<string, number> = {};
+  enrichedTxs.forEach((t) => {
+    modelSpendMap[t.modelName] = (modelSpendMap[t.modelName] || 0) + Math.abs(t.amount);
+  });
+  const COLORS = ["#8B5CF6", "#3B82F6", "#10B981", "#F59E0B", "#EF4444"];
+  const modelDistributionData = Object.entries(modelSpendMap).map(([name, value], idx) => ({
+    name,
+    value,
+    color: COLORS[idx % COLORS.length],
+  }));
+
   return (
     <div className="min-h-screen flex flex-col bg-background text-foreground transition-colors duration-300">
       <Header />
@@ -330,6 +447,182 @@ function Account() {
             </div>
           ))}
         </div>
+
+        {/* Usage Analytics Dashboard */}
+        <section className="rounded-2xl border border-border/50 bg-surface/20 p-6 space-y-6">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+            <div>
+              <h2 className="text-xl font-bold flex items-center gap-2">
+                <Sparkles className="h-5 w-5 text-primary-glow" /> AI Usage & Spend Analytics
+              </h2>
+              <p className="text-xs text-muted-foreground mt-0.5">
+                Monitor model consumption, credits used, and estimated spend based on your developer activity.
+              </p>
+            </div>
+            <div className="flex gap-2 text-xs">
+              <span className="rounded-lg bg-surface-elevated border border-border px-3 py-1.5 font-medium text-foreground">
+                Pricing Tier: <span className="text-primary-glow font-bold">$0.05 / credit</span>
+              </span>
+            </div>
+          </div>
+
+          {/* Metric Sub-cards */}
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+            <div className="rounded-xl border border-border/40 bg-surface-elevated/20 p-4">
+              <div className="text-xs text-muted-foreground">Total Credits Used</div>
+              <div className="text-2xl font-black mt-1 text-primary-glow">
+                {totalCreditsUsed.toLocaleString()} <span className="text-xs font-normal text-muted-foreground">credits</span>
+              </div>
+              <div className="text-[10px] text-muted-foreground mt-1">Sum of all code tasks & chat runs</div>
+            </div>
+            
+            <div className="rounded-xl border border-border/40 bg-surface-elevated/20 p-4">
+              <div className="text-xs text-muted-foreground">Estimated Total Spend</div>
+              <div className="text-2xl font-black mt-1 text-success">
+                ${totalSpendUsd.toFixed(2)} <span className="text-xs font-normal text-muted-foreground">USD</span>
+              </div>
+              <div className="text-[10px] text-muted-foreground mt-1">Based on credit cash value</div>
+            </div>
+
+            <div className="rounded-xl border border-border/40 bg-surface-elevated/20 p-4">
+              <div className="text-xs text-muted-foreground">Most Active Model</div>
+              <div className="text-2xl font-black mt-1 text-accent truncate">
+                {mostActiveModel}
+              </div>
+              <div className="text-[10px] text-muted-foreground mt-1">Model with the highest execution count</div>
+            </div>
+          </div>
+
+          {/* Interactive Chart Panel */}
+          {mounted && spendTxs.length > 0 ? (
+            <div className="grid lg:grid-cols-12 gap-6">
+              {/* Daily Spend Area Chart */}
+              <div className="lg:col-span-8 rounded-xl border border-border/40 bg-surface-elevated/10 p-4 space-y-3">
+                <h3 className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Daily Credit Spend (7 Days)</h3>
+                <div className="h-64 w-full">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <AreaChart data={dailySpendData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
+                      <defs>
+                        <linearGradient id="colorCredits" x1="0" y1="0" x2="0" y2="1">
+                          <stop offset="5%" stopColor="#8B5CF6" stopOpacity={0.3}/>
+                          <stop offset="95%" stopColor="#8B5CF6" stopOpacity={0}/>
+                        </linearGradient>
+                      </defs>
+                      <XAxis dataKey="date" stroke="#94A3B8" fontSize={10} tickLine={false} axisLine={false} />
+                      <YAxis stroke="#94A3B8" fontSize={10} tickLine={false} axisLine={false} />
+                      <Tooltip
+                        contentStyle={{
+                          backgroundColor: "rgba(15, 23, 42, 0.95)",
+                          border: "1px solid rgba(255, 255, 255, 0.1)",
+                          borderRadius: "8px",
+                          color: "#f8fafc",
+                          fontSize: "11px",
+                        }}
+                      />
+                      <Area type="monotone" dataKey="Credits" stroke="#8B5CF6" strokeWidth={2} fillOpacity={1} fill="url(#colorCredits)" />
+                    </AreaChart>
+                  </ResponsiveContainer>
+                </div>
+              </div>
+
+              {/* Model Distribution Pie Chart */}
+              <div className="lg:col-span-4 rounded-xl border border-border/40 bg-surface-elevated/10 p-4 flex flex-col justify-between space-y-3">
+                <h3 className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Spend by AI Model</h3>
+                {modelDistributionData.length > 0 ? (
+                  <>
+                    <div className="h-44 w-full relative grid place-items-center">
+                      <ResponsiveContainer width="100%" height="100%">
+                        <PieChart>
+                          <Pie
+                            data={modelDistributionData}
+                            cx="50%"
+                            cy="50%"
+                            innerRadius={45}
+                            outerRadius={65}
+                            paddingAngle={3}
+                            dataKey="value"
+                          >
+                            {modelDistributionData.map((entry, index) => (
+                              <Cell key={`cell-${index}`} fill={entry.color} />
+                            ))}
+                          </Pie>
+                          <Tooltip
+                            contentStyle={{
+                              backgroundColor: "rgba(15, 23, 42, 0.95)",
+                              border: "1px solid rgba(255, 255, 255, 0.1)",
+                              borderRadius: "8px",
+                              color: "#f8fafc",
+                              fontSize: "11px",
+                            }}
+                          />
+                        </PieChart>
+                      </ResponsiveContainer>
+                      <div className="absolute flex flex-col items-center justify-center">
+                        <span className="text-[10px] uppercase text-muted-foreground tracking-wider font-semibold">Total</span>
+                        <span className="text-base font-bold text-foreground">{totalCreditsUsed} cr</span>
+                      </div>
+                    </div>
+                    {/* Legend */}
+                    <div className="space-y-1">
+                      {modelDistributionData.map((item) => (
+                        <div key={item.name} className="flex items-center justify-between text-xs">
+                          <div className="flex items-center gap-2">
+                            <div className="h-2 w-2 rounded-full" style={{ backgroundColor: item.color }} />
+                            <span className="text-muted-foreground truncate max-w-[120px]">{item.name}</span>
+                          </div>
+                          <span className="font-semibold text-foreground">{item.value} cr</span>
+                        </div>
+                      ))}
+                    </div>
+                  </>
+                ) : (
+                  <div className="h-full flex items-center justify-center text-xs text-muted-foreground">No model distribution data.</div>
+                )}
+              </div>
+            </div>
+          ) : (
+            <div className="rounded-xl border border-dashed border-border/60 bg-surface-elevated/5 p-8 text-center text-sm text-muted-foreground">
+              {spendTxs.length === 0 ? "No AI usage history found. Your spent credits will be graphed here." : "Loading analytics dashboard..."}
+            </div>
+          )}
+
+          {/* Model Usage Logs List */}
+          {spendTxs.length > 0 && (
+            <div className="space-y-3 pt-2">
+              <h3 className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Detailed AI Operation Logs</h3>
+              <div className="rounded-xl border border-border/40 overflow-hidden bg-surface-elevated/5">
+                <div className="max-h-60 overflow-y-auto pr-1">
+                  <table className="w-full text-left text-xs border-collapse">
+                    <thead>
+                      <tr className="border-b border-border/40 bg-surface-elevated/20 text-muted-foreground font-semibold">
+                        <th className="p-3">Date & Time</th>
+                        <th className="p-3">Operation</th>
+                        <th className="p-3">AI Model</th>
+                        <th className="p-3 text-right">Cost</th>
+                        <th className="p-3 text-right">USD Value</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-border/20">
+                      {enrichedTxs.map((t) => (
+                        <tr key={t.id} className="hover:bg-surface-elevated/10 transition">
+                          <td className="p-3 text-muted-foreground">{new Date(t.created_at).toLocaleString()}</td>
+                          <td className="p-3 font-semibold text-foreground">{t.actionType}</td>
+                          <td className="p-3">
+                            <span className="rounded bg-primary/10 border border-primary/20 px-2 py-0.5 text-[10px] font-mono text-primary-glow">
+                              {t.modelName}
+                            </span>
+                          </td>
+                          <td className="p-3 text-right text-destructive font-semibold">-{Math.abs(t.amount)} credits</td>
+                          <td className="p-3 text-right text-muted-foreground">${t.costUsd.toFixed(2)}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </div>
+          )}
+        </section>
 
         {/* Primary Columns */}
         <div className="grid lg:grid-cols-12 gap-6">

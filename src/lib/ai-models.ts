@@ -1,12 +1,10 @@
-export type SiteProviderId = "groq" | "neokens";
+export type SiteProviderId = "neokens";
 
 export const SITE_PROVIDER_LABELS: Record<SiteProviderId, string> = {
-  groq: "Groq (free)",
   neokens: "Neokens (free)",
 };
 
 export const SITE_PROVIDER_MODELS: Record<SiteProviderId, string[]> = {
-  groq: ["llama-3.3-70b-versatile", "llama-3.1-8b-instant"],
   neokens: [
     "claude-sonnet-4-6-thinking",
     "gpt-5.5",
@@ -19,7 +17,6 @@ export const SITE_PROVIDER_MODELS: Record<SiteProviderId, string[]> = {
 };
 
 export const SITE_PROVIDER_DEFAULT_MODEL: Record<SiteProviderId, string> = {
-  groq: "llama-3.3-70b-versatile",
   neokens: "gpt-5.5",
 };
 
@@ -31,6 +28,4 @@ export const SITE_MODEL_DESCRIPTIONS: Record<string, string> = {
   "gemini-3.1-pro": "Huge-context expert for sprawling Roblox systems: datastores, round loops, economies, and end-to-end game architecture across many files.",
   "gemini-3-flash": "Fast all-rounder for everyday Roblox scripting: GUIs, RemoteEvents, and small gameplay edits. Cheap and quick.",
   "claude-haiku-4-5-20251001": "Cheap and careful for cleaning messy Luau, refactoring scripts, and writing tidy ModuleScripts.",
-  "llama-3.3-70b-versatile": "Free Groq workhorse — solid for Roblox scripts, gameplay loops, and normal chat help. No API key needed.",
-  "llama-3.1-8b-instant": "Ultra-fast free Groq option for tiny edits, quick snippets, and simple LocalScripts.",
 };

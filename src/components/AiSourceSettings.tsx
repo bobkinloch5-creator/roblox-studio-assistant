@@ -15,7 +15,7 @@ type SiteOnlyProviderId = SiteProviderId;
 type ProviderId = SiteOnlyProviderId;
 type Mode = "mcp" | "api_key";
 const isSiteProvider = (value: unknown): value is SiteOnlyProviderId =>
-  value === "groq" || value === "neokens";
+  value === "neokens";
 
 type McpRow = {
   id: string;
@@ -28,24 +28,18 @@ type McpRow = {
 
 
 const PROVIDER_LABELS: Record<ProviderId, string> = {
-  groq: SITE_PROVIDER_LABELS.groq,
   neokens: SITE_PROVIDER_LABELS.neokens,
 };
 
 const PROVIDER_MODELS: Record<ProviderId, string[]> = {
-  groq: [
-    ...SITE_PROVIDER_MODELS.groq,
-  ],
   neokens: [
     ...SITE_PROVIDER_MODELS.neokens,
   ],
-
 };
 
-const SITE_ONLY_PROVIDERS: SiteOnlyProviderId[] = ["groq", "neokens"];
+const SITE_ONLY_PROVIDERS: SiteOnlyProviderId[] = ["neokens"];
 
 const PROVIDER_KEY_HINTS: Record<ProviderId, string> = {
-  groq: "Site-wide free key managed by admin (GROQ_API_KEY)",
   neokens: "Site-wide key managed by admin (NEOKENS_API_KEY)",
 };
 
@@ -63,8 +57,8 @@ export function AiSourceSettings({
 
   const [loading, setLoading] = useState(true);
   const [mode, setMode] = useState<Mode>("mcp");
-  const [provider, setProvider] = useState<SiteOnlyProviderId>("groq");
-  const [model, setModel] = useState<string>(PROVIDER_MODELS.groq[0]);
+  const [provider, setProvider] = useState<SiteOnlyProviderId>("neokens");
+  const [model, setModel] = useState<string>(PROVIDER_MODELS.neokens[0]);
   const [keys, setKeys] = useState<Record<string, { label: string | null; updatedAt: string }>>({});
   const [draftKey, setDraftKey] = useState("");
   const [showKey, setShowKey] = useState(false);
@@ -102,7 +96,7 @@ export function AiSourceSettings({
       const res = await get({ data: { projectId } });
       const s = res.settings;
       setMode((s.mode as Mode) ?? "mcp");
-      const nextProvider = isSiteProvider(s.provider) ? s.provider : "groq";
+      const nextProvider = isSiteProvider(s.provider) ? s.provider : "neokens";
       setProvider(nextProvider);
       setModel(s.model ?? PROVIDER_MODELS[nextProvider][0]);
       setKeys(res.keys ?? {});
@@ -225,10 +219,10 @@ export function AiSourceSettings({
                 }`}
               >
                 <div className="flex items-center gap-2 text-xs font-semibold">
-                  <Server className="h-3.5 w-3.5" /> Built-in (Groq)
+                  <Server className="h-3.5 w-3.5" /> Built-in
                 </div>
                 <p className="text-[11px] text-muted-foreground">
-                  Default BloxSmith pipeline running on Groq. Uses your credits.
+                  Default BloxSmith pipeline running on Neokens. Uses your credits.
                 </p>
               </button>
               <button
@@ -247,7 +241,7 @@ export function AiSourceSettings({
                   <Key className="h-3.5 w-3.5" /> Free API
                 </div>
                 <p className="text-[11px] text-muted-foreground">
-                  Use the site Groq or Neokens key with the Roblox model you pick. No OpenAI or Anthropic keys needed.
+                  Use the site Neokens key with the Roblox model you pick. No OpenAI or Anthropic keys needed.
                 </p>
               </button>
             </div>
@@ -365,11 +359,11 @@ export function AiSourceSettings({
                   </label>
                 </div>
 
-                {provider === "neokens" || provider === "groq" ? (
+                {provider === "neokens" ? (
                   <div className="rounded-md border border-primary/30 bg-primary/5 px-3 py-2 text-[11px] text-foreground">
                     <span className="font-semibold">{PROVIDER_LABELS[provider]}</span> uses a shared
-                    site key (<span className="font-mono">{provider === "groq" ? "GROQ_API_KEY" : "NEOKENS_API_KEY"}</span>) — no
-                    per-user key needed.{provider === "groq" ? " Free to use." : " One balance covers GPT, Claude, and Gemini models."}
+                    site key (<span className="font-mono">NEOKENS_API_KEY</span>) — no
+                    per-user key needed. One balance covers GPT, Claude, and Gemini models.
                   </div>
                 ) : (
                 <div>

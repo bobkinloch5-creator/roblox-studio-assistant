@@ -87,7 +87,8 @@ export const PROVIDER_MODELS: Record<ProviderId, string[]> = {
     "gemini-3-flash-preview",
   ],
   groq: [
-    ...SITE_PROVIDER_MODELS.groq,
+    "llama-3.3-70b-versatile",
+    "llama-3.1-8b-instant",
   ],
   // Neokens proxies many models behind a single key — see neokens.com/docs.
   // We list whichever Neokens has working on their side at the moment;
@@ -102,7 +103,7 @@ export const PROVIDER_DEFAULT_MODEL: Record<ProviderId, string> = {
   openai: "gpt-5.5",
   anthropic: "claude-sonnet-4-6",
   google: "gemini-2.5-flash",
-  groq: SITE_PROVIDER_DEFAULT_MODEL.groq,
+  groq: "llama-3.3-70b-versatile",
   neokens: SITE_PROVIDER_DEFAULT_MODEL.neokens,
 };
 

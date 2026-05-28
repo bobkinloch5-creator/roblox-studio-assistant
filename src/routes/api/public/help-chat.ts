@@ -113,18 +113,12 @@ function sanitizeHistory(raw: unknown): Message[] {
 }
 
 function pickGateway() {
-  // Prefer Neokens (cheapest multi-model gateway) when available — gemini-3-flash
-  // is the fast/cheap choice for short Q&A. Fall back to Groq llama-3.1-8b-instant
-  // (free) if Neokens isn't configured.
+  // Use Neokens (cheapest multi-model gateway) — gemini-3-flash
+  // is the fast/cheap choice for short Q&A.
   const neoKey = process.env.NEOKENS_API_KEY || process.env.NEOKENS_KEY;
   if (neoKey) {
     const gw = createProvider("neokens", neoKey);
     return { gw, modelName: "gemini-3-flash", providerName: "neokens" as const };
-  }
-  const groqKey = process.env.GROQ_API_KEY || "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";
-  if (groqKey) {
-    const gw = createGroqProvider(groqKey);
-    return { gw, modelName: BLOXSMITH_FAST_MODEL, providerName: "groq" as const };
   }
   return null;
 }
@@ -203,7 +197,7 @@ export const Route = createFileRoute("/api/public/help-chat")({
               maxOutputTokens: 600,
               maxRetries: 0,
               temperature: 0.4,
-              abortSignal: AbortSignal.timeout(15_000),
+              abortSignal: AbortSignal.timeout(45_000),
             });
             const reply = (text ?? "").trim();
             if (!reply) {

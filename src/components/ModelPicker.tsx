@@ -28,7 +28,7 @@ export function ModelPicker({
   const [saving, setSaving] = useState(false);
   const ref = useRef<HTMLDivElement | null>(null);
 
-  const currentProvider: ProviderId = provider ?? "groq";
+  const currentProvider: ProviderId = (provider && provider in SITE_PROVIDER_LABELS) ? provider : "neokens";
   const currentModel = model ?? SITE_PROVIDER_MODELS[currentProvider][0];
 
   useEffect(() => {
@@ -104,7 +104,7 @@ export function ModelPicker({
             </div>
           ))}
           <div className="px-2 py-1 text-[10px] text-muted-foreground border-t border-border/40 mt-1">
-            Groq & Neokens are free (admin keys). Pick by what you're building in Roblox.
+            Neokens is free (admin keys). Pick by what you're building in Roblox.
           </div>
         </div>
       )}

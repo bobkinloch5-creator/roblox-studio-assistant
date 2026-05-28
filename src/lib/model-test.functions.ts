@@ -25,7 +25,7 @@ export type ModelTestResult = {
 // to do their internal work and emit a one-sentence reply; if a model
 // can't finish a "say hi" prompt inside 45s, it's not usable for live
 // chat anyway.
-const PER_MODEL_TIMEOUT_MS = 45_000;
+const PER_MODEL_TIMEOUT_MS = 90_000;
 
 // Test prompt. The earlier "reply with the exact word ok" wording made
 // reasoning/responses-API models (GPT-5.x) return empty text — they

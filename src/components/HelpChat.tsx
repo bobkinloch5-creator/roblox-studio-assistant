@@ -51,8 +51,8 @@ function defaultPos(open: boolean): Pos {
   const w = open ? PANEL_WIDTH : BUBBLE_SIZE;
   const h = open ? PANEL_HEIGHT : BUBBLE_SIZE;
   return {
-    left: Math.max(EDGE_PAD, window.innerWidth - w - EDGE_PAD),
-    top: Math.max(EDGE_PAD, window.innerHeight - h - EDGE_PAD),
+    left: Math.max(0, window.innerWidth - w - EDGE_PAD),
+    top: Math.max(0, window.innerHeight - h - EDGE_PAD),
   };
 }
 
@@ -60,9 +60,17 @@ function clampPos(pos: Pos, open: boolean): Pos {
   if (typeof window === "undefined") return pos;
   const w = open ? PANEL_WIDTH : BUBBLE_SIZE;
   const h = open ? PANEL_HEIGHT : BUBBLE_SIZE;
+  
+  // Relaxed clamping: allow dragging to the very edges of the screen,
+  // and allow the bubble or panel to be dragged partially off-screen (leaving at least 20px visible)
+  const minLeft = -w + 20;
+  const maxLeft = window.innerWidth - 20;
+  const minTop = 0; // Don't let the header drag handle go above the top edge so it can always be dragged back
+  const maxTop = window.innerHeight - 20;
+  
   return {
-    left: Math.min(Math.max(EDGE_PAD, pos.left), window.innerWidth - w - EDGE_PAD),
-    top: Math.min(Math.max(EDGE_PAD, pos.top), window.innerHeight - h - EDGE_PAD),
+    left: Math.min(Math.max(minLeft, pos.left), maxLeft),
+    top: Math.min(Math.max(minTop, pos.top), maxTop),
   };
 }
 
@@ -172,6 +180,20 @@ export function HelpChat() {
     if (!open) return;
     const t = setTimeout(() => inputRef.current?.focus(), 80);
     return () => clearTimeout(t);
+  }, [open]);
+
+  // Lock body scroll when panel is open
+  useEffect(() => {
+    if (open) {
+      const origBodyOverflow = document.body.style.overflow;
+      const origHtmlOverflow = document.documentElement.style.overflow;
+      document.body.style.overflow = "hidden";
+      document.documentElement.style.overflow = "hidden";
+      return () => {
+        document.body.style.overflow = origBodyOverflow;
+        document.documentElement.style.overflow = origHtmlOverflow;
+      };
+    }
   }, [open]);
 
   async function send(text: string) {
@@ -388,7 +410,7 @@ export function HelpChat() {
 
           <div
             ref={scrollRef}
-            className="flex-1 overflow-y-auto px-3 py-3 space-y-2.5"
+            className="flex-1 overflow-y-auto overscroll-contain px-3 py-3 space-y-2.5"
           >
             {messages.length === 0 && (
               <div className="space-y-3">
