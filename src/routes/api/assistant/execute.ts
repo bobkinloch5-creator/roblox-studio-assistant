@@ -1862,13 +1862,23 @@ export const Route = createFileRoute("/api/assistant/execute")({
                   }
 
                   // Pick the right SDK model handle for this attempt.
-                  // - First attempt always uses the user-resolved gateway
-                  //   (their API key / chosen provider).
-                  // - Later groq-only fallback attempts use the built-in
-                  //   Groq gateway with the larger model.
-                  const model = att.useResolved
-                    ? resolved.model
-                    : (gateway ? gateway(att.modelId) : resolved.model);
+                  // - First attempt always uses the user-resolved gateway.
+                  // - Neokens fallback attempts swap the model name on the same key.
+                  // - Groq-only fallback attempts use the built-in Groq gateway.
+                  let model: any;
+                  if (att.useResolved && att.modelId !== resolved.modelName && resolved.provider === "neokens") {
+                    const neoKey = process.env.NEOKENS_API_KEY;
+                    if (neoKey) {
+                      const { createProvider } = await import("@/lib/ai-providers.server");
+                      model = createProvider("neokens", neoKey)(att.modelId);
+                    } else {
+                      model = resolved.model;
+                    }
+                  } else if (att.useResolved) {
+                    model = resolved.model;
+                  } else {
+                    model = gateway ? gateway(att.modelId) : resolved.model;
+                  }
                   // Build the user turn. When the user attaches screenshots
                   // (vision), send the message as a multi-part content array
                   // so vision-capable models (Gemini 2.5+/3, GPT-5) can see
