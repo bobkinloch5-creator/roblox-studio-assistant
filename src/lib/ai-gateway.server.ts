@@ -38,25 +38,29 @@ export const createGroqProvider = (groqApiKey: string) =>
 
 
 // Model picks for the Groq backend.
-// Default is the 70B for build quality — the 8B model was the previous
-// default but it routinely produced broken JSON, hallucinated Roblox
-// classes (e.g. "DirectionalLight"), and skipped the toolbox workflow.
-// The 70B has the same ~128k context on Groq and is still latency-friendly
-// at the API level. The 8B stays available as an explicit fast-path
-// fallback if a request is small and the user enables it.
-export const BLOXSMITH_MODEL = "llama-3.3-70b-versatile";
+//
+// First-attempt default is the 8B "instant" model — it's the only Groq
+// model fast enough to consistently finish a build inside Cloudflare's
+// worker wall-time. The two-attempt ladder automatically escalates to
+// the 70B `THINK`/`LARGE` model below if the 8B returns broken JSON or
+// times out. When the user explicitly enables Thinking mode, or a build
+// keyword is detected in the request, the higher-quality 70B is used
+// directly from attempt #0 — see the heavy-build detection in
+// `src/routes/api/assistant/execute.ts`.
+export const BLOXSMITH_MODEL = "llama-3.1-8b-instant";
 export const BLOXSMITH_THINK_MODEL = "llama-3.3-70b-versatile";
 export const BLOXSMITH_FAST_MODEL = "llama-3.1-8b-instant";
 // Large-context fallback when the request is still too big. Same family,
 // max headroom (~128k context window on Groq).
 export const BLOXSMITH_LARGE_MODEL = "llama-3.3-70b-versatile";
 
-// Token budgets. The 70B model on Groq has a ~128k context window. We
-// keep the default budget conservative to leave room for tool results
-// and large workspace trees, and use the LARGE budget as the escalation
-// when the prompt + context overflows.
-export const BLOXSMITH_MODEL_TOKEN_BUDGET = 60000;
-export const BLOXSMITH_LARGE_MODEL_TOKEN_BUDGET = 110000;
+// Token budgets. Sized so the first attempt stays well under the model's
+// hard context limit AND the system has time to read + respond inside
+// Cloudflare's worker wall-time. Bumping these too high causes the
+// upstream call to take long enough that the worker aborts mid-response,
+// which the user sees as "couldn't finish this build in time".
+export const BLOXSMITH_MODEL_TOKEN_BUDGET = 30000;
+export const BLOXSMITH_LARGE_MODEL_TOKEN_BUDGET = 100000;
 
 
 export const SYSTEM_PROMPT = `You are BloxSmith — a friendly, premium AI Roblox game builder. Think of yourself as the user's senior Roblox dev pair-programming with them. You are warm, fast, and confident. You build things; you don't lecture.

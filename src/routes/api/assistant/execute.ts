@@ -1775,6 +1775,16 @@ export const Route = createFileRoute("/api/assistant/execute")({
                   budget: number;
                   useResolved: boolean;
                 };
+                // Detect build-heavy intent. The full system prompt carries
+                // the Universal Builder Mandate, UI polish recipe, and toolbox
+                // workflow — worth its ~10k tokens for full builds, but pure
+                // overhead for "add a part" or "fix this script" requests.
+                // Also drives model selection: heavy builds get the 70B from
+                // attempt #0 instead of waiting for the 8B to fail first.
+                const wantsFullPrompt =
+                  !!thinking ||
+                  /\b(game|tycoon|simulator|obby|shop|inventory|menu|hud|loading|splash|main\s*menu|settings|cutscene|quest|admin|rpg|combat|weapon|npc|enemy|boss|pet|map|world|city|lobby|tower\s*defense)\b/i.test(prompt);
+
                 const resolvedBudget = getModelProfile(resolved.provider, resolved.modelName, {
                   thinking: !!thinking,
                 }).inputTokenBudget;
@@ -1783,38 +1793,29 @@ export const Route = createFileRoute("/api/assistant/execute")({
                   thinking: !!thinking,
                   retry: true,
                 }).inputTokenBudget;
-                // Neokens-specific resilience: if the primary is a Claude
-                // (thinking) model — which sometimes 502s or times out at the
-                // proxy — auto-fallback to gpt-5.3-codex then gemini-3-flash
-                // on the SAME Neokens key, before giving up.
-                const isNeokens = resolved.provider === "neokens";
-                const isClaudePrimary = isNeokens && /^claude-/i.test(resolved.modelName);
-                const neokensFallbacks: Attempt[] = isNeokens
-                  ? (isClaudePrimary
-                      ? [
-                          { level: 2, modelId: "gpt-5.3-codex", budget: resolvedBudget, useResolved: true },
-                          { level: 3, modelId: "gemini-3-flash", budget: resolvedBudget, useResolved: true },
-                        ]
-                      : [
-                          { level: 3, modelId: "gemini-3-flash", budget: resolvedBudget, useResolved: true },
-                        ])
-                  : [];
-
+                // For built-in (groq) mode, upgrade the first attempt from the
+                // small fast model to the large model when the request is
+                // build-heavy. This skips a wasted 8B attempt that would
+                // produce a generic or broken JSON response, and goes
+                // straight to the model that can actually handle the work.
+                const builtInLevel0Model =
+                  wantsFullPrompt && hasGroqFallback ? BLOXSMITH_LARGE_MODEL : resolved.modelName;
+                const builtInLevel0Budget =
+                  wantsFullPrompt && hasGroqFallback ? largeBudget : (resolvedBudget || BLOXSMITH_MODEL_TOKEN_BUDGET);
                 const attempts: Attempt[] = resolved.source === "api_key"
                   ? [
                       // Single attempt for user-key mode — the 2nd attempt nearly
                       // doubled wall time on every build. If level 1 errors with a
                       // too-large signal, the loop below escalates to level 3.
                       { level: 1, modelId: resolved.modelName, budget: resolvedBudget, useResolved: true },
-                      ...neokensFallbacks,
                       { level: 3, modelId: resolved.modelName, budget: resolvedBudget, useResolved: true },
                     ]
                   : [
                       // Fast path: one attempt with the small model, one with the large
                       // model as a fallback. Four attempts blew past Cloudflare's
-                      // worker wall-time and caused 502s.
-                      { level: 0, modelId: resolved.modelName, budget: resolvedBudget || BLOXSMITH_MODEL_TOKEN_BUDGET, useResolved: true },
-                      ...neokensFallbacks,
+                      // worker wall-time and caused 502s. Build-heavy requests skip
+                      // straight to the large model on attempt #0.
+                      { level: 0, modelId: builtInLevel0Model, budget: builtInLevel0Budget, useResolved: !wantsFullPrompt || !hasGroqFallback },
                       { level: 2, modelId: hasGroqFallback ? BLOXSMITH_LARGE_MODEL : resolved.modelName, budget: largeBudget || BLOXSMITH_LARGE_MODEL_TOKEN_BUDGET, useResolved: !hasGroqFallback },
                     ];
 
@@ -1822,14 +1823,6 @@ export const Route = createFileRoute("/api/assistant/execute")({
                 const slimSystemTokens = estimateTokens(SLIM_SYSTEM_PROMPT);
                 let lastErr: any = null;
                 let rawText = "";
-
-                // Detect build-heavy intent. The full system prompt carries
-                // the Universal Builder Mandate, UI polish recipe, and toolbox
-                // workflow — worth its ~10k tokens for full builds, but pure
-                // overhead for "add a part" or "fix this script" requests.
-                const wantsFullPrompt =
-                  !!thinking ||
-                  /\b(game|tycoon|simulator|obby|shop|inventory|menu|hud|loading|splash|main\s*menu|settings|cutscene|quest|admin|rpg|combat|weapon|npc|enemy|boss|pet|map|world|city|lobby|tower\s*defense)\b/i.test(prompt);
 
                 for (let i = 0; i < attempts.length; i++) {
                   const att = attempts[i];
@@ -1862,23 +1855,13 @@ export const Route = createFileRoute("/api/assistant/execute")({
                   }
 
                   // Pick the right SDK model handle for this attempt.
-                  // - First attempt always uses the user-resolved gateway.
-                  // - Neokens fallback attempts swap the model name on the same key.
-                  // - Groq-only fallback attempts use the built-in Groq gateway.
-                  let model: any;
-                  if (att.useResolved && att.modelId !== resolved.modelName && resolved.provider === "neokens") {
-                    const neoKey = process.env.NEOKENS_API_KEY;
-                    if (neoKey) {
-                      const { createProvider } = await import("@/lib/ai-providers.server");
-                      model = createProvider("neokens", neoKey)(att.modelId);
-                    } else {
-                      model = resolved.model;
-                    }
-                  } else if (att.useResolved) {
-                    model = resolved.model;
-                  } else {
-                    model = gateway ? gateway(att.modelId) : resolved.model;
-                  }
+                  // - First attempt always uses the user-resolved gateway
+                  //   (their API key / chosen provider).
+                  // - Later groq-only fallback attempts use the built-in
+                  //   Groq gateway with the larger model.
+                  const model = att.useResolved
+                    ? resolved.model
+                    : (gateway ? gateway(att.modelId) : resolved.model);
                   // Build the user turn. When the user attaches screenshots
                   // (vision), send the message as a multi-part content array
                   // so vision-capable models (Gemini 2.5+/3, GPT-5) can see
@@ -2018,9 +2001,8 @@ export const Route = createFileRoute("/api/assistant/execute")({
                     const isTooLarge = /too large|context length|token|tpm|413/i.test(msg);
                     const isAbort = err?.name === "AbortError" || /aborted|abort|timeout/i.test(msg);
                     const isBadJson = /json|no json object|unexpected end|unterminated|truncated/i.test(msg);
-                    const isProxyErr = /bad gateway|\b50[0234]\b|provider returned error|provider error|upstream|gateway timeout|service unavailable|fetch failed|ECONN/i.test(msg);
                     console.error(
-                      `[ai-execute] attempt ${i} failed (tooLarge=${isTooLarge}, abort=${isAbort}, badJson=${isBadJson}, proxy=${isProxyErr}) model=${att.modelId}: ${msg.slice(0, 400)}`,
+                      `[ai-execute] attempt ${i} failed (tooLarge=${isTooLarge}, abort=${isAbort}, badJson=${isBadJson}): ${msg.slice(0, 300)}`,
                     );
                     if (!isTooLarge && !isAbort && rawText && gateway) {
                       try {
@@ -2033,18 +2015,11 @@ export const Route = createFileRoute("/api/assistant/execute")({
                         // fall through
                       }
                     }
-                    // Retry on token-size errors, aborts/timeouts, AND on
-                    // upstream proxy errors (Neokens 502 / claude proxy hiccups).
-                    // The next attempt typically swaps to a fallback model
-                    // (gpt-5.3-codex or gemini-3-flash) on the same Neokens key.
-                    if ((isTooLarge || isAbort || isBadJson || isProxyErr) && i < attempts.length - 1) continue;
-                    // Surface the real provider error so users can see what
-                    // Neokens actually returned instead of a generic "Bad Gateway".
-                    if (isProxyErr && i === attempts.length - 1) {
-                      lastErr = new Error(
-                        `AI provider error (after ${attempts.length} attempts): ${msg.slice(0, 240)}`,
-                      );
-                    }
+                    // Retry on token-size errors AND on aborts/timeouts — a 2nd
+                    // attempt with a smaller context and slim prompt usually fits
+                    // inside the wall-clock budget. Other errors (network, JSON
+                    // parse, model 500) don't benefit from a retry.
+                    if ((isTooLarge || isAbort || isBadJson) && i < attempts.length - 1) continue;
                     // Friendlier final message for aborts so the user knows to retry.
                     if (isAbort) {
                       lastErr = new Error(

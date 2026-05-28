@@ -11,9 +11,6 @@ type GenerateTextFn = (opts: any) => Promise<{ text: string;[k: string]: any }>;
 const TOOL_VALIDATION_RE =
   /tool[_ ]use[_ ]failed|tool call validation|attempted to call tool|tool .*not in request\.tools|tools? (are|is) not supported|function calling|invalid tool|unsupported.*tool/i;
 
-const TOOL_PROXY_RETRY_RE =
-  /bad gateway|\b50[0234]\b|provider returned error|provider error|upstream|gateway timeout|service unavailable/i;
-
 const JSON_ONLY_INSTRUCTION = `
 
 === STRICT OUTPUT MODE (retry) ===
@@ -61,10 +58,10 @@ export async function generateTextWithToolFallback(
     return await generateText(opts);
   } catch (err: any) {
     const msg = String(err?.message ?? err);
-    if (!TOOL_VALIDATION_RE.test(msg) && !(hasTools && TOOL_PROXY_RETRY_RE.test(msg))) throw err;
+    if (!TOOL_VALIDATION_RE.test(msg)) throw err;
 
     console.warn(
-      `[ai] ${label}: tool/proxy failure, retrying without tools. raw=${msg.slice(0, 240)}`,
+      `[ai] ${label}: tool validation failed, retrying without tools. raw=${msg.slice(0, 240)}`,
     );
 
     // Strip tools/stopWhen and append a strict JSON-only instruction.

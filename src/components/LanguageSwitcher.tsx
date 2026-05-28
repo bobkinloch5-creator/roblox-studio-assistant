@@ -188,7 +188,16 @@ function protectTechnicalText() {
 }
 
 export function LanguageSwitcher({ compact = false }: { compact?: boolean }) {
-  const [language, setLanguage] = useState(getStoredLanguage);
+  // Start at the SSR-safe default ("en") and read the stored language in
+  // an effect. Reading localStorage in a lazy state initializer caused
+  // React error #419 (hydration mismatch) for any user who had previously
+  // picked a non-English language — the server-rendered HTML said "en" but
+  // the client immediately re-rendered with the stored value.
+  const [language, setLanguage] = useState("en");
+
+  useEffect(() => {
+    setLanguage(getStoredLanguage());
+  }, []);
 
   const languageLabel = useMemo(
     () => LANGUAGES.find((item) => item.code === language)?.label ?? "Language",

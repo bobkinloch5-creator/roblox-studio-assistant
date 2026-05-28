@@ -860,7 +860,7 @@ ${ROBLOX_KNOWLEDGE_PROMPT}${includeProject && memoryBlock ? `\n\n${memoryBlock}`
         console.log(`[chatWithAI] ${label} model=${modelLabel} messages=${messages.length}`);
         return await generateText({
           model,
-          messages: messages as any,
+          messages: messages as Parameters<typeof generateText>[0]["messages"],
           maxOutputTokens,
           maxRetries: 0,
           timeout: { totalMs: timeoutMs, stepMs: timeoutMs, chunkMs: 10_000 },
