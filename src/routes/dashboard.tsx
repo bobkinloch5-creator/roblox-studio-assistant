@@ -5,7 +5,6 @@ import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useServerFn } from "@tanstack/react-start";
 import { createProject as createProjectFn } from "@/lib/projects.functions";
-import { ensureStarterProject as ensureStarterFn } from "@/lib/stats.functions";
 import { GAME_TYPES, STARTER_TEMPLATES } from "@/lib/templates";
 import {
   Plus,
@@ -106,7 +105,6 @@ function Dashboard() {
     description: "",
   });
   const runCreate = useServerFn(createProjectFn);
-  const runEnsureStarter = useServerFn(ensureStarterFn);
 
   useEffect(() => {
     if (!loading && !user) nav({ to: "/login" });
@@ -122,28 +120,9 @@ function Dashboard() {
         .order("updated_at", { ascending: false });
       const list = (data ?? []) as Project[];
       setProjects(list);
-      // Auto-create starter project for brand-new users (once).
-      const FLAG = `bloxsmith.starter.${user.id}`;
-      if (list.length === 0 && typeof window !== "undefined" && !localStorage.getItem(FLAG)) {
-        localStorage.setItem(FLAG, "1");
-        try {
-          const res = await runEnsureStarter({});
-          if (res.created) {
-            toast.success("We created a starter project to get you going 🚀");
-            const { data: refreshed } = await supabase
-              .from("projects")
-              .select("id,name,game_type,updated_at,status")
-              .eq("user_id", user.id)
-              .order("updated_at", { ascending: false });
-            setProjects((refreshed ?? []) as Project[]);
-          }
-        } catch {
-          /* ignore */
-        }
-      }
     };
     loadProjects();
-  }, [user, runEnsureStarter]);
+  }, [user]);
 
   const submit = async () => {
     if (!form.name.trim()) return toast.error("Name your project");
