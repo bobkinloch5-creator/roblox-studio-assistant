@@ -2018,8 +2018,9 @@ export const Route = createFileRoute("/api/assistant/execute")({
                     const isTooLarge = /too large|context length|token|tpm|413/i.test(msg);
                     const isAbort = err?.name === "AbortError" || /aborted|abort|timeout/i.test(msg);
                     const isBadJson = /json|no json object|unexpected end|unterminated|truncated/i.test(msg);
+                    const isProxyErr = /bad gateway|\b50[0234]\b|provider returned error|provider error|upstream|gateway timeout|service unavailable|fetch failed|ECONN/i.test(msg);
                     console.error(
-                      `[ai-execute] attempt ${i} failed (tooLarge=${isTooLarge}, abort=${isAbort}, badJson=${isBadJson}): ${msg.slice(0, 300)}`,
+                      `[ai-execute] attempt ${i} failed (tooLarge=${isTooLarge}, abort=${isAbort}, badJson=${isBadJson}, proxy=${isProxyErr}) model=${att.modelId}: ${msg.slice(0, 400)}`,
                     );
                     if (!isTooLarge && !isAbort && rawText && gateway) {
                       try {
@@ -2032,11 +2033,18 @@ export const Route = createFileRoute("/api/assistant/execute")({
                         // fall through
                       }
                     }
-                    // Retry on token-size errors AND on aborts/timeouts — a 2nd
-                    // attempt with a smaller context and slim prompt usually fits
-                    // inside the wall-clock budget. Other errors (network, JSON
-                    // parse, model 500) don't benefit from a retry.
-                    if ((isTooLarge || isAbort || isBadJson) && i < attempts.length - 1) continue;
+                    // Retry on token-size errors, aborts/timeouts, AND on
+                    // upstream proxy errors (Neokens 502 / claude proxy hiccups).
+                    // The next attempt typically swaps to a fallback model
+                    // (gpt-5.3-codex or gemini-3-flash) on the same Neokens key.
+                    if ((isTooLarge || isAbort || isBadJson || isProxyErr) && i < attempts.length - 1) continue;
+                    // Surface the real provider error so users can see what
+                    // Neokens actually returned instead of a generic "Bad Gateway".
+                    if (isProxyErr && i === attempts.length - 1) {
+                      lastErr = new Error(
+                        `AI provider error (after ${attempts.length} attempts): ${msg.slice(0, 240)}`,
+                      );
+                    }
                     // Friendlier final message for aborts so the user knows to retry.
                     if (isAbort) {
                       lastErr = new Error(
