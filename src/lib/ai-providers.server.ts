@@ -258,7 +258,7 @@ export function resolveBuiltInGateway(opts: { kind: ModelKind; thinking?: boolea
     return { source: "mcp", provider: "neokens", modelName, model: gw(modelName) };
   }
 
-  const groqKey = process.env.GROQ_API_KEY || "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";
+  const groqKey = process.env.GROQ_API_KEY;
   if (!groqKey) throw new Error("AI gateway not configured — NEOKENS_API_KEY or GROQ_API_KEY missing.");
   const gw = createGroqProvider(groqKey);
   const modelName =
@@ -319,7 +319,7 @@ export async function resolveAiGateway(opts: {
     return { source: "api_key", provider, modelName, model: gw(modelName) };
   }
   if (provider === "groq") {
-    const groqKey = process.env.GROQ_API_KEY || "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";
+    const groqKey = process.env.GROQ_API_KEY;
     if (!groqKey) return fallback();
     const gw = createGroqProvider(groqKey);
     return { source: "api_key", provider, modelName, model: gw(modelName) };
