@@ -74,6 +74,7 @@ export const PROVIDER_LABELS: Record<ProviderId, string> = {
 export const PROVIDER_MODELS: Record<ProviderId, string[]> = {
   openai: ["gpt-5.5", "gpt-5", "gpt-5-mini", "gpt-5-nano", "gpt-5-codex", "gpt-4.1", "gpt-4.1-mini"],
   anthropic: [
+    "claude-opus-4-7-thinking",
     "claude-sonnet-4-7-thinking",
     "claude-sonnet-4-6",
     "claude-sonnet-4-6-thinking",
