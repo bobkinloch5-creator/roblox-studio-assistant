@@ -1,5 +1,5 @@
 import { memo, useMemo, useState } from "react";
-import { Check, Copy } from "lucide-react";
+import { Check, Copy, ExternalLink } from "lucide-react";
 import { toast } from "sonner";
 
 type Block = { type: "text"; content: string } | { type: "code"; lang: string; content: string };
@@ -61,7 +61,73 @@ function CodeBlock({ lang, content }: { lang: string; content: string }) {
   );
 }
 
-function InlineText({ content }: { content: string }) {
+type InlinePart =
+  | { type: "text"; content: string }
+  | { type: "image"; alt: string; src: string };
+
+function isSafeImageUrl(src: string) {
+  try {
+    const url = new URL(src);
+    if (url.protocol !== "https:" && url.protocol !== "http:") return false;
+    return (
+      /\.(png|jpe?g|webp|gif)$/i.test(url.pathname) ||
+      url.pathname.includes("/storage/v1/object/public/generated-images/")
+    );
+  } catch {
+    return false;
+  }
+}
+
+function parseInlineImages(content: string): InlinePart[] {
+  const parts: InlinePart[] = [];
+  const re = /!\[([^\]]*)\]\((https?:\/\/[^)\s]+)\)/g;
+  let last = 0;
+  let match: RegExpExecArray | null;
+
+  while ((match = re.exec(content)) !== null) {
+    if (match.index > last) parts.push({ type: "text", content: content.slice(last, match.index) });
+    const alt = match[1]?.trim() || "Generated image";
+    const src = match[2]?.trim();
+    if (src && isSafeImageUrl(src)) {
+      parts.push({ type: "image", alt, src });
+    } else {
+      parts.push({ type: "text", content: match[0] });
+    }
+    last = re.lastIndex;
+  }
+
+  if (last < content.length) parts.push({ type: "text", content: content.slice(last) });
+  return parts.length ? parts : [{ type: "text", content }];
+}
+
+function ImagePreview({ alt, src }: { alt: string; src: string }) {
+  return (
+    <figure className="my-3 overflow-hidden rounded-xl border border-border/70 bg-background/55 shadow-[var(--shadow-card)]">
+      <a href={src} target="_blank" rel="noopener noreferrer" className="block">
+        <img
+          src={src}
+          alt={alt}
+          loading="lazy"
+          className="max-h-[22rem] w-full bg-black/30 object-contain"
+        />
+      </a>
+      <figcaption className="flex items-center justify-between gap-3 border-t border-border/60 px-3 py-2 text-[11px] text-muted-foreground">
+        <span className="min-w-0 truncate">{alt}</span>
+        <a
+          href={src}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="inline-flex shrink-0 items-center gap-1 rounded-md border border-border px-2 py-1 font-medium text-foreground hover:bg-surface-elevated transition"
+        >
+          <ExternalLink className="h-3 w-3" />
+          Open
+        </a>
+      </figcaption>
+    </figure>
+  );
+}
+
+function RichText({ content }: { content: string }) {
   // Very light markdown: **bold**, `inline code`, preserve newlines.
   const parts = content.split(/(`[^`]+`|\*\*[^*]+\*\*)/g);
   return (
@@ -86,6 +152,21 @@ function InlineText({ content }: { content: string }) {
         }
         return <span key={i}>{p}</span>;
       })}
+    </div>
+  );
+}
+
+function InlineText({ content }: { content: string }) {
+  const parts = parseInlineImages(content);
+  return (
+    <div className="space-y-1">
+      {parts.map((part, i) =>
+        part.type === "image" ? (
+          <ImagePreview key={`${part.src}-${i}`} alt={part.alt} src={part.src} />
+        ) : part.content.trim() ? (
+          <RichText key={i} content={part.content} />
+        ) : null,
+      )}
     </div>
   );
 }

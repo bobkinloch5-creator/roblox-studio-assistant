@@ -94,6 +94,36 @@ type Project = {
   user_id: string;
 };
 type Msg = { id: string; role: "user" | "assistant"; content: string; actions?: any };
+type ImageAspectRatio = "16:9" | "1:1" | "9:16" | "4:3" | "3:4";
+
+const IMAGE_TYPES: Array<{ label: string; value: string; aspect: ImageAspectRatio }> = [
+  { label: "Game thumbnail", value: "Roblox game thumbnail", aspect: "16:9" },
+  { label: "Game icon", value: "Roblox game icon", aspect: "1:1" },
+  { label: "Decal / badge", value: "Roblox decal or badge art", aspect: "1:1" },
+  { label: "Gamepass image", value: "Roblox gamepass image", aspect: "1:1" },
+  { label: "Banner / promo", value: "Roblox promotional banner", aspect: "16:9" },
+  { label: "Portrait art", value: "Roblox portrait mobile art", aspect: "9:16" },
+];
+
+const IMAGE_STYLES = [
+  "Colorful Roblox 3D",
+  "Premium simulator thumbnail",
+  "Neon sci-fi",
+  "Cute cartoon",
+  "Dark horror",
+  "Clean minimal icon",
+  "Anime-inspired",
+  "Pirate adventure",
+  "Fantasy RPG",
+];
+
+function isImageGenerationRequest(text: string) {
+  return /\b(generate|make|create|design|draw|image|thumbnail|icon|logo|decal|badge|gamepass|banner|poster|promo art|artwork|splash art)\b/i.test(
+    text,
+  ) && /\b(image|thumbnail|icon|logo|decal|badge|gamepass|banner|poster|promo art|artwork|splash art)\b/i.test(
+    text,
+  );
+}
 
 function ProjectEditor() {
   const { projectId } = Route.useParams();
@@ -333,6 +363,14 @@ function ProjectEditor() {
   >([]);
   const [showHistory, setShowHistory] = useState(false);
   const [prompt, setPrompt] = useState("");
+  const [showImageGenerator, setShowImageGenerator] = useState(false);
+  const [imageSubject, setImageSubject] = useState("");
+  const [imageType, setImageType] = useState(IMAGE_TYPES[0].value);
+  const [imageAspect, setImageAspect] = useState<ImageAspectRatio>("16:9");
+  const [imageStyle, setImageStyle] = useState(IMAGE_STYLES[0]);
+  const [imageTitleText, setImageTitleText] = useState("");
+  const [imageColors, setImageColors] = useState("");
+  const [imageDetails, setImageDetails] = useState("");
   // Image attachments for chat mode (vision). data: URLs, max 4, ~6MB each
   // pre-encoded — schema caps at 8.5MB encoded.
   const [attachments, setAttachments] = useState<string[]>([]);
@@ -485,6 +523,7 @@ function ProjectEditor() {
     if (v) setPlanMode(false);
   };
   const CHAT_COST = 1;
+  const outOfChatCredits = credits !== null && credits < CHAT_COST;
   const runChat = useServerFn(chatWithAI);
   const [thinking, setThinking] = useState(false);
   // Web-search toggle: when on, the AI is pushed to call the web_search /
@@ -1292,16 +1331,21 @@ function ProjectEditor() {
     }
   };
 
-  const runChatRequest = async (userPrompt: string, images: string[] = []) => {
+  const runChatRequest = async (
+    userPrompt: string,
+    images: string[] = [],
+    opts?: { userBubble?: string; kind?: string },
+  ) => {
     if (aiBusy) return;
-    if (credits !== null && credits < CHAT_COST) {
+    if (outOfChatCredits) {
       toast.error("Not enough credits for chat.");
       return;
     }
     setAiBusy(true);
+    const bubbleBase = opts?.userBubble ?? userPrompt;
     const bubble = images.length
-      ? `${userPrompt}\n\n_📎 attached ${images.length} image${images.length === 1 ? "" : "s"}_`
-      : userPrompt;
+      ? `${bubbleBase}\n\n_📎 attached ${images.length} image${images.length === 1 ? "" : "s"}_`
+      : bubbleBase;
     await pushMsg("user", bubble);
     const tempAssistantId = crypto.randomUUID();
     setMessages((m) => [
@@ -1319,11 +1363,12 @@ function ProjectEditor() {
           ...(images.length ? { attachments: images } : {}),
         },
       });
-      const realId = await persistMsg("assistant", out.reply, { kind: "chat" });
+      const kind = opts?.kind ?? "chat";
+      const realId = await persistMsg("assistant", out.reply, { kind });
       setMessages((m) =>
         m.map((x) =>
           x.id === tempAssistantId
-            ? { ...x, id: realId ?? tempAssistantId, content: out.reply, actions: { kind: "chat" } }
+            ? { ...x, id: realId ?? tempAssistantId, content: out.reply, actions: { kind } }
             : x,
         ),
       );
@@ -1356,6 +1401,74 @@ function ProjectEditor() {
     }
   };
 
+  const buildImagePrompt = (raw: {
+    subject: string;
+    type: string;
+    aspect: ImageAspectRatio;
+    style: string;
+    titleText?: string;
+    colors?: string;
+    details?: string;
+  }) => {
+    const subject = raw.subject.trim() || project?.name || project?.game_type || "my Roblox game";
+    return [
+      "IMAGE-ONLY REQUEST: Generate a brand-new Roblox-ready image and show it in this chat.",
+      "Do not create, modify, queue, or push any Roblox Studio files, scripts, instances, UI, or plugin operations.",
+      "You MUST call the generate_image tool exactly for this image request.",
+      `Image type: ${raw.type}.`,
+      `Aspect ratio: ${raw.aspect}.`,
+      `Main idea/theme: ${subject}.`,
+      `Visual style: ${raw.style}.`,
+      raw.titleText?.trim()
+        ? `Text to render in the image: ${raw.titleText.trim()}. Keep it bold, readable, and short.`
+        : "Leave clean room for optional title text, but do not add random unreadable words.",
+      raw.colors?.trim() ? `Preferred colors: ${raw.colors.trim()}.` : "",
+      raw.details?.trim() ? `Extra details: ${raw.details.trim()}.` : "",
+      "Make it polished, colorful, high-energy, clickable, Roblox-friendly, and suitable for upload through Creator Dashboard or Studio Asset Manager.",
+      "In your final reply, embed the exact generated image markdown returned by the tool so the preview appears inline, then add one short note about how to use/download it.",
+    ]
+      .filter(Boolean)
+      .join("\n");
+  };
+
+  const openImageGenerator = () => {
+    const seed = prompt.trim() || imageSubject || project?.name || project?.game_type || "";
+    setImageSubject(seed);
+    setShowImageGenerator(true);
+  };
+
+  const runImageGenerationChat = async (
+    imagePrompt: string,
+    userBubble: string,
+    images: string[] = [],
+  ) => {
+    setShowChat(true);
+    setMobileTab("chat");
+    await runChatRequest(imagePrompt, images, { userBubble, kind: "image_generation" });
+  };
+
+  const submitImageGenerator = async () => {
+    if (aiBusy) return;
+    if (outOfChatCredits) {
+      toast.error("Not enough credits for image chat.");
+      return;
+    }
+    const subject = imageSubject.trim() || prompt.trim() || project?.name || "my Roblox game";
+    const imagePrompt = buildImagePrompt({
+      subject,
+      type: imageType,
+      aspect: imageAspect,
+      style: imageStyle,
+      titleText: imageTitleText,
+      colors: imageColors,
+      details: imageDetails,
+    });
+    setShowImageGenerator(false);
+    setPrompt("");
+    setAttachments([]);
+    await runImageGenerationChat(imagePrompt, `🎨 Generate image: ${subject}`, attachments);
+  };
+
   const send = async () => {
     if ((!prompt.trim() && attachments.length === 0) || aiBusy) return;
     const p = prompt;
@@ -1370,24 +1483,24 @@ function ProjectEditor() {
     const composedPrompt = (p || "Analyze the attached image(s) and help.") + webHint;
     if (chatMode) await runChatRequest(composedPrompt, imgs);
     else if (planMode) await runPlanRequest(composedPrompt);
-    else await runGenerate(composedPrompt, { images: imgs });
+    else if (isImageGenerationRequest(p)) {
+      const imagePrompt = buildImagePrompt({
+        subject: composedPrompt,
+        type: "Roblox generated image",
+        aspect: "16:9",
+        style: "Colorful Roblox 3D",
+      });
+      await runImageGenerationChat(imagePrompt, `🎨 Generate image: ${p}`, imgs);
+    } else await runGenerate(composedPrompt, { images: imgs });
   };
 
   const generateImage = async () => {
     if (aiBusy) return;
-    if (outOfCredits) {
-      toast.error("Out of credits. Buy more or wait for the daily refill.");
+    if (outOfChatCredits) {
+      toast.error("Not enough credits for image chat.");
       return;
     }
-    const theme = prompt.trim() || project?.name || project?.game_type || "my Roblox game";
-    const imagePrompt =
-      "Generate a Roblox-ready 16:9 game thumbnail image using the generate_image tool. " +
-      "Make it colorful, premium, high-energy, clickable, and polished, with dramatic lighting and room for bold title text. " +
-      `Theme: ${theme}. ` +
-      "Embed the generated image preview in your reply as markdown and explain how to use it as a Roblox thumbnail.";
-    setPrompt("");
-    setAttachments([]);
-    await runGenerate(imagePrompt);
+    openImageGenerator();
   };
 
   const buildFromPlan = async (msgId: string) => {
@@ -2731,8 +2844,8 @@ function ProjectEditor() {
                     <button
                       type="button"
                       onClick={generateImage}
-                      disabled={aiBusy || outOfCredits}
-                      title="Generate Roblox thumbnail, icon, decal, badge, gamepass image, or promo art"
+                      disabled={aiBusy || outOfChatCredits}
+                      title="Generate a Roblox thumbnail, icon, decal, badge, gamepass image, or promo art in chat"
                       className="inline-flex h-8 items-center gap-1 rounded-lg border border-orange-400/40 bg-orange-500/10 px-2 text-orange-300 hover:bg-orange-500/20 transition disabled:opacity-40"
                     >
                       <Palette className="h-4 w-4" />
@@ -2913,6 +3026,154 @@ function ProjectEditor() {
 
       {showAiSourceModal && (
         <AiSourceSettings projectId={projectId} onClose={() => setShowAiSourceModal(false)} />
+      )}
+
+      {showImageGenerator && (
+        <div
+          className="fixed inset-0 z-50 grid place-items-center bg-background/80 backdrop-blur-sm p-4"
+          onClick={() => !aiBusy && setShowImageGenerator(false)}
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            className="w-full max-w-2xl rounded-2xl border border-border bg-surface shadow-2xl"
+          >
+            <div className="flex items-center justify-between border-b border-border p-4">
+              <div className="flex items-center gap-2">
+                <Palette className="h-4 w-4 text-orange-300" />
+                <h2 className="text-sm font-semibold">Generate image in chat</h2>
+              </div>
+              <button
+                onClick={() => !aiBusy && setShowImageGenerator(false)}
+                className="text-muted-foreground hover:text-foreground"
+                aria-label="Close image generator"
+                type="button"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+            <div className="max-h-[calc(100dvh-9rem)] overflow-y-auto p-4 space-y-4">
+              <div className="grid gap-3 sm:grid-cols-2">
+                <label className="space-y-1.5 sm:col-span-2">
+                  <span className="text-xs font-medium text-muted-foreground">What should it show?</span>
+                  <textarea
+                    value={imageSubject}
+                    onChange={(e) => setImageSubject(e.target.value)}
+                    placeholder="Example: a mining simulator with glowing crystals, lava caves, pets, and a huge readable MINING TYCOON title"
+                    className="h-24 w-full resize-none rounded-lg border border-border bg-background p-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary/40"
+                  />
+                </label>
+
+                <label className="space-y-1.5">
+                  <span className="text-xs font-medium text-muted-foreground">Image type</span>
+                  <select
+                    value={imageType}
+                    onChange={(e) => {
+                      const next = IMAGE_TYPES.find((item) => item.value === e.target.value);
+                      setImageType(e.target.value);
+                      if (next) setImageAspect(next.aspect);
+                    }}
+                    className="h-10 w-full rounded-lg border border-border bg-background px-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary/40"
+                  >
+                    {IMAGE_TYPES.map((item) => (
+                      <option key={item.value} value={item.value}>
+                        {item.label}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+
+                <label className="space-y-1.5">
+                  <span className="text-xs font-medium text-muted-foreground">Aspect ratio</span>
+                  <select
+                    value={imageAspect}
+                    onChange={(e) => setImageAspect(e.target.value as ImageAspectRatio)}
+                    className="h-10 w-full rounded-lg border border-border bg-background px-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary/40"
+                  >
+                    {(["16:9", "1:1", "9:16", "4:3", "3:4"] as ImageAspectRatio[]).map((ratio) => (
+                      <option key={ratio} value={ratio}>
+                        {ratio}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+
+                <label className="space-y-1.5">
+                  <span className="text-xs font-medium text-muted-foreground">Style</span>
+                  <select
+                    value={imageStyle}
+                    onChange={(e) => setImageStyle(e.target.value)}
+                    className="h-10 w-full rounded-lg border border-border bg-background px-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary/40"
+                  >
+                    {IMAGE_STYLES.map((style) => (
+                      <option key={style} value={style}>
+                        {style}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+
+                <label className="space-y-1.5">
+                  <span className="text-xs font-medium text-muted-foreground">Title text</span>
+                  <input
+                    value={imageTitleText}
+                    onChange={(e) => setImageTitleText(e.target.value)}
+                    placeholder="Optional: OBBY RUSH"
+                    className="h-10 w-full rounded-lg border border-border bg-background px-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary/40"
+                  />
+                </label>
+
+                <label className="space-y-1.5">
+                  <span className="text-xs font-medium text-muted-foreground">Colors</span>
+                  <input
+                    value={imageColors}
+                    onChange={(e) => setImageColors(e.target.value)}
+                    placeholder="Optional: cyan, orange, purple neon"
+                    className="h-10 w-full rounded-lg border border-border bg-background px-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary/40"
+                  />
+                </label>
+
+                <label className="space-y-1.5">
+                  <span className="text-xs font-medium text-muted-foreground">Extra details</span>
+                  <input
+                    value={imageDetails}
+                    onChange={(e) => setImageDetails(e.target.value)}
+                    placeholder="Optional: no text, more pets, brighter lighting, close-up character"
+                    className="h-10 w-full rounded-lg border border-border bg-background px-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary/40"
+                  />
+                </label>
+              </div>
+
+              <div className="flex flex-col gap-3 border-t border-border pt-4 sm:flex-row sm:items-center sm:justify-between">
+                <span className="text-xs text-muted-foreground">
+                  Appears in chat only · no Studio changes · {CHAT_COST} credit
+                </span>
+                <div className="flex items-center justify-end gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setShowImageGenerator(false)}
+                    disabled={aiBusy}
+                    className="rounded-lg border border-border px-3 py-2 text-sm hover:bg-surface-elevated disabled:opacity-50"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="button"
+                    onClick={submitImageGenerator}
+                    disabled={aiBusy || outOfChatCredits || !imageSubject.trim()}
+                    className="inline-flex items-center gap-2 rounded-lg bg-orange-500 px-4 py-2 text-sm font-semibold text-black hover:bg-orange-400 transition disabled:opacity-50"
+                  >
+                    {aiBusy ? (
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                    ) : (
+                      <Palette className="h-4 w-4" />
+                    )}
+                    Generate in chat
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
       )}
 
       {showFix && (

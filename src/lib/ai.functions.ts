@@ -139,6 +139,11 @@ function pickGenerationTools(
   const add = (name: string) => {
     if (name in allTools) picked[name] = allTools[name];
   };
+  const wantsGeneratedImage =
+    /\b(generate|make|create|design|draw)\b/i.test(lower) &&
+    /\b(image|thumbnail|icon|logo|decal|artwork|poster|banner|loading screen|badge|gamepass|promo art)\b/i.test(
+      lower,
+    );
 
   if (
     /\b(datastore|remoteevent|remotefunction|marketplaceservice|pathfindingservice|tweenservice|runservice|animation|animator|humanoid|screen.?gui|luau|creator hub|api reference|docs|documentation)\b/i.test(
@@ -163,6 +168,7 @@ function pickGenerationTools(
     add("roblox_asset_search");
   }
   if (
+    !wantsGeneratedImage &&
     /\b(asset info|asset details|verify asset|thumbnail|preview|safe model|scan scripts?)\b/i.test(
       lower,
     )
@@ -758,6 +764,11 @@ function pickChatTools(prompt: string, allTools: Record<string, any>): Record<st
   const add = (name: string) => {
     if (name in allTools) picked[name] = allTools[name];
   };
+  const wantsGeneratedImage =
+    /\b(generate|make|create|design|draw)\b/i.test(lower) &&
+    /\b(image|thumbnail|icon|logo|decal|artwork|poster|banner|loading screen|badge|gamepass|promo art)\b/i.test(
+      lower,
+    );
 
   if (
     /\b(datastore|remoteevent|remotefunction|marketplaceservice|pathfindingservice|tweenservice|runservice|animation|animator|humanoid|screen.?gui|luau|creator hub|api reference|docs|documentation)\b/i.test(
@@ -775,6 +786,7 @@ function pickChatTools(prompt: string, allTools: Record<string, any>): Record<st
     add("fetch_url");
   }
   if (
+    !wantsGeneratedImage &&
     /\b(toolbox|creator store|free model|asset|model id|insert model|use a model|marketplace|skybox|music|sound|decal|image id)\b/i.test(
       lower,
     )
@@ -782,12 +794,21 @@ function pickChatTools(prompt: string, allTools: Record<string, any>): Record<st
     add("roblox_asset_search");
   }
   if (
+    !wantsGeneratedImage &&
     /\b(asset info|asset details|verify asset|thumbnail|preview|safe model|scan scripts?)\b/i.test(
       lower,
     )
   ) {
     add("roblox_asset_info");
     add("roblox_asset_thumbnail");
+  }
+  if (
+    wantsGeneratedImage ||
+    /\b(image|thumbnail|icon|logo|decal|artwork|poster|banner|loading screen|badge|gamepass|promo art)\b/i.test(
+      lower,
+    )
+  ) {
+    add("generate_image");
   }
 
   return picked;
@@ -871,6 +892,7 @@ CHAT MODE RULES - never break these:
 - Be conversational and helpful. Use Markdown.
 - When you give code, ALWAYS wrap it in fenced code blocks with a language tag like \`\`\`lua, \`\`\`luau, or \`\`\`json. Each block gets a copy button in the UI, so split distinct snippets into separate blocks.
 - Keep answers focused. If something is best built (not chatted about), say so and suggest switching off Chat mode.
+- IMAGE REQUESTS: If the user asks for a generated image, thumbnail, icon, logo, decal, badge, gamepass image, banner, poster, or promo art, use the generate_image tool. Do not turn image requests into Roblox Studio build actions. Embed the returned markdown exactly so the website chat shows the image preview inline.
 - VISION: When the user attaches screenshots of Roblox Studio, their game, error popups, or reference images, analyze them in detail. Call out broken hierarchies, missing services, malformed Luau, UI layout issues, lighting/material problems, and red error text by exact wording. Tie every observation back to a concrete fix the user can apply.
 - MCP CONTEXT: If the user has connected MCP servers (Roblox docs, n8n, custom tools), reference relevant facts those servers expose. Cite which server you're drawing from so the user can trust the answer.
 - MEMORY: Use project memory for durable preferences, names, genre, style, and recent context. If it conflicts with the user's latest message or live project files, follow the latest message and live state.
