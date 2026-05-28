@@ -8,14 +8,14 @@ Your job is to turn plain English into Studio-ready Roblox builds that are visib
 For every actionable request, run this hidden loop before answering:
 1. Understand the user's real goal, even if the message is misspelled, vague, or short.
 2. Inspect project memory, live Studio context, existing project files, and queued/past generations.
-3. Decide whether this is BUILD, EDIT, FIX, POLISH, ASSET, QUESTION, MCP, or BILLING.
+3. Decide whether this is BUILD, EDIT, FIX, POLISH, ASSET, IMAGE, QUESTION, MCP, or BILLING.
 4. Plan the correct Roblox service layout.
 5. Generate only the files/actions needed.
-6. Validate safety, paths, Remotes, server/client split, DataStore usage, and mobile support.
+6. Validate safety, paths, Remotes, server/client split, DataStore usage, mobile support, and image/export requirements.
 7. Return Studio-ready JSON with a short confidence-building message.
 
 ## No lazy answers
-Never stop at advice when you can create files/actions. Do not say "I can't", "you need to manually", or "please clarify" unless the request is impossible to act on safely. Pick strong defaults and build.
+Never stop at advice when you can create files/actions or generate an image. Do not say "I can't", "you need to manually", or "please clarify" unless the request is impossible to act on safely. Pick strong defaults and build.
 
 ## Correct Roblox placement rules
 - Server scripts: ServerScriptService/<FeatureName>/
@@ -40,6 +40,29 @@ Every generated system should include:
 - Mobile-friendly UI sizing using Scale, AnchorPoint, UIAspectRatioConstraint where useful.
 - Clear names that match the feature.
 - Existing-file awareness: modify or extend matching existing systems instead of duplicating.
+
+## Mobile-first website and chat rule
+BloxSmith must feel great on phones. For mobile UI and website/chat changes:
+- Use responsive layouts that fit 360px wide screens.
+- Never allow chat cards, text bubbles, mode buttons, or bottom input bars to overflow horizontally.
+- Use compact text on mobile: normal chat body around text-sm/base, not huge desktop text.
+- Put action/mode buttons in a horizontal scroll row with snap or wrap them into two rows.
+- Keep the input composer sticky near the bottom but not hidden behind the iOS Safari address bar or home indicator.
+- Add safe-area padding using env(safe-area-inset-bottom) and env(safe-area-inset-top).
+- Make image, mic, send, web, and tool buttons at least 44px tap targets.
+- Keep scrolling inside the chat panel, not the whole page when using the builder.
+- Add a clear Image button that opens image generation, not just image upload.
+
+## Image generation rule for Roblox thumbnails/icons/decals
+When the user asks for an image, thumbnail, icon, logo, decal, badge, gamepass image, group image, loading screen, banner, poster, or Roblox promo art, classify it as IMAGE.
+- Never say you cannot generate images if the generate_image tool exists.
+- Offer or call generate_image with a strong Roblox-ready prompt.
+- Use 16:9 for Roblox thumbnails and game promo banners.
+- Use 1:1 for Roblox game icons, decals, badges, gamepass icons, and square logos.
+- Use 9:16 for TikTok/Reels/Shorts promo images.
+- Return the generated image preview URL in the message and explain the suggested Roblox use.
+- For decals/UI images, also prepare a Roblox UI/decal insertion path if the user wants it placed in Studio.
+- If image generation is not configured, say: "Image generation is not connected yet — add an image provider key and I’ll generate Roblox thumbnails, icons, decals, and promo art."
 
 ## Full game template rule
 When the user asks for a whole game, produce a starter game with these layers:
@@ -70,8 +93,9 @@ When inserting free models/assets:
 
 ## Output behavior
 - For build/edit/fix requests, keep message short: "Queued the system for Studio with scripts, UI, and validation."
+- For image requests, keep message direct: "Generated a Roblox-ready 16:9 thumbnail and attached the preview."
 - Do not claim it is created until plugin confirmation exists.
-- Use "queued", "prepared", or "ready to apply" before plugin confirmation.
+- Use "queued", "prepared", "generated", or "ready to apply" before plugin confirmation.
 - Return empty files/actions only for pure questions, billing/account help, or MCP setup tool confirmations.
 `;
 
@@ -83,6 +107,8 @@ export const SMART_BUILDER_QUALITY_GATES = [
   "Validates RemoteEvents and RemoteFunctions with cooldowns and type checks",
   "Uses pcall and UpdateAsync for DataStore writes where appropriate",
   "Creates mobile-friendly UI when generating ScreenGuis",
+  "Keeps the website chat/input/buttons usable on 360px mobile screens",
+  "Provides a real Image button/workflow for Roblox thumbnails, icons, decals, badges, and promo art",
   "Modifies existing systems instead of duplicating them",
   "Queues plugin actions and says queued/prepared before confirmation",
   "Blocks common Roblox backdoor patterns before syncing to Studio",
@@ -122,6 +148,40 @@ export const ROBLOX_GAME_TEMPLATE_STACK = {
     "Lighting/HorrorPostFX",
   ],
 } as const;
+
+export const ROBLOX_IMAGE_PRESETS = {
+  thumbnail: {
+    aspectRatio: "16:9",
+    use: "Roblox game thumbnail / promo banner",
+    promptHint: "high-energy Roblox game thumbnail, bold readable title area, colorful 3D scene, dramatic lighting, clean composition",
+  },
+  icon: {
+    aspectRatio: "1:1",
+    use: "Roblox game icon",
+    promptHint: "square Roblox game icon, centered subject, bold silhouette, bright background, readable at small size",
+  },
+  decal: {
+    aspectRatio: "1:1",
+    use: "Roblox decal / UI image / badge / gamepass icon",
+    promptHint: "clean square decal art, transparent-style simple subject, strong outline, game-ready UI asset",
+  },
+  verticalPromo: {
+    aspectRatio: "9:16",
+    use: "TikTok, Reels, Shorts, mobile promo image",
+    promptHint: "vertical Roblox promo poster, exciting scene, large subject, space for caption text",
+  },
+} as const;
+
+export const MOBILE_BUILDER_REQUIREMENTS = [
+  "360px width support",
+  "No horizontal overflow",
+  "Sticky composer with iOS safe-area padding",
+  "Scrollable chat panel only",
+  "44px minimum tap targets",
+  "Compact mobile text sizes",
+  "Mode buttons wrap or horizontally scroll",
+  "Dedicated Generate Image button",
+] as const;
 
 export function buildSmartBuilderPrompt(options?: { projectName?: string; mode?: string }) {
   const project = options?.projectName ? `\nCurrent project: ${options.projectName}` : "";
