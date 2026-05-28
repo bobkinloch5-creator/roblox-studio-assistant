@@ -1,6 +1,7 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { Outlet, createRootRouteWithContext, HeadContent, Scripts, Link, useRouter } from "@tanstack/react-router";
 import { Toaster } from "sonner";
+import { useEffect } from "react";
 import appCss from "../styles.css?url";
 import { AuthProvider } from "@/lib/auth-context";
 import { ThemeProvider } from "@/hooks/useTheme";
@@ -141,6 +142,58 @@ function RootShell({ children }: { children: React.ReactNode }) {
   );
 }
 
+function ImageGeneratorButtonInjector() {
+  useEffect(() => {
+    const setNativeValue = (element: HTMLTextAreaElement, value: string) => {
+      const valueSetter = Object.getOwnPropertyDescriptor(element, "value")?.set;
+      const prototype = Object.getPrototypeOf(element);
+      const prototypeValueSetter = Object.getOwnPropertyDescriptor(prototype, "value")?.set;
+      if (prototypeValueSetter && valueSetter !== prototypeValueSetter) prototypeValueSetter.call(element, value);
+      else valueSetter?.call(element, value);
+      element.dispatchEvent(new Event("input", { bubbles: true }));
+      element.dispatchEvent(new Event("change", { bubbles: true }));
+    };
+
+    const inject = () => {
+      if (!location.pathname.startsWith("/project/")) return;
+      if (document.querySelector("[data-bloxsmith-generate-image]")) return;
+
+      const imageButton = Array.from(document.querySelectorAll("button"))
+        .find((button) => button.textContent?.trim() === "Image");
+      if (!imageButton?.parentElement) return;
+
+      const button = document.createElement("button");
+      button.type = "button";
+      button.dataset.bloxsmithGenerateImage = "true";
+      button.title = "Generate Roblox thumbnail, icon, decal, badge, gamepass image, or promo art";
+      button.className =
+        "inline-flex h-8 items-center gap-1 rounded-lg border border-orange-400/40 bg-orange-500/10 px-2 text-orange-300 hover:bg-orange-500/20 transition";
+      button.innerHTML = '<span aria-hidden="true">🎨</span><span class="text-[11px] font-medium">Generate Image</span>';
+      button.addEventListener("click", () => {
+        const textarea = document.querySelector<HTMLTextAreaElement>(
+          'textarea[placeholder*="Ask anything"], textarea[placeholder*="attach"], textarea',
+        );
+        if (!textarea) return;
+        const current = textarea.value.trim();
+        const prompt =
+          "Generate a Roblox-ready 16:9 game thumbnail image. Make it colorful, premium, high-energy, clickable, and polished. Leave room for bold title text. Theme: " +
+          (current || "my Roblox game");
+        setNativeValue(textarea, prompt);
+        textarea.focus();
+      });
+
+      imageButton.insertAdjacentElement("afterend", button);
+    };
+
+    inject();
+    const observer = new MutationObserver(inject);
+    observer.observe(document.body, { childList: true, subtree: true });
+    return () => observer.disconnect();
+  }, []);
+
+  return null;
+}
+
 function RootComponent() {
   const { queryClient } = Route.useRouteContext();
   useUnlockAudio();
@@ -149,6 +202,7 @@ function RootComponent() {
       <QueryClientProvider client={queryClient}>
         <AuthProvider>
           <Outlet />
+          <ImageGeneratorButtonInjector />
           <ClickRipple />
           <HelpChat />
           <Toaster theme="dark" position="top-right" />
