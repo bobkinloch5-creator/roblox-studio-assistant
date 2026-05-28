@@ -12,6 +12,12 @@ import { supabaseAdmin } from "@/integrations/supabase/client.server";
 export type BloxSmithToolCtx = {
   projectId?: string | null;
   userId?: string | null;
+  /**
+   * Optional reference image (data URL) the user uploaded with their request.
+   * When present, image-generating tools can use it to guide the design. If
+   * absent, the model describes the reference in the `style` text instead.
+   */
+  referenceImageDataUrl?: string | null;
 };
 
 // ── Roblox asset search (shared helper) ────────────────────────────────
@@ -821,6 +827,85 @@ export const buildBloxSmithTools = (ctx: BloxSmithToolCtx = {}) => ({
       } catch (e: any) {
         return { error: String(e?.message ?? e) };
       }
+    },
+  }),
+
+  // ── Clothing & accessory studio ─────────────────────────────────────
+  // Generates Roblox CLASSIC clothing textures (shirts/pants) and T-Shirt
+  // graphics end-to-end. For layered clothing and 3D accessories (hats, wings,
+  // backpacks, etc.) it generates design/texture art and the model is expected
+  // to pair it with a build spec — those are meshes, not textures, so we never
+  // claim to have produced a ready-to-wear 3D item.
+  generate_clothing: tool({
+    description:
+      "Generate a Roblox WEARABLE design. Use for shirts, pants, uniforms, outfits, T-shirts, and the texture/concept art for hoodies, jackets, and accessories (hats, glasses, masks, backpacks, chains, wings, hair, shoulder items). kind 'classic_shirt'/'classic_pants' produce upload-ready flat template textures; 'tshirt' produces a square torso graphic; 'layered_or_accessory' produces design/concept art for a 3D item (which the user must model/import as a mesh — explain this). Returns a public image URL; embed the returned markdown in your reply so the user sees the preview.",
+    inputSchema: z.object({
+      kind: z
+        .enum(["classic_shirt", "classic_pants", "tshirt", "layered_or_accessory"])
+        .describe(
+          "classic_shirt/classic_pants = flat wrap texture; tshirt = square torso decal; layered_or_accessory = concept/texture art for a 3D mesh item.",
+        ),
+      style: z
+        .string()
+        .min(3)
+        .max(900)
+        .describe(
+          "Full design description: garment/accessory type, colors, theme, motifs, mood. e.g. 'black and red cyber hoodie, neon circuit lines, techwear, glowing red trim'.",
+        ),
+    }),
+    execute: async ({ kind, style }) => {
+      if (!ctx.userId) return { error: "Please sign in to generate clothing." };
+      const { checkImageHourlyLimit, generateImageFromPrompt } = await import(
+        "./image-gen.server"
+      );
+      const limitErr = await checkImageHourlyLimit(ctx.userId);
+      if (limitErr) return { error: limitErr };
+
+      const { buildClothingImagePrompt } = await import("./roblox-clothing");
+      // classic templates are tall-ish flat sheets; tshirt is square; accessory
+      // concept art reads best square too.
+      const aspectRatio = kind === "classic_shirt" || kind === "classic_pants" ? "1:1" : "1:1";
+      const prompt = buildClothingImagePrompt(kind, style);
+
+      // If the user uploaded a reference image, pass it to guide the design.
+      let referenceImageBase64: string | undefined;
+      let referenceMime: string | undefined;
+      const ref = ctx.referenceImageDataUrl;
+      if (ref && ref.startsWith("data:")) {
+        const comma = ref.indexOf(",");
+        if (comma > 0) {
+          referenceMime = ref.slice(5, ref.indexOf(";"));
+          referenceImageBase64 = ref.slice(comma + 1);
+        }
+      }
+
+      const result = await generateImageFromPrompt({
+        userId: ctx.userId ?? undefined,
+        prompt,
+        aspectRatio,
+        referenceImageBase64,
+        referenceMime,
+        altText: `${kind.replace(/_/g, " ")}: ${style}`,
+      });
+      if ("error" in result) return result;
+
+      const isClassic = kind === "classic_shirt" || kind === "classic_pants";
+      const uploadTip = isClassic
+        ? "Download the PNG, then in the Roblox Creator Dashboard go to Create → Avatar Items → Classic Clothing, upload it as a " +
+          (kind === "classic_shirt" ? "Shirt" : "Pants") +
+          ". Roblox wraps the template onto the avatar. Note: classic clothing uploads need a verified account/group and cost ~R$10."
+        : kind === "tshirt"
+          ? "Download the PNG and upload it as a Classic T-Shirt (Create → Avatar Items → Classic T-Shirt). It shows flat on the torso front."
+          : "This is DESIGN ART for a 3D accessory, not a ready mesh. To make it wearable: model the shape in Blender (or import a base mesh), bring it into Studio via Avatar → Accessory Fitting Tool, set the correct Attachment (e.g. Hat → HatAttachment on the Head, back items → BodyBackAttachment), apply this art as its texture, then publish as an Accessory.";
+
+      return {
+        ...result,
+        kind,
+        isClassic,
+        uploadTip,
+        reminder:
+          "Embed `markdown` in your reply so the user sees the preview, then give them the uploadTip steps.",
+      };
     },
   }),
 });

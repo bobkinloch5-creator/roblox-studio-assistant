@@ -73,11 +73,8 @@ export function Header() {
   });
 
   return (
-    <header
-      className="sticky top-0 z-50 border-b border-border bg-background/95 supports-[backdrop-filter]:bg-background/80 backdrop-blur-xl"
-      translate="no"
-    >
-      <div className="mx-auto flex max-w-[96rem] items-center justify-between gap-2 px-3 py-2.5 sm:px-6 sm:py-3 lg:gap-3">
+    <header className="sticky top-0 z-50 border-b border-border bg-background/95 supports-[backdrop-filter]:bg-background/80 backdrop-blur-xl">
+      <div className="mx-auto flex max-w-7xl items-center justify-between gap-3 px-3 py-2.5 sm:px-6 sm:py-3">
         <Link
           to="/"
           className="flex min-w-0 items-center gap-2 shrink-0 notranslate"
@@ -98,7 +95,7 @@ export function Header() {
           </span>
         </Link>
 
-        <nav className="hidden 2xl:flex items-center gap-5 text-sm text-muted-foreground ml-4 shrink-0 notranslate">
+        <nav className="hidden xl:flex items-center gap-5 text-sm text-muted-foreground ml-4 shrink-0">
           {visibleNavItems
             .filter(
               (item) =>
@@ -128,14 +125,14 @@ export function Header() {
           )}
         </nav>
 
-        <div className="flex min-w-0 items-center gap-2 lg:gap-3 notranslate">
-          <div className="hidden md:flex min-w-0 items-center gap-2 lg:gap-3">
+        <div className="flex items-center gap-2 lg:gap-3 min-w-0">
+          <div className="hidden md:flex items-center gap-2 lg:gap-3 min-w-0">
             <a
               href="https://discord.gg/J9TU7syJCr"
               target="_blank"
               rel="noopener noreferrer"
               title="Join the BloxSmith Discord — +5 free credits"
-              className="hidden 2xl:inline-flex items-center gap-1.5 rounded-full bg-[#5865F2]/15 hover:bg-[#5865F2]/25 border border-[#5865F2]/30 px-2.5 py-1 text-xs font-semibold text-[#7c8ff5] transition"
+              className="hidden lg:inline-flex items-center gap-1.5 rounded-full bg-[#5865F2]/15 hover:bg-[#5865F2]/25 border border-[#5865F2]/30 px-2.5 py-1 text-xs font-semibold text-[#7c8ff5] transition"
             >
               <svg viewBox="0 0 24 24" className="h-3.5 w-3.5" fill="currentColor" aria-hidden>
                 <path d="M20.317 4.369A19.79 19.79 0 0 0 16.558 3c-.18.327-.39.766-.535 1.117a18.27 18.27 0 0 0-5.487 0C10.39 3.766 10.175 3.327 9.992 3a19.736 19.736 0 0 0-3.76 1.369C2.4 9.97 1.36 15.42 1.87 20.785a19.9 19.9 0 0 0 5.99 3.03c.484-.66.917-1.363 1.29-2.104-.71-.27-1.39-.6-2.03-.99.17-.124.336-.253.495-.386 3.93 1.83 8.18 1.83 12.06 0 .161.133.327.262.495.386-.643.39-1.324.72-2.034.99.374.74.806 1.443 1.29 2.103a19.852 19.852 0 0 0 5.992-3.03c.6-6.225-1.05-11.625-4.31-16.415zM8.02 17.045c-1.183 0-2.157-1.085-2.157-2.42 0-1.333.953-2.42 2.157-2.42 1.21 0 2.176 1.094 2.157 2.42 0 1.335-.953 2.42-2.157 2.42zm7.96 0c-1.184 0-2.157-1.085-2.157-2.42 0-1.333.952-2.42 2.157-2.42 1.21 0 2.176 1.094 2.156 2.42 0 1.335-.946 2.42-2.156 2.42z" />
@@ -143,11 +140,11 @@ export function Header() {
               Discord +5
             </a>
             <ThemeToggle />
-            <LanguageSwitcher compact />
+            <LanguageSwitcher />
             {user && (
-              <div className="hidden 2xl:flex items-center gap-2">
-                <PluginStatus compact />
-                <McpStatus compact />
+              <div className="hidden lg:flex items-center gap-2">
+                <PluginStatus />
+                <McpStatus />
               </div>
             )}
           </div>
@@ -161,23 +158,23 @@ export function Header() {
             <>
               <Link
                 to="/pricing"
-                className="inline-flex shrink-0 items-center gap-1.5 rounded-full bg-primary/10 border border-primary/20 px-2.5 sm:px-3 py-1 text-[11px] sm:text-xs font-semibold text-primary-glow hover:bg-primary/20 transition"
+                className="inline-flex items-center gap-1.5 rounded-full bg-primary/10 border border-primary/20 px-2.5 sm:px-3 py-1 text-[11px] sm:text-xs font-semibold text-primary-glow hover:bg-primary/20 transition"
               >
                 {profile?.credits ?? 0} cr
               </Link>
 
-              <div className="relative shrink-0">
+              <div className="relative">
                 <button
                   onClick={() => setProfileOpen((o) => !o)}
-                  className="inline-flex max-w-[9.5rem] items-center gap-1.5 sm:gap-2 overflow-hidden rounded-full bg-gradient-to-br from-primary/80 to-accent/60 h-8 pl-1 pr-2 text-xs font-semibold text-primary-foreground hover:opacity-90 transition"
+                  className="inline-flex items-center gap-1.5 sm:gap-2 rounded-full bg-gradient-to-br from-primary/80 to-accent/60 h-8 pl-1 pr-2 text-xs font-semibold text-primary-foreground hover:opacity-90 transition"
                   aria-expanded={profileOpen}
                   aria-label="Open profile menu"
                   type="button"
                 >
-                  <span className="h-6 w-6 shrink-0 rounded-full bg-primary-foreground/20 grid place-items-center text-[11px] font-bold">
+                  <span className="h-6 w-6 rounded-full bg-primary-foreground/20 grid place-items-center text-[11px] font-bold">
                     {initials}
                   </span>
-                  <span className="hidden 2xl:inline max-w-[7rem] truncate">
+                  <span className="hidden lg:inline max-w-[100px] truncate">
                     {profile?.display_name || profile?.email?.split("@")[0]}
                   </span>
                   <ChevronDown

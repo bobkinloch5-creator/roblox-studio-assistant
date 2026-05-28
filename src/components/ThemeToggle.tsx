@@ -31,7 +31,7 @@ export function ThemeToggle() {
     <div className="relative" ref={panelRef}>
       <button
         onClick={() => setOpen((o) => !o)}
-        className="relative flex h-9 w-10 items-center justify-center gap-2 rounded-xl border border-border/70 bg-surface/85 px-2 shadow-[var(--shadow-card)] transition hover:bg-surface-elevated/95 active:scale-95 2xl:w-auto 2xl:min-w-[7.75rem] 2xl:justify-start 2xl:px-3"
+        className="relative flex h-9 w-10 sm:w-auto sm:min-w-[7.75rem] items-center justify-center sm:justify-start gap-2 rounded-xl border border-border/70 bg-surface/85 px-2 sm:px-3 shadow-[var(--shadow-card)] transition hover:bg-surface-elevated/95 active:scale-95"
         aria-label={`Change theme. Current theme: ${active?.label ?? theme}`}
         title={`Theme: ${active?.label ?? theme}`}
         aria-expanded={open}
@@ -41,8 +41,8 @@ export function ThemeToggle() {
         <span className="inline-flex h-5 w-5 items-center justify-center rounded-full bg-primary/10 text-[12px] leading-none">
           {active?.emoji}
         </span>
-        <Palette className="hidden h-3.5 w-3.5 text-primary-glow 2xl:block" />
-        <span className="hidden truncate text-[12px] font-medium text-foreground/90 2xl:inline">
+        <Palette className="hidden h-3.5 w-3.5 text-primary-glow sm:block" />
+        <span className="hidden truncate text-[12px] font-medium text-foreground/90 lg:inline">
           {active?.label}
         </span>
       </button>

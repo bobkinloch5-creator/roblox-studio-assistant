@@ -1,123 +1,18 @@
-import {
-  useState,
-  useRef,
-  useEffect,
-  type FormEvent,
-  type PointerEvent as ReactPointerEvent,
-} from "react";
-import { MessageCircle, X, Send, Loader2 } from "lucide-react";
+import { useState, useRef, useEffect, type FormEvent } from "react";
+import { MessageCircle, X, Send, Loader2, RotateCcw, Trash2 } from "lucide-react";
 
 type Message = { role: "user" | "assistant"; content: string };
 
 const STORAGE_KEY = "bloxsmith.helpchat.history";
 const STORAGE_OPEN_KEY = "bloxsmith.helpchat.open";
-const STORAGE_POS_KEY = "bloxsmith.helpchat.pos";
 const MAX_STORED_TURNS = 12;
 
-const BUBBLE_SIZE = 56;
-const PANEL_WIDTH = 352;
-const PANEL_HEIGHT = 512;
-const EDGE_PAD = 16;
-const MOBILE_EDGE_PAD = 12;
-const MOBILE_BREAKPOINT = 640;
-const MOBILE_NAV_CLEARANCE = 74;
-
-type Pos = { left: number; top: number };
-
-function isMobileViewport() {
-  return typeof window !== "undefined" && window.innerWidth < MOBILE_BREAKPOINT;
-}
-
-function getWidgetSize(open: boolean) {
-  if (!open || typeof window === "undefined") {
-    return { width: BUBBLE_SIZE, height: BUBBLE_SIZE };
-  }
-  if (isMobileViewport()) {
-    return {
-      width: Math.min(window.innerWidth - MOBILE_EDGE_PAD * 2, 360),
-      height: Math.min(Math.round(window.innerHeight * 0.58), 440),
-    };
-  }
-  return { width: PANEL_WIDTH, height: PANEL_HEIGHT };
-}
-
-function loadPos(): Pos | null {
-  if (typeof localStorage === "undefined") return null;
-  try {
-    const raw = localStorage.getItem(STORAGE_POS_KEY);
-    if (!raw) return null;
-    const parsed = JSON.parse(raw);
-    if (typeof parsed?.left === "number" && typeof parsed?.top === "number") {
-      return { left: parsed.left, top: parsed.top };
-    }
-  } catch {
-    // ignore — return null and we'll fall back to default
-  }
-  return null;
-}
-
-function savePos(pos: Pos) {
-  if (typeof localStorage === "undefined") return;
-  try {
-    localStorage.setItem(STORAGE_POS_KEY, JSON.stringify(pos));
-  } catch {
-    // ignore quota
-  }
-}
-
-function defaultPos(open: boolean): Pos {
-  if (typeof window === "undefined") {
-    return { left: 1000, top: 600 };
-  }
-  const { width, height } = getWidgetSize(open);
-  if (isMobileViewport()) {
-    return {
-      left: Math.max(MOBILE_EDGE_PAD, window.innerWidth - width - MOBILE_EDGE_PAD),
-      top: Math.max(
-        MOBILE_EDGE_PAD,
-        window.innerHeight - height - MOBILE_EDGE_PAD - MOBILE_NAV_CLEARANCE,
-      ),
-    };
-  }
-  return {
-    left: Math.max(EDGE_PAD, window.innerWidth - width - EDGE_PAD),
-    top: Math.max(EDGE_PAD, window.innerHeight - height - EDGE_PAD),
-  };
-}
-
-function clampPos(pos: Pos, open: boolean): Pos {
-  if (typeof window === "undefined") return pos;
-  const { width, height } = getWidgetSize(open);
-
-  if (isMobileViewport()) {
-    if (open) {
-      return {
-        left: MOBILE_EDGE_PAD,
-        top: Math.min(
-          Math.max(MOBILE_EDGE_PAD, pos.top),
-          Math.max(MOBILE_EDGE_PAD, window.innerHeight - height - MOBILE_EDGE_PAD),
-        ),
-      };
-    }
-    return {
-      left: Math.max(MOBILE_EDGE_PAD, window.innerWidth - width - MOBILE_EDGE_PAD),
-      top: Math.max(
-        MOBILE_EDGE_PAD,
-        window.innerHeight - height - MOBILE_EDGE_PAD - MOBILE_NAV_CLEARANCE,
-      ),
-    };
-  }
-
-  const minLeft = EDGE_PAD;
-  const maxLeft = Math.max(EDGE_PAD, window.innerWidth - width - EDGE_PAD);
-  const minTop = EDGE_PAD;
-  const maxTop = Math.max(EDGE_PAD, window.innerHeight - height - EDGE_PAD);
-
-  return {
-    left: Math.min(Math.max(minLeft, pos.left), maxLeft),
-    top: Math.min(Math.max(minTop, pos.top), maxTop),
-  };
-}
+const SUGGESTED = [
+  "How do I install the Studio plugin?",
+  "How do credits and pricing work?",
+  "How do I design clothing or accessories?",
+  "How do I build a game with the AI?",
+];
 
 function loadHistory(): Message[] {
   if (typeof localStorage === "undefined") return [];
@@ -146,16 +41,9 @@ function saveHistory(history: Message[]) {
   try {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(history.slice(-MAX_STORED_TURNS)));
   } catch {
-    // ignore quota errors — history isn't critical
+    // ignore quota
   }
 }
-
-const SUGGESTED = [
-  "What is BloxSmith?",
-  "How much do credits cost?",
-  "How do I install the plugin?",
-  "Does this work with Claude or Cursor?",
-];
 
 export function HelpChat() {
   const [open, setOpen] = useState(false);
@@ -163,110 +51,86 @@ export function HelpChat() {
   const [input, setInput] = useState("");
   const [sending, setSending] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [pos, setPos] = useState<Pos | null>(null);
-  const [dragging, setDragging] = useState(false);
+  const [lastFailed, setLastFailed] = useState<string | null>(null);
   const scrollRef = useRef<HTMLDivElement | null>(null);
-  const inputRef = useRef<HTMLInputElement | null>(null);
-  const dragMovedRef = useRef(false);
-  const dragOffsetRef = useRef<{ dx: number; dy: number }>({ dx: 0, dy: 0 });
+  const inputRef = useRef<HTMLTextAreaElement | null>(null);
 
+  // Restore history + open state once on mount.
   useEffect(() => {
     setMessages(loadHistory());
-    const openStored =
-      typeof localStorage !== "undefined" && localStorage.getItem(STORAGE_OPEN_KEY) === "1";
-    setOpen(openStored);
-    const stored = loadPos();
-    setPos(clampPos(stored ?? defaultPos(openStored), openStored));
+    if (typeof localStorage !== "undefined") {
+      setOpen(localStorage.getItem(STORAGE_OPEN_KEY) === "1");
+    }
   }, []);
 
   useEffect(() => {
-    if (pos && !isMobileViewport()) savePos(pos);
-  }, [pos]);
-
-  useEffect(() => {
-    if (!pos) return;
-    const onResize = () => setPos((p) => (p ? clampPos(p, open) : p));
-    window.addEventListener("resize", onResize);
-    window.addEventListener("orientationchange", onResize);
-    return () => {
-      window.removeEventListener("resize", onResize);
-      window.removeEventListener("orientationchange", onResize);
-    };
-  }, [pos, open]);
-
-  useEffect(() => {
-    if (!pos) return;
-    setPos((p) => (p ? clampPos(p, open) : p));
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [open]);
-
-  useEffect(() => {
-    if (typeof localStorage === "undefined") return;
-    localStorage.setItem(STORAGE_OPEN_KEY, open ? "1" : "0");
+    if (typeof localStorage !== "undefined") {
+      localStorage.setItem(STORAGE_OPEN_KEY, open ? "1" : "0");
+    }
   }, [open]);
 
   useEffect(() => {
     saveHistory(messages);
   }, [messages]);
 
+  // Keep the transcript pinned to the latest message.
   useEffect(() => {
     const el = scrollRef.current;
-    if (!el) return;
-    el.scrollTop = el.scrollHeight;
+    if (el) el.scrollTop = el.scrollHeight;
   }, [messages, sending]);
 
+  // Focus the input when the panel opens.
   useEffect(() => {
     if (!open) return;
-    const t = setTimeout(() => inputRef.current?.focus(), 80);
+    const t = setTimeout(() => inputRef.current?.focus(), 120);
     return () => clearTimeout(t);
   }, [open]);
 
+  // Close on Escape.
   useEffect(() => {
-    if (!open || !isMobileViewport()) return;
-    const origBodyOverflow = document.body.style.overflow;
-    const origHtmlOverflow = document.documentElement.style.overflow;
-    document.body.style.overflow = "hidden";
-    document.documentElement.style.overflow = "hidden";
-    return () => {
-      document.body.style.overflow = origBodyOverflow;
-      document.documentElement.style.overflow = origHtmlOverflow;
+    if (!open) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setOpen(false);
     };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
   }, [open]);
 
   async function send(text: string) {
     const trimmed = text.trim();
     if (!trimmed || sending) return;
     setError(null);
+    setLastFailed(null);
     setInput("");
-    const next: Message[] = [...messages, { role: "user", content: trimmed }];
-    setMessages(next);
+    const priorHistory = messages.slice(-8);
+    setMessages((prev) => [...prev, { role: "user", content: trimmed }]);
     setSending(true);
     try {
       const res = await fetch("/api/public/help-chat", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          message: trimmed,
-          history: messages.slice(-8),
-        }),
+        body: JSON.stringify({ message: trimmed, history: priorHistory }),
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) {
-        const msg =
+        setError(
           typeof data?.message === "string"
             ? data.message
-            : "Sorry — I couldn't answer that. Please try again.";
-        setError(msg);
+            : "Sorry — I couldn't answer that. Please try again.",
+        );
+        setLastFailed(trimmed);
         return;
       }
       const reply = typeof data?.reply === "string" ? data.reply : "";
       if (!reply) {
         setError("No reply received — please try again.");
+        setLastFailed(trimmed);
         return;
       }
       setMessages((prev) => [...prev, { role: "assistant", content: reply }]);
     } catch {
-      setError("Network error — please check your connection and try again.");
+      setError("Network error — check your connection and try again.");
+      setLastFailed(trimmed);
     } finally {
       setSending(false);
     }
@@ -277,171 +141,77 @@ export function HelpChat() {
     send(input);
   }
 
+  function retry() {
+    if (lastFailed) send(lastFailed);
+  }
+
   function clearChat() {
     setMessages([]);
     setError(null);
+    setLastFailed(null);
     if (typeof localStorage !== "undefined") localStorage.removeItem(STORAGE_KEY);
   }
 
-  function startDrag(e: ReactPointerEvent<HTMLElement>) {
-    if (!pos) return;
-    if (isMobileViewport()) return;
-    if (e.button !== 0) return;
-    const target = e.target as HTMLElement;
-    if (target.closest("input, textarea, button:not([data-helpchat-handle])")) return;
-
-    const el = e.currentTarget as HTMLElement;
-    const rect = el.getBoundingClientRect();
-    dragOffsetRef.current = {
-      dx: e.clientX - rect.left,
-      dy: e.clientY - rect.top,
-    };
-    dragMovedRef.current = false;
-
-    const startX = e.clientX;
-    const startY = e.clientY;
-
-    const onMove = (ev: PointerEvent) => {
-      const moved = Math.hypot(ev.clientX - startX, ev.clientY - startY);
-      if (moved > 4 && !dragMovedRef.current) {
-        dragMovedRef.current = true;
-        setDragging(true);
-        // Only capture the pointer once a real drag starts. Capturing on
-        // pointerdown redirects the pointerup away from the bubble button and
-        // swallows its click — that's why the chat never opened on desktop.
-        try {
-          el.setPointerCapture(e.pointerId);
-        } catch {
-          // ignore
-        }
-      }
-      if (dragMovedRef.current) {
-        const nextLeft = ev.clientX - dragOffsetRef.current.dx;
-        const nextTop = ev.clientY - dragOffsetRef.current.dy;
-        setPos(clampPos({ left: nextLeft, top: nextTop }, open));
-      }
-    };
-
-    const onUp = () => {
-      el.removeEventListener("pointermove", onMove);
-      el.removeEventListener("pointerup", onUp);
-      el.removeEventListener("pointercancel", onUp);
-      try {
-        if (el.hasPointerCapture(e.pointerId)) el.releasePointerCapture(e.pointerId);
-      } catch {
-        // ignore
-      }
-      const wasDrag = dragMovedRef.current;
-      setTimeout(() => {
-        setDragging(false);
-        dragMovedRef.current = false;
-      }, 0);
-      if (wasDrag) {
-        const suppress = (clickEv: Event) => {
-          clickEv.stopPropagation();
-          clickEv.preventDefault();
-          el.removeEventListener("click", suppress, true);
-        };
-        el.addEventListener("click", suppress, true);
-      }
-    };
-
-    el.addEventListener("pointermove", onMove);
-    el.addEventListener("pointerup", onUp);
-    el.addEventListener("pointercancel", onUp);
-  }
-
-  if (!pos) return null;
-
-  const cursorClass = dragging ? "cursor-grabbing" : "cursor-grab";
-  const mobile = isMobileViewport();
-  const mobileOpen = open && mobile;
-  const closedStyle = mobile
-    ? {
-        right: MOBILE_EDGE_PAD,
-        bottom:
-          `calc(${MOBILE_NAV_CLEARANCE}px + max(0.75rem, env(safe-area-inset-bottom)))` as const,
-        left: "auto" as const,
-        top: "auto" as const,
-      }
-    : { left: pos.left, top: pos.top };
-  const panelStyle = mobileOpen
-    ? {
-        left: MOBILE_EDGE_PAD,
-        right: MOBILE_EDGE_PAD,
-        bottom: "max(0.75rem, env(safe-area-inset-bottom))" as const,
-        top: "auto" as const,
-      }
-    : { left: pos.left, top: pos.top };
-
   return (
     <>
+      {/* Launcher — fixed to the LEFT edge, vertically centered, compact. */}
       {!open && (
-        <div
-          className="fixed z-[9999] flex items-center gap-2"
-          style={{ ...closedStyle, touchAction: mobile ? "auto" : "none" }}
-          onPointerDown={startDrag}
+        <button
+          type="button"
+          onClick={() => setOpen(true)}
+          aria-label="Open BloxSmith help"
+          className="fixed left-0 top-1/2 z-[9998] -translate-y-1/2 flex items-center gap-2 rounded-r-xl border border-l-0 border-border bg-surface-elevated/95 backdrop-blur px-2.5 py-3 text-primary shadow-lg hover:bg-surface-elevated hover:pl-3.5 transition-all"
         >
-          <button
-            type="button"
-            data-helpchat-handle
-            onClick={() => {
-              if (dragMovedRef.current) return;
-              setOpen(true);
-            }}
-            aria-label="Open BloxSmith help chat"
-            className={`h-14 w-14 rounded-full bg-primary text-primary-foreground shadow-2xl shadow-primary/40 grid place-items-center hover:scale-105 transition-transform ring-2 ring-primary/30 ring-offset-2 ring-offset-background ${mobile ? "cursor-pointer" : cursorClass}`}
-          >
-            <MessageCircle className="h-6 w-6" />
-          </button>
-          {messages.length === 0 && (
-            <span className="hidden sm:inline-flex items-center rounded-full bg-surface-elevated/95 border border-border px-3 py-1.5 text-xs font-medium shadow-lg pointer-events-none select-none">
-              Need help?
-            </span>
-          )}
-        </div>
+          <MessageCircle className="h-5 w-5" />
+          <span className="hidden sm:inline text-xs font-semibold pr-1">Help</span>
+        </button>
       )}
 
+      {/* Backdrop on mobile so the compact panel reads as a sheet. */}
+      {open && (
+        <div
+          className="fixed inset-0 z-[9998] bg-black/40 sm:bg-transparent sm:pointer-events-none"
+          onClick={() => setOpen(false)}
+          aria-hidden
+        />
+      )}
+
+      {/* Compact LEFT-docked panel. Narrow, scrollable, never full-screen on desktop. */}
       {open && (
         <aside
-          className="fixed z-[9999] w-[22rem] max-w-[calc(100vw-2rem)] h-[32rem] max-h-[calc(100vh-2rem)] max-sm:w-auto max-sm:max-w-none max-sm:h-[min(58dvh,27.5rem)] max-sm:max-h-[58dvh] rounded-2xl border border-border bg-surface-elevated/98 backdrop-blur-xl shadow-2xl flex flex-col overflow-hidden"
-          style={panelStyle}
           role="dialog"
           aria-label="BloxSmith help chat"
+          className="fixed left-0 top-0 z-[9999] flex h-[100dvh] w-[88vw] max-w-[340px] flex-col border-r border-border bg-surface-elevated/98 backdrop-blur-xl shadow-2xl sm:top-3 sm:left-3 sm:h-[min(560px,calc(100dvh-1.5rem))] sm:rounded-2xl sm:border"
         >
-          <header
-            className={`flex items-center justify-between border-b border-border px-3 py-2 select-none ${mobileOpen ? "cursor-default" : cursorClass}`}
-            style={{ touchAction: mobileOpen ? "auto" : "none" }}
-            onPointerDown={startDrag}
-          >
-            <div className="flex min-w-0 items-center gap-2 pointer-events-none">
+          <header className="flex items-center justify-between border-b border-border px-3 py-2.5">
+            <div className="flex min-w-0 items-center gap-2">
               <div className="h-7 w-7 shrink-0 rounded-full bg-primary/15 grid place-items-center">
                 <MessageCircle className="h-3.5 w-3.5 text-primary" />
               </div>
               <div className="min-w-0">
-                <div className="text-xs font-semibold leading-tight">Help</div>
+                <div className="text-xs font-semibold leading-tight">BloxSmith Help</div>
                 <div className="truncate text-[10px] text-muted-foreground leading-tight">
-                  {mobileOpen
-                    ? "Ask anything about BloxSmith"
-                    : "Drag to move · ask anything about BloxSmith"}
+                  Plugin, credits, building, clothing &amp; more
                 </div>
               </div>
             </div>
-            <div className="flex items-center gap-1">
+            <div className="flex items-center gap-0.5">
               {messages.length > 0 && (
                 <button
                   type="button"
                   onClick={clearChat}
-                  className="text-[10px] text-muted-foreground hover:text-foreground px-2 py-1 rounded-md hover:bg-surface transition cursor-pointer"
+                  aria-label="Clear conversation"
+                  title="Clear"
+                  className="h-7 w-7 grid place-items-center rounded-md text-muted-foreground hover:text-foreground hover:bg-surface transition"
                 >
-                  Clear
+                  <Trash2 className="h-3.5 w-3.5" />
                 </button>
               )}
               <button
                 type="button"
                 onClick={() => setOpen(false)}
-                aria-label="Close help chat"
-                className="h-8 w-8 sm:h-7 sm:w-7 grid place-items-center rounded-md text-muted-foreground hover:text-foreground hover:bg-surface transition cursor-pointer"
+                aria-label="Close help"
+                className="h-7 w-7 grid place-items-center rounded-md text-muted-foreground hover:text-foreground hover:bg-surface transition"
               >
                 <X className="h-4 w-4" />
               </button>
@@ -450,13 +220,13 @@ export function HelpChat() {
 
           <div
             ref={scrollRef}
-            className="flex-1 overflow-y-auto overscroll-contain px-3 py-3 max-sm:px-3 max-sm:py-2.5 space-y-2.5"
+            className="flex-1 overflow-y-auto overscroll-contain px-3 py-3 space-y-2.5"
           >
             {messages.length === 0 && (
-              <div className="space-y-2.5">
-                <p className="text-xs max-sm:text-[11px] text-muted-foreground leading-relaxed">
-                  Hi! I'm the BloxSmith help bot. Ask about credits, the Roblox Studio plugin, MCP,
-                  or how the site works.
+              <div className="space-y-3">
+                <p className="text-xs text-muted-foreground leading-relaxed">
+                  Hi! I'm the BloxSmith help bot. Ask about the Studio plugin, credits, building
+                  games, clothing &amp; accessories, assets, or how anything on the site works.
                 </p>
                 <div className="space-y-1.5">
                   <div className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold">
@@ -467,7 +237,7 @@ export function HelpChat() {
                       key={s}
                       type="button"
                       onClick={() => send(s)}
-                      className="w-full text-left rounded-md border border-border/60 bg-background/40 px-2.5 py-1.5 max-sm:py-2 text-xs max-sm:text-[11px] hover:border-primary/50 hover:bg-surface transition"
+                      className="w-full text-left rounded-md border border-border/60 bg-background/40 px-2.5 py-2 text-xs hover:border-primary/50 hover:bg-surface transition"
                     >
                       {s}
                     </button>
@@ -482,7 +252,7 @@ export function HelpChat() {
                 className={`flex ${m.role === "user" ? "justify-end" : "justify-start"}`}
               >
                 <div
-                  className={`max-w-[85%] rounded-xl px-3 py-2 text-xs leading-relaxed whitespace-pre-wrap break-words ${
+                  className={`max-w-[88%] rounded-xl px-3 py-2 text-xs leading-relaxed whitespace-pre-wrap break-words ${
                     m.role === "user"
                       ? "bg-primary text-primary-foreground"
                       : "bg-background/60 border border-border text-foreground"
@@ -503,30 +273,50 @@ export function HelpChat() {
             )}
 
             {error && (
-              <div className="rounded-md border border-destructive/40 bg-destructive/10 px-2.5 py-1.5 text-[11px] text-destructive">
-                {error}
+              <div className="rounded-md border border-destructive/40 bg-destructive/10 px-2.5 py-2 text-[11px] text-destructive space-y-1.5">
+                <div>{error}</div>
+                {lastFailed && !sending && (
+                  <button
+                    type="button"
+                    onClick={retry}
+                    className="inline-flex items-center gap-1.5 rounded-md bg-destructive/15 px-2 py-1 text-[11px] font-medium hover:bg-destructive/25 transition"
+                  >
+                    <RotateCcw className="h-3 w-3" />
+                    Retry
+                  </button>
+                )}
               </div>
             )}
           </div>
 
-          <form onSubmit={onSubmit} className="border-t border-border p-2 flex items-center gap-2">
-            <input
+          <form onSubmit={onSubmit} className="border-t border-border p-2 flex items-end gap-2">
+            <textarea
               ref={inputRef}
-              type="text"
               value={input}
               onChange={(e) => setInput(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter" && !e.shiftKey) {
+                  e.preventDefault();
+                  send(input);
+                }
+              }}
               placeholder="Ask a question…"
               disabled={sending}
               maxLength={1500}
-              className="min-w-0 flex-1 rounded-md border border-border bg-background/60 px-2.5 py-2 sm:py-1.5 text-xs focus:outline-none focus:border-primary/50 disabled:opacity-50"
+              rows={1}
+              className="min-w-0 flex-1 resize-none rounded-md border border-border bg-background/60 px-2.5 py-2 text-xs leading-relaxed focus:outline-none focus:border-primary/50 disabled:opacity-50 max-h-24"
             />
             <button
               type="submit"
               disabled={sending || !input.trim()}
               aria-label="Send message"
-              className="h-9 w-9 sm:h-7 sm:w-7 shrink-0 grid place-items-center rounded-md bg-primary text-primary-foreground disabled:opacity-40 hover:opacity-90 transition"
+              className="h-9 w-9 shrink-0 grid place-items-center rounded-md bg-primary text-primary-foreground disabled:opacity-40 hover:opacity-90 transition"
             >
-              <Send className="h-4 w-4 sm:h-3.5 sm:w-3.5" />
+              {sending ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <Send className="h-4 w-4" />
+              )}
             </button>
           </form>
         </aside>

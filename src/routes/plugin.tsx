@@ -1,6 +1,6 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { Header, Footer } from "@/components/layout";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useAuth } from "@/lib/auth-context";
 import { supabase } from "@/integrations/supabase/client";
 import { useServerFn } from "@tanstack/react-start";
@@ -80,16 +80,6 @@ const STEPS: Step[] = [
 
 type ProjectRow = { id: string; name: string; game_type: string; updated_at: string };
 
-function uniqueProjects(rows: ProjectRow[]) {
-  const seen = new Set<string>();
-  return rows.filter((project) => {
-    const key = `${project.name.trim().toLowerCase()}::${project.game_type.trim().toLowerCase()}`;
-    if (seen.has(key)) return false;
-    seen.add(key);
-    return true;
-  });
-}
-
 function PluginWizard() {
   const { user, loading } = useAuth();
   const nav = useNavigate();
@@ -106,7 +96,6 @@ function PluginWizard() {
   const [verified, setVerified] = useState(false);
   const [studioMeta, setStudioMeta] = useState<{ last_connected_at: string | null } | null>(null);
   const [projects, setProjects] = useState<ProjectRow[]>([]);
-  const visibleProjects = useMemo(() => uniqueProjects(projects), [projects]);
   const verifyTimer = useRef<number | null>(null);
 
   // Load projects once signed in
@@ -116,7 +105,6 @@ function PluginWizard() {
       const { data } = await supabase
         .from("projects")
         .select("id,name,game_type,updated_at")
-        .eq("user_id", user.id)
         .order("updated_at", { ascending: false });
       setProjects((data ?? []) as ProjectRow[]);
     })();
@@ -568,14 +556,14 @@ function PluginWizard() {
                 icon={Rocket}
                 title="Pick a project to sync"
                 body={
-                  visibleProjects.length === 0 ? (
+                  projects.length === 0 ? (
                     <p>
                       You don't have any projects yet. Create one from the dashboard, then come back
                       here to sync it.
                     </p>
                   ) : (
                     <div className="mt-3 grid sm:grid-cols-2 gap-2">
-                      {visibleProjects.slice(0, 8).map((p) => (
+                      {projects.slice(0, 8).map((p) => (
                         <button
                           key={p.id}
                           onClick={() =>

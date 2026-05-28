@@ -17,6 +17,7 @@ export type AiModeId =
   | "system"
   | "procedural"
   | "asset"
+  | "clothing"
   | "finish";
 
 export type AiModeDef = {
@@ -225,6 +226,20 @@ The user wants curated free Roblox assets dropped into Studio.
 - If the user asked for "a sword", "a shop building", "a pet model", queue ONE insert. If they asked for "trees + rocks + buildings", queue MANY (8+).
 - For audio (music, SFX), use the \`sound\` action with the assetId so it parents under SoundService and is preloaded.
 - Never tell the user "open Toolbox yourself" — YOU search and YOU insert.`,
+  },
+  {
+    id: "clothing",
+    label: "Clothing Studio",
+    emoji: "👕",
+    hint: "Design shirts, pants, outfits & accessories",
+    addendum: `### CLOTHING STUDIO MODE
+The user wants to create Roblox wearables — shirts, pants, T-shirts, uniforms, full outfits, or accessories (hats, glasses, masks, backpacks, chains, wings, hair, shoulder items).
+- For shirts/pants/uniforms/outfits: call \`generate_clothing\` with kind "classic_shirt" or "classic_pants". For a full outfit, generate BOTH and keep one consistent palette/theme. Embed each returned \`markdown\` so the user sees the preview, then give the upload steps.
+- For a torso graphic / logo tee: use kind "tshirt".
+- For hoodies, jackets, layered clothing, and ALL 3D accessories: say in ONE friendly sentence that these are 3D mesh items, so you're generating the design art + a build spec (not a ready mesh). Call \`generate_clothing\` with kind "layered_or_accessory", then give the build spec: silhouette, attachment point, scale, and texture notes, plus the Blender → Studio Accessory Fitting Tool path.
+- If the user uploaded a reference image, base the design on it (colors, motifs, vibe) — describe what you see and match it.
+- Always honor the user's exact colors and theme. Original designs only — never real brands or copyrighted characters.
+- Be warm and premium: a user typing "make me a black and red cyber hoodie" should get a great preview and clear next steps, fast.`,
   },
   {
     id: "finish",

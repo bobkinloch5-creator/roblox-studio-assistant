@@ -427,7 +427,7 @@ local function setupCoin(coin)
 		local player = Players:GetPlayerFromCharacter(character)
 		if player and not db then
 			db = true
-
+			
 			-- Award coins
 			local leaderstats = player:FindFirstChild("leaderstats")
 			if leaderstats then
@@ -436,11 +436,11 @@ local function setupCoin(coin)
 					coinStat.Value = coinStat.Value + 10
 				end
 			end
-
+			
 			-- Make translucent / disabled during cooldown
 			coin.Transparency = 1
 			coin.CanCollide = false
-
+			
 			task.wait(5) -- Respawn delay
 			coin.Transparency = 0
 			db = false

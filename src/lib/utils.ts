@@ -18,3 +18,4 @@ export function errorMessage(e: unknown, fallback = "Something went wrong"): str
   }
   return fallback;
 }
+

@@ -314,6 +314,20 @@ export async function resolveAiGateway(opts: {
 
   const provider = settings.provider as ProviderId;
   const rawModel = settings.model || PROVIDER_DEFAULT_MODEL[provider];
+
+  // Neokens & Groq are site-wide gateways — use env keys, no per-user key.
+  if (provider === "neokens") {
+    const neoKey = process.env.NEOKENS_API_KEY || process.env.NEOKENS_KEY;
+    if (!neoKey) return fallback();
+    // Map the UI model id to the real Neokens id (+ thinking flag). This is the
+    // single place that decides what model string Neokens actually receives.
+    const { resolveNeokensModel } = await import("./ai-models");
+    const { model: modelName, thinking: implicitThinking } = resolveNeokensModel(rawModel);
+    if (implicitThinking) opts.thinking = true;
+    const gw = createProvider("neokens", neoKey);
+    return { source: "api_key", provider, modelName, model: gw(modelName) };
+  }
+
   // Map virtual aliases (e.g. "claude-sonnet-4-6-thinking") to the real
   // model ID + implicit flags. The thinking flag is OR-ed onto whatever
   // the caller passed in opts, so an explicit Thinking toggle still works.
@@ -321,13 +335,6 @@ export async function resolveAiGateway(opts: {
   const modelName = aliased.realModel;
   if (aliased.thinking) opts.thinking = true;
 
-  // Neokens & Groq are site-wide gateways — use env keys, no per-user key.
-  if (provider === "neokens") {
-    const neoKey = process.env.NEOKENS_API_KEY || process.env.NEOKENS_KEY;
-    if (!neoKey) return fallback();
-    const gw = createProvider("neokens", neoKey);
-    return { source: "api_key", provider, modelName, model: gw(modelName) };
-  }
   if (provider === "groq") {
     const groqKey = process.env.GROQ_API_KEY;
     if (!groqKey) return fallback();

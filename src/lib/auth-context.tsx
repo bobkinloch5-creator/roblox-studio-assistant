@@ -40,18 +40,25 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const qc = useQueryClient();
 
   const loadProfile = async (uid: string) => {
-    const [{ data: p }, { data: r }] = await Promise.all([
-      supabase
-        .from("profiles")
-        .select(
-          "id,email,display_name,avatar_url,credits,discord_claimed,referral_code,referred_by",
-        )
-        .eq("id", uid)
-        .maybeSingle(),
-      supabase.from("user_roles").select("role").eq("user_id", uid),
-    ]);
-    setProfile(p as Profile | null);
-    setRoles(((r ?? []) as { role: Role }[]).map((x) => x.role));
+    try {
+      const [{ data: p }, { data: r }] = await Promise.all([
+        supabase
+          .from("profiles")
+          .select(
+            "id,email,display_name,avatar_url,credits,discord_claimed,referral_code,referred_by",
+          )
+          .eq("id", uid)
+          .maybeSingle(),
+        supabase.from("user_roles").select("role").eq("user_id", uid),
+      ]);
+      setProfile(p as Profile | null);
+      setRoles(((r ?? []) as { role: Role }[]).map((x) => x.role));
+    } catch (e) {
+      // Supabase unreachable/unconfigured — don't crash; leave profile empty.
+      console.error("[auth] failed to load profile:", e instanceof Error ? e.message : e);
+      setProfile(null);
+      setRoles([]);
+    }
   };
 
   useEffect(() => {
@@ -67,11 +74,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       qc.invalidateQueries();
     });
 
-    supabase.auth.getSession().then(({ data }) => {
-      setSession(data.session);
-      if (data.session?.user) loadProfile(data.session.user.id).finally(() => setLoading(false));
-      else setLoading(false);
-    });
+    supabase.auth
+      .getSession()
+      .then(({ data }) => {
+        setSession(data.session);
+        if (data.session?.user) loadProfile(data.session.user.id).finally(() => setLoading(false));
+        else setLoading(false);
+      })
+      .catch((e: unknown) => {
+        console.error("[auth] getSession failed:", e instanceof Error ? e.message : e);
+        setLoading(false);
+      });
 
     return () => sub.subscription.unsubscribe();
     // eslint-disable-next-line react-hooks/exhaustive-deps

@@ -1,5 +1,6 @@
 import { createOpenAICompatible } from "@ai-sdk/openai-compatible";
 import { ROBLOX_KNOWLEDGE_PROMPT } from "./roblox-knowledge";
+import { CLOTHING_KNOWLEDGE_PROMPT } from "./roblox-clothing";
 
 // Groq's OpenAI-compatible API returns `reasoning_content` on assistant
 // messages from reasoning models (gpt-oss-*), but rejects it on input:
@@ -542,7 +543,9 @@ For "add a coin pickup that gives +1 cash" a strong build queues (real content m
 - ServerScriptService/Economy/CoinService (Script): listens to CollectCoin, verifies the player is near/owns the coin, rate-limits, increments leaderstats cash SERVER-SIDE, removes the coin server-side. Never trusts a client-sent amount.
 - ReplicatedStorage/Modules/Economy/EconomyConfig (ModuleScript): { coinValue = 1, collectCooldown = 0.25 }
 - Workspace/Coins/Coin: visible part; client only REQUESTS collection via the remote.
-That's the bar: correct placement, server authority, a config module, a visible object, zero client-trusted values.`;
+That's the bar: correct placement, server authority, a config module, a visible object, zero client-trusted values.
+
+${CLOTHING_KNOWLEDGE_PROMPT}`;
 
 // ---------------------------------------------------------------------------
 // SLIM system prompt used as a last-resort fallback when the full prompt

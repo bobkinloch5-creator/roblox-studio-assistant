@@ -139,11 +139,6 @@ function pickGenerationTools(
   const add = (name: string) => {
     if (name in allTools) picked[name] = allTools[name];
   };
-  const wantsGeneratedImage =
-    /\b(generate|make|create|design|draw)\b/i.test(lower) &&
-    /\b(image|thumbnail|icon|logo|decal|artwork|poster|banner|loading screen|badge|gamepass|promo art)\b/i.test(
-      lower,
-    );
 
   if (
     /\b(datastore|remoteevent|remotefunction|marketplaceservice|pathfindingservice|tweenservice|runservice|animation|animator|humanoid|screen.?gui|luau|creator hub|api reference|docs|documentation)\b/i.test(
@@ -168,7 +163,6 @@ function pickGenerationTools(
     add("roblox_asset_search");
   }
   if (
-    !wantsGeneratedImage &&
     /\b(asset info|asset details|verify asset|thumbnail|preview|safe model|scan scripts?)\b/i.test(
       lower,
     )
@@ -178,6 +172,13 @@ function pickGenerationTools(
   }
   if (/\b(image|thumbnail|icon|logo|decal|artwork|poster|banner|loading screen)\b/i.test(lower)) {
     add("generate_image");
+  }
+  if (
+    /\b(shirt|pants|t-?shirt|tee|hoodie|jacket|coat|uniform|outfit|clothing|clothes|apparel|wearable|costume|dress|garment|accessor(y|ies)|hat|cap|helmet|glasses|goggles|mask|backpack|bag|chain|necklace|wings?|hair|shoulder|pauldron)\b/i.test(
+      lower,
+    )
+  ) {
+    add("generate_clothing");
   }
 
   return picked;
@@ -211,7 +212,10 @@ export const generateWithAI = createServerFn({ method: "POST" })
 
     const { generateText, Output, stepCountIs } = await import("ai");
     const { SYSTEM_PROMPT } = await import("./ai-gateway.server");
-    const { getModelProfile, resolveAiGateway } = await import("./ai-providers.server");
+    const { getModelProfile, resolveAiGateway, createProvider } = await import(
+      "./ai-providers.server"
+    );
+    const { NEOKENS_SAFE_FALLBACK_MODEL } = await import("./ai-models");
     const { buildProjectMemoryBlock, rememberProjectInteraction } =
       await import("./ai-memory.server");
 
@@ -322,20 +326,31 @@ export const generateWithAI = createServerFn({ method: "POST" })
       }
     }
 
-    let result: { message: string; files: GenFile[]; actions: GenAction[] };
+    let result: { message: string; files: GenFile[]; actions: GenAction[] } = {
+      message: "",
+      files: [],
+      actions: [],
+    };
+    let recovered = false;
+    let fullPrompt = "";
+    let timeoutMs = 16_000;
     try {
-      const fullPrompt = `${memoryBlock ? `${memoryBlock}\n\n` : ""}${studioErrorBlock ? `${studioErrorBlock}\n\n` : ""}${liveBlock}\n\nFULL PROJECT FILE MAP (${(allFiles ?? []).length} files - every file your project has, by location):\n${projectMap || "  (no files yet)"}\n\nRelevant project files (with content preview):\n${filesBlock || "(none indexed)"}\n\nUser request:\n${prompt}\n\nRules:\n- You have FULL AWARENESS of the project above. Reference real files by path. NEVER duplicate something that already exists - MODIFY it.\n- Use PROJECT MEMORY for durable preferences, naming, genre, and recent context. If memory conflicts with live files or the user's latest request, obey the latest request and live project state.
+      fullPrompt = `${memoryBlock ? `${memoryBlock}\n\n` : ""}${studioErrorBlock ? `${studioErrorBlock}\n\n` : ""}${liveBlock}\n\nFULL PROJECT FILE MAP (${(allFiles ?? []).length} files - every file your project has, by location):\n${projectMap || "  (no files yet)"}\n\nRelevant project files (with content preview):\n${filesBlock || "(none indexed)"}\n\nUser request:\n${prompt}\n\nRules:\n- You have FULL AWARENESS of the project above. Reference real files by path. NEVER duplicate something that already exists - MODIFY it.\n- Use PROJECT MEMORY for durable preferences, naming, genre, and recent context. If memory conflicts with live files or the user's latest request, obey the latest request and live project state.
 - Organize new files into clean subfolders by feature (e.g. ServerScriptService/Combat/HitService, ReplicatedStorage/Modules/Config, StarterPlayerScripts/UI/Hud). Do NOT dump everything at the root of a service.\n- Place server Scripts in ServerScriptService, LocalScripts in StarterPlayerScripts or StarterGui, GUIs in StarterGui, RemoteEvents/RemoteFunctions in ReplicatedStorage/Remotes, ModuleScripts in ReplicatedStorage/Modules (shared) or ServerStorage/Modules (server-only), Tools in StarterPack, physical/world objects in Workspace.\n- For ground/landscape requests (grass, sand, snow, water, hills, islands), use real Roblox Terrain via the \`terrainFill\` action. NEVER spawn hundreds of thin Parts.\n- Do NOT claim success - phrase as "Queued for Studio...".\n- If the request is a casual question (no code changes), reply naturally in 'message' with empty 'files' and 'actions'.\n- Use tools (web_search, roblox_asset_*, fetch_url) ONLY when you genuinely need fresh info - every tool call slows you down.\n\nReturn the JSON object as specified.`;
       const { generateTextWithToolFallback } = await import("./ai-retry.server");
       const builtInTools = pickGenerationTools(
         prompt,
-        buildBloxSmithTools({ userId }) as Record<string, any>,
+        buildBloxSmithTools({
+          userId,
+          projectId,
+          referenceImageDataUrl: imageDataUrl ?? null,
+        }) as Record<string, any>,
       );
       const mcpTools = shouldLoadUserMcpTools(prompt)
         ? await (await import("./mcp-client.server")).buildUserMcpTools(userId)
         : {};
       const tools = { ...builtInTools, ...mcpTools } as Record<string, unknown>;
-      const timeoutMs = isComplex
+      timeoutMs = isComplex
         ? Math.min(profile.timeoutMs, thinking ? 38_000 : 30_000)
         : Math.min(profile.timeoutMs, thinking ? 28_000 : 16_000);
       const { text: rawText } = await generateTextWithToolFallback(
@@ -378,13 +393,77 @@ export const generateWithAI = createServerFn({ method: "POST" })
       result.files = result.files ?? [];
       result.actions = result.actions ?? [];
     } catch (err: any) {
-      if (!isOwner)
-        await supabase.rpc("refund_credits", { _amount: cost, _reason: "ai generation failed" });
       const msg = String(err?.message ?? err);
-      if (msg.includes("429")) throw new Error("AI rate limit. Try again in a moment.");
-      if (msg.includes("402"))
-        throw new Error("AI credits exhausted. Add credits in workspace settings.");
-      throw new Error("AI generation failed: " + msg);
+
+      // If the SELECTED model failed at the gateway (e.g. Neokens doesn't serve
+      // that id → 502/404/model-not-found), retry ONCE on a known-good model so
+      // a bad pick doesn't brick the build. Rate-limit/credits errors are not
+      // model problems, so we don't retry those.
+      const looksLikeModelError =
+        /502|503|bad gateway|not found|404|unknown model|unsupported model|no such model|model_not_found|invalid model/i.test(
+          msg,
+        );
+      if (
+        looksLikeModelError &&
+        resolved.provider === "neokens" &&
+        resolved.modelName !== NEOKENS_SAFE_FALLBACK_MODEL
+      ) {
+        try {
+          console.warn(
+            `[generateWithAI] model "${resolved.modelName}" failed (${msg.slice(
+              0,
+              120,
+            )}). Retrying on "${NEOKENS_SAFE_FALLBACK_MODEL}".`,
+          );
+          const neoKey = process.env.NEOKENS_API_KEY || process.env.NEOKENS_KEY;
+          if (neoKey) {
+            const fallbackModel = createProvider("neokens", NEOKENS_SAFE_FALLBACK_MODEL);
+            const { generateTextWithToolFallback: retryGen } = await import("./ai-retry.server");
+            const { text: retryText } = await retryGen(
+              generateText,
+              {
+                model: fallbackModel(NEOKENS_SAFE_FALLBACK_MODEL),
+                system: SYSTEM_PROMPT,
+                prompt: fullPrompt,
+                maxOutputTokens: Math.min(profile.maxOutputTokens, isComplex ? 9000 : 4500),
+                maxRetries: 0,
+                timeout: { totalMs: timeoutMs, stepMs: timeoutMs, chunkMs: 12_000 },
+              },
+              "generateWithAI:fallback",
+            );
+            const m2 = retryText.match(/\{[\s\S]*\}/);
+            result = m2
+              ? (() => {
+                  try {
+                    return JSON.parse(m2[0]);
+                  } catch {
+                    return { message: retryText.trim(), files: [], actions: [] };
+                  }
+                })()
+              : { message: retryText.trim(), files: [], actions: [] };
+            result.files = result.files ?? [];
+            result.actions = result.actions ?? [];
+            // Recovered — `result` is set; fall through to the normal
+            // validation/persistence path below by skipping the throw.
+            recovered = true;
+          }
+        } catch (err2) {
+          console.warn(
+            "[generateWithAI] fallback model also failed:",
+            err2 instanceof Error ? err2.message : err2,
+          );
+          // fall through to the normal error handling
+        }
+      }
+
+      if (!recovered) {
+        if (!isOwner)
+          await supabase.rpc("refund_credits", { _amount: cost, _reason: "ai generation failed" });
+        if (msg.includes("429")) throw new Error("AI rate limit. Try again in a moment.");
+        if (msg.includes("402"))
+          throw new Error("AI credits exhausted. Add credits in workspace settings.");
+        throw new Error("AI generation failed: " + msg);
+      }
     }
 
     // 3. Pre-push sync validation — drop files/actions that would error in Studio.
@@ -764,11 +843,6 @@ function pickChatTools(prompt: string, allTools: Record<string, any>): Record<st
   const add = (name: string) => {
     if (name in allTools) picked[name] = allTools[name];
   };
-  const wantsGeneratedImage =
-    /\b(generate|make|create|design|draw)\b/i.test(lower) &&
-    /\b(image|thumbnail|icon|logo|decal|artwork|poster|banner|loading screen|badge|gamepass|promo art)\b/i.test(
-      lower,
-    );
 
   if (
     /\b(datastore|remoteevent|remotefunction|marketplaceservice|pathfindingservice|tweenservice|runservice|animation|animator|humanoid|screen.?gui|luau|creator hub|api reference|docs|documentation)\b/i.test(
@@ -786,7 +860,6 @@ function pickChatTools(prompt: string, allTools: Record<string, any>): Record<st
     add("fetch_url");
   }
   if (
-    !wantsGeneratedImage &&
     /\b(toolbox|creator store|free model|asset|model id|insert model|use a model|marketplace|skybox|music|sound|decal|image id)\b/i.test(
       lower,
     )
@@ -794,21 +867,12 @@ function pickChatTools(prompt: string, allTools: Record<string, any>): Record<st
     add("roblox_asset_search");
   }
   if (
-    !wantsGeneratedImage &&
     /\b(asset info|asset details|verify asset|thumbnail|preview|safe model|scan scripts?)\b/i.test(
       lower,
     )
   ) {
     add("roblox_asset_info");
     add("roblox_asset_thumbnail");
-  }
-  if (
-    wantsGeneratedImage ||
-    /\b(image|thumbnail|icon|logo|decal|artwork|poster|banner|loading screen|badge|gamepass|promo art)\b/i.test(
-      lower,
-    )
-  ) {
-    add("generate_image");
   }
 
   return picked;
@@ -892,7 +956,6 @@ CHAT MODE RULES - never break these:
 - Be conversational and helpful. Use Markdown.
 - When you give code, ALWAYS wrap it in fenced code blocks with a language tag like \`\`\`lua, \`\`\`luau, or \`\`\`json. Each block gets a copy button in the UI, so split distinct snippets into separate blocks.
 - Keep answers focused. If something is best built (not chatted about), say so and suggest switching off Chat mode.
-- IMAGE REQUESTS: If the user asks for a generated image, thumbnail, icon, logo, decal, badge, gamepass image, banner, poster, or promo art, use the generate_image tool. Do not turn image requests into Roblox Studio build actions. Embed the returned markdown exactly so the website chat shows the image preview inline.
 - VISION: When the user attaches screenshots of Roblox Studio, their game, error popups, or reference images, analyze them in detail. Call out broken hierarchies, missing services, malformed Luau, UI layout issues, lighting/material problems, and red error text by exact wording. Tie every observation back to a concrete fix the user can apply.
 - MCP CONTEXT: If the user has connected MCP servers (Roblox docs, n8n, custom tools), reference relevant facts those servers expose. Cite which server you're drawing from so the user can trust the answer.
 - MEMORY: Use project memory for durable preferences, names, genre, style, and recent context. If it conflicts with the user's latest message or live project files, follow the latest message and live state.
@@ -1271,7 +1334,7 @@ Respond ONLY with the JSON object specified.`;
           prompt: `STUDIO OUTPUT LOGS:\n\`\`\`\n${logs}\n\`\`\`\n\n${memoryBlock ? `${memoryBlock}\n\n` : ""}${liveBlock}\n\nProject files in DB:\n${filesBlock || "(empty)"}\n\nThink step-by-step. Use web_search / fetch_url if you need to look up a Roblox API to fix the error. Then patch the broken files now.`,
           tools: pickGenerationTools(
             logs,
-            buildBloxSmithTools({ userId }) as Record<string, any>,
+            buildBloxSmithTools({ userId, projectId }) as Record<string, any>,
           ) as any,
           stopWhen: stepCountIs(8),
           maxRetries: 0,
