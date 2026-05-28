@@ -593,32 +593,181 @@ export const buildBloxSmithTools = (ctx: BloxSmithToolCtx = {}) => ({
     },
   }),
 
-  // ── AI image generation (Gemini) ─────────────────────────────────────
-  // Generates game icons, thumbnails, GUI artwork, decals, concept art via
-  // Lovable AI Gateway's Gemini image model. Image is uploaded to the
-  // public `generated-images` bucket and a URL is returned. The AI should
-  // embed that URL as a markdown image in its reply so the user sees it
-  // inline in chat and can download it to upload to Roblox as a decal.
+  // ── AI image generation (Google Gemini) ──────────────────────────────
+  // Generates Roblox thumbnails, game icons, GUI artwork, decals, logos and
+  // concept art using the site's OWN Google Gemini key, via the native
+  // `:generateContent` endpoint. (The OpenAI-compatible /images/generations
+  // route only works for Imagen models — the Gemini "Nano Banana" image
+  // models must be called through generateContent.) The PNG is uploaded to
+  // the public `generated-images` bucket and a URL is returned; the AI embeds
+  // it as markdown so the user sees it inline in chat and can download it.
+  //
+  // Server config:
+  //   GEMINI_API_KEY  (preferred)  — your Google Gemini API key, "the one you have".
+  //                   Falls back to GOOGLE_GENERATIVE_AI_API_KEY / GOOGLE_API_KEY.
+  //   GEMINI_IMAGE_MODEL (optional) — defaults to "gemini-2.5-flash-image".
+  //                   Set to "gemini-3-pro-image-preview" for the sharpest
+  //                   thumbnails / best in-image text, or
+  //                   "gemini-3.1-flash-image-preview" for a faster, cheaper one.
+  // If no Gemini key is set, it falls back to the old Lovable gateway so an
+  // existing deployment keeps working until the Gemini key is added.
   generate_image: tool({
     description:
-      "Generate a brand-new image (game icon, thumbnail, GUI artwork, decal art, concept piece, UI sticker, badge, splash, logo, banner, loading screen) from a text prompt using Google Gemini. Returns a public URL. ALWAYS embed it in your reply as markdown: ![alt](url). Use for any 'make me a thumbnail / icon / logo / decal / artwork / poster' request. Do NOT use for Roblox toolbox lookups — use roblox_asset_search for existing assets.",
+      "Generate a brand-new image — Roblox game thumbnail, game icon, GUI artwork, decal art, logo, badge, splash, banner, or loading screen — from a text prompt using Google Gemini. Pick aspectRatio '16:9' for game thumbnails/promo art, '1:1' for game icons and decals, '9:16' for portrait/mobile art. Returns a public URL. ALWAYS embed it in your reply as markdown: ![alt](url). Use for any 'make me a thumbnail / icon / logo / decal / artwork / poster' request. Do NOT use for Roblox toolbox lookups — use roblox_asset_search for existing catalog assets.",
     inputSchema: z.object({
-      prompt: z.string().min(3).max(1000).describe("Detailed visual description: subject, style, mood, colors, framing. Specific = better. e.g. 'A glowing neon obby game icon, top-down isometric, vibrant cyan and magenta blocks on dark background, dramatic rim lighting, Roblox-style cartoon shading'."),
-      size: z.enum(["1024x1024", "1024x1536", "1536x1024"]).default("1024x1024"),
+      prompt: z
+        .string()
+        .min(3)
+        .max(1500)
+        .describe(
+          "Detailed visual description: subject, style, mood, colors, framing, and any title/text to render in the image. Specific = better. e.g. 'Roblox tower defense game thumbnail: three cartoon heroes defending a glowing base from a robot horde, dramatic rim lighting, bold readable title TOWER SIEGE across the top, vibrant cyan and orange, high contrast'.",
+        ),
+      aspectRatio: z
+        .enum(["16:9", "1:1", "9:16", "4:3", "3:4"])
+        .default("16:9")
+        .describe(
+          "Image shape. '16:9' = Roblox game thumbnail / promo image (default). '1:1' = game icon or decal. '9:16' = portrait/mobile. '4:3' or '3:4' = misc.",
+        ),
     }),
-    execute: async ({ prompt, size: _size }) => {
-      const apiKey = process.env.LOVABLE_API_KEY;
-      if (!apiKey) return { error: "Image generation is unavailable (server missing LOVABLE_API_KEY)." };
+    execute: async ({ prompt, aspectRatio }) => {
+      // Image generation runs on the site owner's Gemini key and costs real
+      // money per call, so it must be gated. Require an authenticated user…
+      if (!ctx.userId) {
+        return { error: "Please sign in to generate images." };
+      }
+      // …and apply a simple per-user hourly cap. We count the user's own
+      // recent uploads in the generated-images bucket (no extra table needed).
+      // This check fails OPEN — if listing errors we allow the generation so a
+      // transient storage hiccup never blocks a paying user.
+      const HOURLY_LIMIT = Number(process.env.GEMINI_IMAGE_HOURLY_LIMIT || "30");
+      if (HOURLY_LIMIT > 0) {
+        try {
+          const { data: recent } = await supabaseAdmin.storage
+            .from("generated-images")
+            .list(ctx.userId, { limit: 100, sortBy: { column: "created_at", order: "desc" } });
+          const cutoff = Date.now() - 60 * 60 * 1000;
+          const lastHour = (recent ?? []).filter((o: any) => {
+            const t = Date.parse(o?.created_at ?? o?.updated_at ?? "");
+            return Number.isFinite(t) && t >= cutoff;
+          }).length;
+          if (lastHour >= HOURLY_LIMIT) {
+            return {
+              error: `You've reached the image limit (${HOURLY_LIMIT}/hour). Try again later.`,
+            };
+          }
+        } catch {
+          // fail open — never block generation on a listing error
+        }
+      }
+
+      const ASPECT_HINTS: Record<string, string> = {
+        "16:9": "Compose as a wide 16:9 landscape thumbnail.",
+        "1:1": "Compose as a perfectly square 1:1 icon with the subject centered.",
+        "9:16": "Compose as a tall 9:16 vertical/portrait image.",
+        "4:3": "Compose as a 4:3 landscape image.",
+        "3:4": "Compose as a 3:4 portrait image.",
+      };
+      const fullPrompt = `${prompt}\n\n${ASPECT_HINTS[aspectRatio] ?? ""}`.trim();
+
+      // Shared upload + return helper for both the Gemini and fallback paths.
+      const saveImage = async (bytes: Buffer, mime: string) => {
+        const ext = /jpe?g/i.test(mime) ? "jpg" : "png";
+        const filename = `${ctx.userId ?? "anon"}/${Date.now()}-${Math.random()
+          .toString(36)
+          .slice(2, 8)}.${ext}`;
+        const { error: upErr } = await supabaseAdmin.storage
+          .from("generated-images")
+          .upload(filename, bytes, { contentType: mime || "image/png", upsert: false });
+        if (upErr) return { error: `Could not save image: ${upErr.message}` };
+        const { data: pub } = supabaseAdmin.storage.from("generated-images").getPublicUrl(filename);
+        return {
+          imageUrl: pub.publicUrl,
+          aspectRatio,
+          markdown: `![${prompt.slice(0, 80)}](${pub.publicUrl})`,
+          tip: "Embed `markdown` in your reply so the user sees the image inline. To use it in Roblox: download the PNG, then upload it in the Creator Dashboard / Studio Asset Manager (game thumbnails accept 16:9 up to 1920x1080; the game icon is 512x512). Uploaded decals/images become an assetId.",
+        };
+      };
+
+      const geminiKey =
+        process.env.GEMINI_API_KEY ||
+        process.env.GOOGLE_GENERATIVE_AI_API_KEY ||
+        process.env.GOOGLE_API_KEY;
+
+      // ── Primary path: the site's own Google Gemini key ─────────────────
+      if (geminiKey) {
+        const model = process.env.GEMINI_IMAGE_MODEL || "gemini-2.5-flash-image";
+        const generationConfig: any = { responseModalities: ["TEXT", "IMAGE"] };
+        // imageConfig.aspectRatio is honored by the Gemini 3.x image models
+        // (Nano Banana 2 / Pro). The 2.5 model ignores it and would 400 on
+        // some fields, so we only attach it for gemini-3* and otherwise rely
+        // on the textual aspect hint baked into the prompt.
+        if (/gemini-3/.test(model)) {
+          generationConfig.imageConfig = { aspectRatio };
+        }
+        try {
+          const r = await fetch(
+            `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`,
+            {
+              method: "POST",
+              headers: {
+                "x-goog-api-key": geminiKey,
+                "Content-Type": "application/json",
+              },
+              body: JSON.stringify({
+                contents: [{ role: "user", parts: [{ text: fullPrompt }] }],
+                generationConfig,
+              }),
+            },
+          );
+          if (!r.ok) {
+            const txt = await r.text().catch(() => "");
+            if (r.status === 429)
+              return { error: "Gemini image generation is rate-limited right now. Try again in a moment." };
+            if (r.status === 400 && /billing|quota|FAILED_PRECONDITION/i.test(txt))
+              return {
+                error:
+                  "Gemini rejected the request — the Gemini image models need a Google API key with billing enabled. Check the server's GEMINI_API_KEY.",
+              };
+            if (r.status === 401 || r.status === 403)
+              return { error: "Gemini rejected the API key (check GEMINI_API_KEY on the server)." };
+            return { error: `Gemini image generation failed (HTTP ${r.status}): ${txt.slice(0, 200)}` };
+          }
+          const j: any = await r.json();
+          const parts: any[] = j?.candidates?.[0]?.content?.parts ?? [];
+          const imgPart = parts.find((p) => p?.inlineData?.data || p?.inline_data?.data);
+          const inline = imgPart?.inlineData ?? imgPart?.inline_data;
+          if (!inline?.data) {
+            const block =
+              j?.promptFeedback?.blockReason ||
+              j?.candidates?.[0]?.finishReason ||
+              "no image returned";
+            return {
+              error: `Gemini did not return an image (${block}). Try rephrasing, or remove anything that might trip safety filters.`,
+            };
+          }
+          return await saveImage(
+            Buffer.from(inline.data, "base64"),
+            inline.mimeType || inline.mime_type || "image/png",
+          );
+        } catch (e: any) {
+          return { error: `Gemini image generation error: ${String(e?.message ?? e)}` };
+        }
+      }
+
+      // ── Fallback path: Lovable AI Gateway (kept for back-compat) ───────
+      const lovableKey = process.env.LOVABLE_API_KEY;
+      if (!lovableKey)
+        return {
+          error:
+            "Image generation is unavailable — set GEMINI_API_KEY (your Google Gemini key) on the server to enable thumbnail generation.",
+        };
       try {
         const r = await fetch("https://ai.gateway.lovable.dev/v1/images/generations", {
           method: "POST",
-          headers: {
-            Authorization: `Bearer ${apiKey}`,
-            "Content-Type": "application/json",
-          },
+          headers: { Authorization: `Bearer ${lovableKey}`, "Content-Type": "application/json" },
           body: JSON.stringify({
             model: "google/gemini-2.5-flash-image",
-            messages: [{ role: "user", content: prompt }],
+            messages: [{ role: "user", content: fullPrompt }],
             modalities: ["image", "text"],
           }),
         });
@@ -631,18 +780,7 @@ export const buildBloxSmithTools = (ctx: BloxSmithToolCtx = {}) => ({
         const j: any = await r.json();
         const b64: string | undefined = j?.data?.[0]?.b64_json;
         if (!b64) return { error: "Image generation returned no image data." };
-        const bytes = Buffer.from(b64, "base64");
-        const filename = `${ctx.userId ?? "anon"}/${Date.now()}-${Math.random().toString(36).slice(2, 8)}.png`;
-        const { error: upErr } = await supabaseAdmin.storage
-          .from("generated-images")
-          .upload(filename, bytes, { contentType: "image/png", upsert: false });
-        if (upErr) return { error: `Could not save image: ${upErr.message}` };
-        const { data: pub } = supabaseAdmin.storage.from("generated-images").getPublicUrl(filename);
-        return {
-          imageUrl: pub.publicUrl,
-          markdown: `![${prompt.slice(0, 80)}](${pub.publicUrl})`,
-          tip: "Embed `markdown` in your reply so the user sees the image. To use as a Roblox decal, the user uploads it via Roblox's Asset Manager and you'll get an assetId.",
-        };
+        return await saveImage(Buffer.from(b64, "base64"), "image/png");
       } catch (e: any) {
         return { error: String(e?.message ?? e) };
       }
