@@ -1,5 +1,4 @@
 import { createOpenAICompatible } from "@ai-sdk/openai-compatible";
-import { createAnthropic } from "@ai-sdk/anthropic";
 import { supabaseAdmin } from "@/integrations/supabase/client.server";
 import {
   BLOXSMITH_MODEL,
@@ -233,24 +232,6 @@ function providerEndpoint(provider: ProviderId): { name: string; baseURL: string
 }
 
 export function createProvider(provider: ProviderId, apiKey: string): (modelId: string) => any {
-  if (provider === "neokens") {
-    return (modelId: string) => {
-      if (modelId.toLowerCase().includes("claude")) {
-        return createAnthropic({
-          baseURL: "https://api.quatarly.cloud/v1",
-          apiKey,
-        })(modelId);
-      }
-      const { name, baseURL } = providerEndpoint(provider);
-      return createOpenAICompatible({
-        name,
-        baseURL,
-        apiKey,
-        fetch: sanitizingFetch,
-      })(modelId);
-    };
-  }
-
   const { name, baseURL } = providerEndpoint(provider);
   return createOpenAICompatible({
     name,
