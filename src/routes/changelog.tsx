@@ -2,29 +2,19 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { Header, Footer } from "@/components/layout";
 import {
   Bot,
-  Boxes,
   CheckCircle,
-  Cpu,
   CreditCard,
-  Eye,
   FileCode,
-  FolderKanban,
-  Image,
-  KeyRound,
-  Layers,
-  Map,
-  Megaphone,
-  MessageSquare,
-  Package,
+  Globe2,
+  Languages,
+  LayoutDashboard,
+  Menu,
   Palette,
   Play,
-  RefreshCw,
   Server,
   ShieldCheck,
   Smartphone,
   Sparkles,
-  Users,
-  Wand2,
   Wrench,
   Zap,
 } from "lucide-react";
@@ -41,35 +31,108 @@ const tagStyles = {
 
 const changelogItems = [
   {
+    version: "v2.8.0",
+    date: "May 28, 2026",
+    title: "Roblox AI Brain, Mobile Navigation & Stability Upgrade",
+    description:
+      "A major reliability and AI-quality update focused on making BloxSmith better at building real Roblox games, easier to use on mobile, and safer across important pages.",
+    updates: [
+      {
+        category: "AI Brain",
+        tagColor: tagStyles.ai,
+        icon: Bot,
+        title: "Roblox Docs Knowledge Mandate",
+        detail:
+          "Expanded the AI guidance so BloxSmith acts like it knows Roblox Creator Hub, Luau, Engine APIs, DataStores, MarketplaceService, TeleportService, PathfindingService, UI, animation, physics, lighting, terrain, plugins, and secure multiplayer patterns.",
+      },
+      {
+        category: "Game Types",
+        tagColor: tagStyles.ai,
+        icon: Sparkles,
+        title: "Any Roblox Game Type Support",
+        detail:
+          "Added stronger instructions for tycoons, FPS games, RPGs, simulators, obbies, horror, racing, tower defense, fighting, pet games, roleplay, city games, dungeons, quests, shops, inventories, crafting, vehicles, pets, teams, rounds, and more.",
+      },
+      {
+        category: "Real Assets",
+        tagColor: tagStyles.tools,
+        icon: Play,
+        title: "Real Studio Builds Over Tiny Demos",
+        detail:
+          "BloxSmith is now guided to build playable vertical slices with real maps/assets, UI, sounds, scripts, RemoteEvents, folders, saving when needed, and Studio edit-mode visibility instead of tiny placeholder builds.",
+      },
+      {
+        category: "Mobile",
+        tagColor: tagStyles.ui,
+        icon: Menu,
+        title: "Hamburger Menu Removed on Mobile",
+        detail:
+          "Replaced the mobile hamburger menu with a mobile-only horizontal scroll navbar so users can quickly access Home, Build, Plugin, Credits, Templates, Docs, Ideas, MCP, FAQ, 3D, and Discord.",
+      },
+      {
+        category: "Themes",
+        tagColor: tagStyles.ui,
+        icon: Palette,
+        title: "Better Mobile Theme Switcher",
+        detail:
+          "Theme switching now opens a phone-friendly panel with bigger tap targets, a close button, overlay, scroll lock, and cleaner mobile spacing while keeping desktop controls working normally.",
+      },
+      {
+        category: "Languages",
+        tagColor: tagStyles.ui,
+        icon: Languages,
+        title: "Better Mobile Language Switcher",
+        detail:
+          "Language switching now opens a mobile-friendly panel with popular languages first, more languages below, bigger tap targets, a close button, overlay, and page scroll lock while choosing a language.",
+      },
+      {
+        category: "Help Chat",
+        tagColor: tagStyles.backend,
+        icon: Globe2,
+        title: "Desktop Help Chat Reliability",
+        detail:
+          "Improved the public help chat route with model fallbacks, Groq fallback support, safe local answers, timeouts, rate limiting, and better help for plugin setup, credits, MCP, docs, and BloxSmith info.",
+      },
+      {
+        category: "Admin",
+        tagColor: tagStyles.backend,
+        icon: LayoutDashboard,
+        title: "Safer Admin Page",
+        detail:
+          "Rebuilt the admin page into a safer overview with login/admin messages, safe counts for users/projects/generations/pending payments, recent users, mobile-friendly scrolling tables, and fewer crash points.",
+      },
+      {
+        category: "Stability",
+        tagColor: tagStyles.security,
+        icon: ShieldCheck,
+        title: "Emergency Assistant Route Recovery",
+        detail:
+          "Restored the assistant execute route with safe JSON responses and fallback Studio actions so broken AI gateway calls do not crash pages or project sync flows.",
+      },
+    ],
+  },
+  {
     version: "v2.7.0",
     date: "May 28, 2026",
     title: "Premium Homepage, Mobile UX & Creator Conversion Upgrade",
     description:
-      "A major homepage and mobile-friendly update focused on making BloxSmith easier to understand, more trustworthy for new Roblox creators, and stronger at converting visitors into builders.",
+      "A major homepage and mobile-friendly update focused on making BloxSmith easier to understand, more trustworthy for Roblox creators, and stronger at converting visitors into builders.",
     updates: [
       {
         category: "Homepage",
         tagColor: tagStyles.ui,
         icon: Sparkles,
-        title: "What BloxSmith Can Make Section",
+        title: "What BloxSmith Can Make",
         detail:
-          "Added a clear feature grid showing that BloxSmith can generate maps, Luau scripts, game systems, GUIs, VFX, sounds, toolbox assets, NPCs, thumbnails, icons, decals, and Roblox-ready game art.",
+          "Added clear sections for maps, Luau scripts, game systems, GUIs, VFX, sounds, toolbox assets, NPCs, thumbnails, icons, decals, and Roblox-ready game art.",
       },
       {
         category: "Prompts",
         tagColor: tagStyles.ai,
-        icon: MessageSquare,
-        title: "Try This Prompt Section",
+        icon: Bot,
+        title: "Example Prompt Section",
         detail:
-          "Added clickable example prompts for mining simulators, racing lobbies, shop GUIs, obby checkpoints, horror systems, and tycoon starter kits so new users know exactly what to ask the AI.",
-      },
-      {
-        category: "Marketing",
-        tagColor: tagStyles.tools,
-        icon: Eye,
-        title: "Live Demo Preview Flow",
-        detail:
-          "Added a live-demo style preview that explains the full BloxSmith flow: prompt, AI plan, generated files, and Roblox Studio plugin sync.",
+          "Added example prompts for tycoons, simulators, obbies, horror systems, racing lobbies, shop GUIs, and other Roblox builds so users know what to ask.",
       },
       {
         category: "Plugin",
@@ -77,31 +140,15 @@ const changelogItems = [
         icon: Play,
         title: "Roblox Studio Plugin Preview",
         detail:
-          "Added a dedicated plugin preview showing that the plugin connects accounts, sends scripts into Studio, places files in the right services, scans projects, helps fix Studio errors, and safely inserts toolbox assets.",
+          "Added plugin preview content explaining account connection, Studio sync, correct service placement, project scans, error fixing, and toolbox asset insertion.",
       },
       {
-        category: "Beginner Friendly",
-        tagColor: tagStyles.ai,
-        icon: Users,
-        title: "Beginner Friendly Creator Section",
+        category: "Credits",
+        tagColor: tagStyles.backend,
+        icon: CreditCard,
+        title: "Clearer Credit Info",
         detail:
-          "Added copy that explains users do not need scripting experience. BloxSmith supports plain-English prompts, setup guidance, testing help, and Studio error fixing.",
-      },
-      {
-        category: "Trust",
-        tagColor: tagStyles.security,
-        icon: ShieldCheck,
-        title: "Trust Badges Near the Hero",
-        detail:
-          "Added quick trust badges for free start, no card needed, Roblox Studio plugin, daily free credits, Luau support, and beginner-friendly usage.",
-      },
-      {
-        category: "CTA",
-        tagColor: tagStyles.tools,
-        icon: Zap,
-        title: "Stronger Call-to-Action Buttons",
-        detail:
-          "Updated the main hero buttons to be clearer and more clickable: Start Building Free, Download Plugin, and Try Example Prompts.",
+          "Added clearer credit copy explaining starter credits, daily credits, pay-as-you-go packs, and what credits are used for.",
       },
       {
         category: "Mobile",
@@ -109,72 +156,16 @@ const changelogItems = [
         icon: Smartphone,
         title: "Homepage Mobile Improvements",
         detail:
-          "Shortened and cleaned up the mobile hero, improved button layout, reduced the visual code preview height on phones, and made the comparison table horizontally scroll instead of breaking the page.",
-      },
-      {
-        category: "Credits",
-        tagColor: tagStyles.backend,
-        icon: CreditCard,
-        title: "Clearer Credit Explanation",
-        detail:
-          "Added a credits section explaining free starter credits, daily credits, pay-as-you-go packs, and that credits power AI builds, scripts, fixes, planning, image generation, and plugin actions.",
-      },
-      {
-        category: "AI Modes",
-        tagColor: tagStyles.ai,
-        icon: Bot,
-        title: "AI Builder Modes Section",
-        detail:
-          "Added mode cards for Full Game Builder, Script Builder, Map Builder, GUI Builder, VFX Builder, and Game Fixer so users can quickly understand what BloxSmith can do.",
-      },
-      {
-        category: "Marketing",
-        tagColor: tagStyles.tools,
-        icon: Wrench,
-        title: "Why Creators Need This Section",
-        detail:
-          "Added a section explaining that BloxSmith helps creators stop wasting hours on tutorials, broken scripts, confusing file placement, and slow Roblox prototyping.",
-      },
-      {
-        category: "Community",
-        tagColor: tagStyles.integrations,
-        icon: Megaphone,
-        title: "Discord Community Promotion",
-        detail:
-          "Added a Discord promo section inviting builders to join for support, updates, free-credit announcements, prompt ideas, plugin help, and sharing Roblox creations.",
-      },
-      {
-        category: "Roadmap",
-        tagColor: tagStyles.backend,
-        icon: RefreshCw,
-        title: "Coming Soon Roadmap Section",
-        detail:
-          "Added upcoming features for a smarter project scanner, AI thumbnail generator, better toolbox search, team project building, and more payment options.",
-      },
-      {
-        category: "Help Chat",
-        tagColor: tagStyles.ui,
-        icon: MessageSquare,
-        title: "Compact Mobile Help Chat",
-        detail:
-          "Made the floating help chat much smaller on mobile, improved iPhone safe-area spacing, reduced intro text and suggestion button size, and disabled mobile dragging so the widget does not cover the whole screen or get stuck.",
-      },
-      {
-        category: "Navigation",
-        tagColor: tagStyles.ui,
-        icon: Smartphone,
-        title: "Mobile Header and Menu Upgrade",
-        detail:
-          "Improved the mobile header with a cleaner hamburger menu, scrollable mobile navigation, touch-friendly buttons, account links, Discord shortcut, theme toggle, language control, and iPhone bottom safe-area padding.",
+          "Improved mobile hero sizing, button layout, comparison table scrolling, help chat sizing, and phone-friendly navigation spacing.",
       },
     ],
   },
   {
     version: "v2.6.0",
     date: "May 28, 2026",
-    title: "Security, Speed & Gemini Image Generation Upgrade",
+    title: "Security, Speed & AI Gateway Upgrade",
     description:
-      "A stability and safety release for the BloxSmith website, AI chat, model gateway, Roblox plugin organizer, and upcoming Roblox-ready image generation workflow.",
+      "A stability and safety release for the website, AI chat, model gateway, plugin organizer, and image generation workflow.",
     updates: [
       {
         category: "Performance",
@@ -182,15 +173,15 @@ const changelogItems = [
         icon: Zap,
         title: "Smoother AI Chat Performance",
         detail:
-          "Assistant messages are now memoized so long chats do not re-render every old message on each keystroke, status poll, or timer update. This helps reduce typing lag in big projects.",
+          "Assistant messages were optimized so long chats re-render less and project pages feel smoother.",
       },
       {
         category: "Security",
         tagColor: tagStyles.security,
         icon: ShieldCheck,
-        title: "Removed Hardcoded API Key Fallbacks",
+        title: "Safer Provider Keys",
         detail:
-          "Server AI providers, model tests, and plugin organizer routes now rely on secure environment variables instead of embedded Groq fallback keys. This keeps private keys out of source code going forward.",
+          "Server AI providers and model tests now rely on environment variables instead of embedded fallback keys.",
       },
       {
         category: "AI Gateway",
@@ -198,31 +189,7 @@ const changelogItems = [
         icon: Server,
         title: "Cleaner Provider Routing",
         detail:
-          "Improved routing and fallback behavior for Groq, Neokens, Gemini, OpenAI-compatible, and Claude-style providers. Missing provider keys now fail safer and are easier to diagnose.",
-      },
-      {
-        category: "Admin Tools",
-        tagColor: tagStyles.backend,
-        icon: Cpu,
-        title: "Improved Model Diagnostics",
-        detail:
-          "Admin model testing now reports clearer missing-key, timeout, rate-limit, auth, provider, and model-not-found errors. The test prompt was updated so reasoning models return visible replies more reliably.",
-      },
-      {
-        category: "Roblox Plugin",
-        tagColor: tagStyles.plugin,
-        icon: FolderKanban,
-        title: "Safer Plugin Organizer Queue",
-        detail:
-          "The organize endpoint keeps projects private per user, validates ownership before queueing plugin actions, and uses secure server AI configuration for organize, move, and rename tasks.",
-      },
-      {
-        category: "Images",
-        tagColor: tagStyles.tools,
-        icon: Image,
-        title: "Gemini Image Generation Prepared",
-        detail:
-          "Prepared Gemini image generation for Roblox-ready thumbnails, icons, decals, GUI art, posters, badges, loading screens, and concept art with aspect ratios for 16:9 thumbnails, 1:1 icons/decals, and 9:16 mobile art.",
+          "Improved routing and fallback behavior for Groq, Neokens, Gemini, OpenAI-compatible, and Claude-style providers.",
       },
     ],
   },
@@ -231,204 +198,23 @@ const changelogItems = [
     date: "May 27, 2026",
     title: "Full Roblox Creation Assistant",
     description:
-      "BloxSmith AI evolves from a script generator into a complete Roblox build agent: maps, GUIs, tools, animations, VFX, full game systems, and procedural worlds — all placed correctly inside Studio.",
+      "BloxSmith AI evolved from a script generator into a complete Roblox build assistant for maps, GUIs, tools, VFX, systems, and Studio placement.",
     updates: [
       {
         category: "AI",
         tagColor: tagStyles.ai,
-        icon: Wand2,
-        title: "Six New Build Modes",
+        icon: Wrench,
+        title: "Build Modes Added",
         detail:
-          "Added Animation Helper, VFX Builder, Game System Builder, Procedural Generator, Toolbox Finder, and Finish My Game modes with deeper implementation guidance.",
-      },
-      {
-        category: "AI",
-        tagColor: tagStyles.ai,
-        icon: Boxes,
-        title: "Procedural World Generation",
-        detail:
-          "Ask for an obby, mining sim, forest, city block, lobby, tycoon, or cave system and the AI can generate scene structure, parts, materials, NPCs, and gameplay logic.",
+          "Added stronger generation support for animations, VFX, game systems, procedural builds, toolbox finding, and finish-my-game workflows.",
       },
       {
         category: "Placement",
         tagColor: tagStyles.backend,
-        icon: Layers,
+        icon: FileCode,
         title: "Correct Studio Service Placement",
         detail:
-          "Generated items are guided toward Workspace, ServerScriptService, ReplicatedStorage, ServerStorage, StarterGui, StarterPack, StarterPlayer, Lighting, SoundService, Teams, and clean folder structures.",
-      },
-      {
-        category: "AI",
-        tagColor: tagStyles.backend,
-        icon: FolderKanban,
-        title: "Structured Response Contract",
-        detail:
-          "Every build response now explains what was made, how it works, where it goes, how to test it, safety notes, and the suggested next task.",
-      },
-    ],
-  },
-  {
-    version: "v2.4.0",
-    date: "May 27, 2026",
-    title: "Real Toolbox Assets & Map Insertion",
-    description:
-      "The AI can find and insert real free assets from the Roblox creator marketplace — maps, models, props, and full scenes.",
-    updates: [
-      {
-        category: "AI Tools",
-        tagColor: tagStyles.tools,
-        icon: Map,
-        title: "Real Map & Asset Insertion",
-        detail:
-          "Asset lookups use a server-friendly toolbox endpoint and rank results by popularity signals so BloxSmith can pick better Roblox marketplace assets.",
-      },
-      {
-        category: "AI Tools",
-        tagColor: tagStyles.tools,
-        icon: Package,
-        title: "Map Intent Safety Net",
-        detail:
-          "When you ask for a map, world, lobby, or city and no toolbox insert is queued, the AI tries to find and queue a free asset so you do not get an empty result.",
-      },
-      {
-        category: "Security",
-        tagColor: tagStyles.security,
-        icon: ShieldCheck,
-        title: "Free + Script-Scanned by Default",
-        detail:
-          "Auto-inserted toolbox assets are restricted to free items and pass through the quarantine scanner before they touch your place.",
-      },
-    ],
-  },
-  {
-    version: "v2.3.0",
-    date: "May 27, 2026",
-    title: "Smarter Models & UI/GUI Generation",
-    description:
-      "Hardened model routing so BloxSmith models have the right token budgets and capabilities for UI, GUI, animation, and full-game generation.",
-    updates: [
-      {
-        category: "AI",
-        tagColor: tagStyles.integrations,
-        icon: Sparkles,
-        title: "UI & GUI Animation Generation",
-        detail:
-          "BloxSmith can design and code complete GUIs with TweenService animations, hover states, and polished layouts — not just gameplay scripts.",
-      },
-      {
-        category: "Backend",
-        tagColor: tagStyles.backend,
-        icon: Wrench,
-        title: "Per-Model Token Tuning",
-        detail:
-          "Each model tier now has a more appropriate context window and output token budget so longer builds are less likely to truncate mid-script.",
-      },
-    ],
-  },
-  {
-    version: "v2.2.0",
-    date: "May 26, 2026",
-    title: "MCP Servers & Promote-to-Earn",
-    description:
-      "A platform expansion: connect your own MCP servers and earn free credits by promoting BloxSmith on TikTok or YouTube.",
-    updates: [
-      {
-        category: "Integrations",
-        tagColor: tagStyles.integrations,
-        icon: Server,
-        title: "MCP Server Support with Status Indicators",
-        detail:
-          "Connect custom Model Context Protocol servers to extend the AI with your own tools. Each server shows live status indicators on the MCP Servers page.",
-      },
-      {
-        category: "AI",
-        tagColor: tagStyles.backend,
-        icon: Bot,
-        title: "AI Can Manage MCP Servers",
-        detail:
-          "You can ask the AI chat to list, add, and remove MCP servers on your account through built-in tools.",
-      },
-      {
-        category: "Rewards",
-        tagColor: tagStyles.security,
-        icon: Megaphone,
-        title: "Promote & Earn Free Credits",
-        detail:
-          "Post a TikTok or YouTube video promoting BloxSmith, submit the link from your account page, and earn free credits once approved.",
-      },
-    ],
-  },
-  {
-    version: "v2.1.0",
-    date: "May 26, 2026",
-    title: "Extended Project Scanner & Edit Mode Verification",
-    description:
-      "A major update to the Roblox Studio plugin and website communication layer for reliability, security, and project awareness.",
-    updates: [
-      {
-        category: "Roblox Plugin",
-        tagColor: tagStyles.plugin,
-        icon: Play,
-        title: "Roblox Studio Edit Mode Verification",
-        detail:
-          "The plugin checks if you are running the game and warns before building during Play Mode so temporary play-mode changes are not lost.",
-      },
-      {
-        category: "Roblox Plugin",
-        tagColor: tagStyles.plugin,
-        icon: FolderKanban,
-        title: "Workspace.BloxSmithBuilds Grouping",
-        detail:
-          "Custom AI builds group under a dedicated BloxSmithBuilds folder in Workspace to keep your game hierarchy clean.",
-      },
-      {
-        category: "Scanner",
-        tagColor: tagStyles.plugin,
-        icon: RefreshCw,
-        title: "Extended Project Scanner & Property Sync",
-        detail:
-          "The scanner syncs key Roblox services, properties, and script checksums so the AI has better spatial and project awareness.",
-      },
-      {
-        category: "Security",
-        tagColor: tagStyles.tools,
-        icon: KeyRound,
-        title: "Secure Supabase Queue Bypass",
-        detail:
-          "Database action queue handling was reworked with secure server-side functions while keeping admin credentials away from browsers and plugins.",
-      },
-    ],
-  },
-  {
-    version: "v2.0.0",
-    date: "May 24, 2026",
-    title: "Migration to Groq AI & Complete UI Overhaul",
-    description:
-      "Core AI generation was rebuilt for faster responses, cleaner chat, and improved Roblox action generation.",
-    updates: [
-      {
-        category: "Backend",
-        tagColor: tagStyles.backend,
-        icon: Cpu,
-        title: "Groq Llama-3.3-70b Integration",
-        detail:
-          "Added ultra-fast Groq-hosted model routing, reasoning support for complex systems, and JSON repair for structured Roblox action generation.",
-      },
-      {
-        category: "UI/UX",
-        tagColor: tagStyles.ui,
-        icon: FileCode,
-        title: "Chat Redesign & Suggestion Cards",
-        detail:
-          "Polished chat layout with prompt suggestion cards, model tags, thinking toggles, and cleaner message bubbles.",
-      },
-      {
-        category: "Security",
-        tagColor: tagStyles.tools,
-        icon: ShieldCheck,
-        title: "Creator Store Safety Scanner",
-        detail:
-          "The plugin scans toolbox models and strips dangerous scripts before inserted assets can affect your Roblox game.",
+          "Generated items are guided toward Workspace, ServerScriptService, ReplicatedStorage, StarterGui, StarterPack, Lighting, SoundService, Teams, and clean folders.",
       },
     ],
   },
@@ -442,7 +228,7 @@ export const Route = createFileRoute("/changelog")({
       {
         name: "description",
         content:
-          "Stay updated with the latest BloxSmith releases, AI upgrades, plugin changes, security fixes, and bug fixes.",
+          "Stay updated with the latest BloxSmith releases, AI upgrades, plugin changes, security fixes, mobile improvements, and Roblox builder updates.",
       },
       { property: "og:title", content: "Changelog — BloxSmith" },
       { property: "og:description", content: "Latest BloxSmith releases, features, security updates, and fixes." },
@@ -485,7 +271,7 @@ function ChangelogPage() {
             What's <span className="gradient-text">New</span>
           </h1>
           <p className="mt-4 text-muted-foreground text-base sm:text-lg">
-            Follow the latest website upgrades, AI improvements, Roblox Studio plugin changes, security fixes, and platform changelogs.
+            Follow the latest website upgrades, AI improvements, Roblox Studio plugin changes, mobile fixes, security updates, and platform changelogs.
           </p>
         </div>
 
@@ -542,7 +328,7 @@ function ChangelogPage() {
           </div>
           <h4 className="text-lg font-bold">Have suggestions or issues?</h4>
           <p className="text-xs text-muted-foreground mt-2 leading-relaxed">
-            BloxSmith is updated often to improve Roblox development workflows, plugin reliability, AI generation quality, and security.
+            BloxSmith is updated often to improve Roblox development workflows, plugin reliability, AI generation quality, mobile UX, and security.
           </p>
           <div className="mt-6 flex justify-center gap-4">
             <Link to="/plugin" className="text-xs font-semibold text-primary hover:text-primary-glow underline">
