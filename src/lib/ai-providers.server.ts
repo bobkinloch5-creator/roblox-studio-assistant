@@ -74,8 +74,10 @@ export const PROVIDER_LABELS: Record<ProviderId, string> = {
 export const PROVIDER_MODELS: Record<ProviderId, string[]> = {
   openai: ["gpt-5.5", "gpt-5", "gpt-5-mini", "gpt-5-nano", "gpt-5-codex", "gpt-4.1", "gpt-4.1-mini"],
   anthropic: [
+    "claude-sonnet-4-7-thinking",
     "claude-sonnet-4-6",
     "claude-sonnet-4-6-thinking",
+    "claude-opus-4-6-thinking",
     "claude-sonnet-4-5",
     "claude-opus-4-1",
     "claude-3-5-sonnet-latest",
@@ -112,6 +114,7 @@ export const PROVIDER_DEFAULT_MODEL: Record<ProviderId, string> = {
 // underlying model with adaptive thinking enabled at call time.
 const VIRTUAL_MODEL_ALIASES: Record<string, { realModel: string; thinking?: boolean }> = {
   "claude-sonnet-4-7-thinking": { realModel: "claude-sonnet-4-7", thinking: true },
+  "claude-opus-4-6-thinking": { realModel: "claude-opus-4-6", thinking: true },
   "claude-sonnet-4-6-thinking": { realModel: "claude-sonnet-4-6", thinking: true },
 };
 
@@ -303,10 +306,12 @@ export async function resolveAiGateway(opts: {
 
   const provider = settings.provider as ProviderId;
   const rawModel = settings.model || PROVIDER_DEFAULT_MODEL[provider];
-  // Map virtual aliases (e.g. "claude-sonnet-4-6-thinking") to the real
-  // model ID + implicit flags. The thinking flag is OR-ed onto whatever
-  // the caller passed in opts, so an explicit Thinking toggle still works.
-  const aliased = resolveModelAlias(rawModel);
+  // Direct Anthropic needs virtual "-thinking" IDs mapped to the real model.
+  // Neokens exposes those frontier IDs as first-class proxy models, so keep
+  // them exact; rewriting claude-sonnet-4-7-thinking caused provider 502s.
+  const aliased = provider === "neokens"
+    ? { realModel: rawModel, thinking: rawModel.endsWith("-thinking") }
+    : resolveModelAlias(rawModel);
   const modelName = aliased.realModel;
   if (aliased.thinking) opts.thinking = true;
 
