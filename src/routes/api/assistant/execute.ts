@@ -1804,21 +1804,26 @@ export const Route = createFileRoute("/api/assistant/execute")({
                 let lastErr: any = null;
                 let rawText = "";
 
+                // Detect build-heavy intent. The full system prompt carries
+                // the Universal Builder Mandate, UI polish recipe, and toolbox
+                // workflow — worth its ~10k tokens for full builds, but pure
+                // overhead for "add a part" or "fix this script" requests.
+                const wantsFullPrompt =
+                  !!thinking ||
+                  /\b(game|tycoon|simulator|obby|shop|inventory|menu|hud|loading|splash|main\s*menu|settings|cutscene|quest|admin|rpg|combat|weapon|npc|enemy|boss|pet|map|world|city|lobby|tower\s*defense)\b/i.test(prompt);
+
                 for (let i = 0; i < attempts.length; i++) {
                   const att = attempts[i];
                   const built = buildContextBlock(att.level, ctxInputs);
-                  // Use the full system prompt by default — it carries the
-                  // Universal Builder Mandate, UI polish recipe, toolbox-first
-                  // workflow, and engineering rules. The slim prompt drops most
-                  // of that and was the main reason builds came back generic
-                  // or refused with "I can't do that". Only fall back to slim
-                  // when we've already escalated to a higher-budget attempt
-                  // and the full prompt would push us over the budget.
+                  // Prompt selection: slim by default for speed; full prompt
+                  // when the request needs the build mandate, or on a later
+                  // retry attempt where we already escalated context.
                   const fullPromptTokens =
                     systemTokens +
                     estimateTokens(built.contextBlock) +
                     built.trimmedHistory.reduce((sum, m) => sum + estimateTokens(m.content), 0);
-                  const useSlim = att.level >= 2 && fullPromptTokens > att.budget;
+                  const wantFull = wantsFullPrompt || att.level >= 2;
+                  const useSlim = !wantFull || fullPromptTokens > att.budget;
                   const baseSystem = useSlim ? SLIM_SYSTEM_PROMPT : SYSTEM_PROMPT;
                   const baseSystemTokens = useSlim ? slimSystemTokens : systemTokens;
                   const promptTokens =

@@ -165,12 +165,14 @@ export function getModelProfile(
     inputTokenBudget,
     maxOutputTokens,
     chatOutputTokens: opts.thinking ? (isHuge ? 2_000 : 1_600) : isSmall ? 700 : 1_100,
-    // Tighter timeouts — the previous values were tuned for the slow 8B
-    // default and starved fast calls of a quick-fail signal. Frontier
-    // models on Neokens/Anthropic typically settle in under 12s for chat
-    // and under 25s for a full build response.
-    timeoutMs: opts.thinking ? 40_000 : opts.heavyBuild ? 32_000 : isSmall ? 16_000 : 24_000,
-    chatTimeoutMs: opts.thinking ? 35_000 : isSmall ? 10_000 : 14_000,
+    // Timeouts. These were tightened in an earlier pass and combined with
+    // the expanded system prompt produced 502 Bad Gateway errors on
+    // heavier builds when Cloudflare's worker wall-time ran out before
+    // the upstream model finished streaming. Restored to generous values
+    // so the bigger prompt has room to complete; perceived speed comes
+    // from the model and prompt upgrades, not from cutting the timeout.
+    timeoutMs: opts.thinking ? 45_000 : opts.heavyBuild ? 42_000 : isSmall ? 20_000 : 30_000,
+    chatTimeoutMs: opts.thinking ? 40_000 : isSmall ? 12_000 : 18_000,
     stopSteps: opts.thinking ? 12 : isSmall ? 3 : 6,
     supportsTools: !opts.retry && !(provider === "groq" && id.includes("gemma")),
     supportsVision:

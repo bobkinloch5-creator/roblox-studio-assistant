@@ -399,8 +399,16 @@ function LinkRow({
 
 export function ChatSettings(props: Props) {
   const [open, setOpen] = useState(false);
-  const [sounds, setSounds] = useState<boolean>(() => soundsEnabled());
+  // Start with the SSR-safe default (off) and read localStorage in an
+  // effect so the server-rendered HTML matches the first client render.
+  // Reading localStorage in a lazy state initializer caused React error
+  // #419 (hydration mismatch) for users who had previously enabled sounds.
+  const [sounds, setSounds] = useState<boolean>(false);
   const ref = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    setSounds(soundsEnabled());
+  }, []);
 
   useEffect(() => {
     if (!open) return;
