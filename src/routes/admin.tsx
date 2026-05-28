@@ -5,6 +5,9 @@ import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { requireAdmin } from "@/lib/admin.functions";
+import { useServerFn } from "@tanstack/react-start";
+import { CheckCircle2, XCircle, Loader2, PlayCircle, RefreshCw } from "lucide-react";
+import { testAllSiteModels, type ModelTestResult } from "@/lib/model-test.functions";
 
 export const Route = createFileRoute("/admin")({
   beforeLoad: async () => {
@@ -269,18 +272,7 @@ function Admin() {
           </div>
         )}
 
-        <section className="glass rounded-2xl p-6">
-          <h2 className="font-semibold mb-3">Tools</h2>
-          <div className="flex flex-wrap gap-2">
-            <a
-              href="/model-diagnostics"
-              className="inline-flex items-center gap-2 rounded-lg border border-border bg-surface-elevated/40 px-3 py-2 text-sm hover:border-primary/50 hover:bg-surface transition"
-            >
-              Model diagnostics
-              <span className="text-[10px] text-muted-foreground">— verify every AI model responds</span>
-            </a>
-          </div>
-        </section>
+        <ModelDiagnosticsSection />
 
         <section className="glass rounded-2xl p-6">
           <div className="flex justify-between items-center mb-3">
@@ -468,5 +460,186 @@ function Admin() {
       </main>
       <Footer />
     </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Model Diagnostics — admin-only inline tool that pings every site-available
+// AI model with a "reply ok" prompt and shows pass/fail status per model.
+// Lives directly inside the admin page so the client-side auth attacher
+// fires on the server-function RPC (the standalone route version of this
+// failed because <a href> bypassed the React app and dropped the bearer
+// token before requireAdmin could see it).
+// ---------------------------------------------------------------------------
+
+const DIAG_ERROR_LABELS: Record<NonNullable<ModelTestResult["errorKind"]>, string> = {
+  not_configured: "Not configured",
+  model_not_found: "Model not found",
+  auth: "Auth failed",
+  rate_limit: "Rate limited",
+  timeout: "Timeout",
+  provider: "Provider error",
+  unknown: "Unknown error",
+};
+
+type ModelDiagnosticsRun = {
+  ranAt: string;
+  totalModels: number;
+  okCount: number;
+  failCount: number;
+  results: ModelTestResult[];
+};
+
+function ModelDiagnosticsSection() {
+  const runTest = useServerFn(testAllSiteModels);
+  const [running, setRunning] = useState(false);
+  const [run, setRun] = useState<ModelDiagnosticsRun | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  const go = async () => {
+    setRunning(true);
+    setError(null);
+    try {
+      const result = await runTest({ data: {} });
+      setRun(result as ModelDiagnosticsRun);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : String(err));
+    } finally {
+      setRunning(false);
+    }
+  };
+
+  return (
+    <section className="glass rounded-2xl p-6">
+      <div className="flex items-center justify-between gap-4 mb-3">
+        <div>
+          <h2 className="font-semibold">Model diagnostics</h2>
+          <p className="text-xs text-muted-foreground mt-0.5">
+            Pings every site-available AI model with a one-word prompt to verify it responds. ~15s per model, all in parallel.
+          </p>
+        </div>
+        <button
+          type="button"
+          onClick={go}
+          disabled={running}
+          className="inline-flex items-center gap-2 rounded-lg bg-primary px-3 py-1.5 text-xs font-semibold text-primary-foreground hover:opacity-90 transition disabled:opacity-50"
+        >
+          {running ? (
+            <>
+              <Loader2 className="h-3.5 w-3.5 animate-spin" /> Testing…
+            </>
+          ) : run ? (
+            <>
+              <RefreshCw className="h-3.5 w-3.5" /> Run again
+            </>
+          ) : (
+            <>
+              <PlayCircle className="h-3.5 w-3.5" /> Run test
+            </>
+          )}
+        </button>
+      </div>
+
+      {error && (
+        <div className="rounded-lg border border-destructive/40 bg-destructive/10 px-3 py-2 text-xs text-destructive mb-3">
+          {error}
+        </div>
+      )}
+
+      {run && (
+        <>
+          <div className="grid grid-cols-3 gap-2 mb-3">
+            <DiagSummary label="Total" value={run.totalModels} tone="neutral" />
+            <DiagSummary label="Working" value={run.okCount} tone="ok" />
+            <DiagSummary label="Failing" value={run.failCount} tone={run.failCount > 0 ? "fail" : "neutral"} />
+          </div>
+          <div className="text-[10px] text-muted-foreground mb-2">
+            Ran at {new Date(run.ranAt).toLocaleString()}
+          </div>
+          <div className="rounded-lg border border-border overflow-hidden">
+            <table className="w-full text-xs">
+              <thead className="bg-surface-elevated/60 text-[10px] uppercase tracking-wider text-muted-foreground">
+                <tr>
+                  <th className="text-left px-2 py-1.5 font-semibold w-8"></th>
+                  <th className="text-left px-2 py-1.5 font-semibold">Provider</th>
+                  <th className="text-left px-2 py-1.5 font-semibold">Model</th>
+                  <th className="text-right px-2 py-1.5 font-semibold">Time</th>
+                  <th className="text-left px-2 py-1.5 font-semibold">Result</th>
+                </tr>
+              </thead>
+              <tbody>
+                {run.results.map((r) => (
+                  <DiagRow key={`${r.provider}:${r.modelId}`} r={r} />
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </>
+      )}
+
+      {!run && !running && !error && (
+        <p className="text-xs text-muted-foreground">
+          Click <strong>Run test</strong> to verify every model. Useful after adding new models or changing provider keys.
+        </p>
+      )}
+    </section>
+  );
+}
+
+function DiagSummary({ label, value, tone }: { label: string; value: number; tone: "ok" | "fail" | "neutral" }) {
+  const cls =
+    tone === "ok"
+      ? "border-emerald-500/30 bg-emerald-500/10 text-emerald-400"
+      : tone === "fail"
+        ? "border-destructive/30 bg-destructive/10 text-destructive"
+        : "border-border bg-surface-elevated/40 text-foreground";
+  return (
+    <div className={`rounded-md border px-3 py-2 ${cls}`}>
+      <div className="text-[9px] uppercase tracking-wider opacity-80">{label}</div>
+      <div className="text-xl font-bold mt-0.5">{value}</div>
+    </div>
+  );
+}
+
+function DiagRow({ r }: { r: ModelTestResult }) {
+  return (
+    <tr className="border-t border-border">
+      <td className="px-2 py-1.5">
+        {r.ok ? (
+          <CheckCircle2 className="h-3.5 w-3.5 text-emerald-400" />
+        ) : (
+          <XCircle className="h-3.5 w-3.5 text-destructive" />
+        )}
+      </td>
+      <td className="px-2 py-1.5 text-[11px] text-muted-foreground">{r.provider}</td>
+      <td className="px-2 py-1.5 font-mono text-[11px]">
+        <div>{r.modelId}</div>
+        {r.realModel !== r.modelId && (
+          <div className="text-[9px] text-muted-foreground mt-0.5">→ {r.realModel}</div>
+        )}
+      </td>
+      <td className="px-2 py-1.5 text-right text-[11px] text-muted-foreground tabular-nums">
+        {r.durationMs > 0 ? `${(r.durationMs / 1000).toFixed(1)}s` : "—"}
+      </td>
+      <td className="px-2 py-1.5 text-[11px]">
+        {r.ok ? (
+          <span className="text-muted-foreground">
+            <span className="text-emerald-400">replied:</span>{" "}
+            <span className="font-mono">{r.sample}</span>
+          </span>
+        ) : (
+          <div>
+            <span className="font-semibold text-destructive">
+              {r.errorKind ? DIAG_ERROR_LABELS[r.errorKind] : "Failed"}
+            </span>
+            {r.errorMessage && (
+              <div className="text-[9px] text-muted-foreground mt-0.5 break-all line-clamp-3">
+                {r.errorMessage}
+              </div>
+            )}
+          </div>
+        )}
+      </td>
+    </tr>
   );
 }
