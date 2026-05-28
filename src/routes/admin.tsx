@@ -270,6 +270,19 @@ function Admin() {
         )}
 
         <section className="glass rounded-2xl p-6">
+          <h2 className="font-semibold mb-3">Tools</h2>
+          <div className="flex flex-wrap gap-2">
+            <a
+              href="/admin/model-test"
+              className="inline-flex items-center gap-2 rounded-lg border border-border bg-surface-elevated/40 px-3 py-2 text-sm hover:border-primary/50 hover:bg-surface transition"
+            >
+              Model diagnostics
+              <span className="text-[10px] text-muted-foreground">— verify every AI model responds</span>
+            </a>
+          </div>
+        </section>
+
+        <section className="glass rounded-2xl p-6">
           <div className="flex justify-between items-center mb-3">
             <h2 className="font-semibold">Pending payment verifications ({requests.length})</h2>
             <a href="https://www.paypal.com/myaccount/activity" target="_blank" rel="noreferrer" className="text-xs underline text-muted-foreground">Open PayPal activity</a>
