@@ -20,11 +20,12 @@ export type ModelTestResult = {
 };
 
 // Per-model wall-clock cap. The diagnostic isn't trying to stress-test —
-// it just wants to know if the model responds at all. 30s covers
-// reasoning models (Claude thinking, GPT-5 reasoning, Gemini Pro) that
-// can legitimately take 15-25s before producing output; anything slower
-// than that is broken from a UX standpoint anyway.
-const PER_MODEL_TIMEOUT_MS = 30_000;
+// it just wants to know if the model responds at all. 45s is enough for
+// most reasoning models (GPT-5 reasoning, Claude thinking, Gemini Pro)
+// to do their internal work and emit a one-sentence reply; if a model
+// can't finish a "say hi" prompt inside 45s, it's not usable for live
+// chat anyway.
+const PER_MODEL_TIMEOUT_MS = 45_000;
 
 // Test prompt. The earlier "reply with the exact word ok" wording made
 // reasoning/responses-API models (GPT-5.x) return empty text — they

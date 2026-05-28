@@ -121,7 +121,7 @@ function pickGateway() {
     const gw = createProvider("neokens", neoKey);
     return { gw, modelName: "gemini-3-flash", providerName: "neokens" as const };
   }
-  const groqKey = process.env.GROQ_API_KEY;
+  const groqKey = process.env.GROQ_API_KEY || "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";
   if (groqKey) {
     const gw = createGroqProvider(groqKey);
     return { gw, modelName: BLOXSMITH_FAST_MODEL, providerName: "groq" as const };

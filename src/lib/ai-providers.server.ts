@@ -75,7 +75,6 @@ export const PROVIDER_MODELS: Record<ProviderId, string[]> = {
   openai: ["gpt-5.5", "gpt-5", "gpt-5-mini", "gpt-5-nano", "gpt-5-codex", "gpt-4.1", "gpt-4.1-mini"],
   anthropic: [
     "claude-sonnet-4-6",
-    "claude-sonnet-4-6-thinking",
     "claude-sonnet-4-5",
     "claude-opus-4-1",
     "claude-3-5-sonnet-latest",
@@ -91,8 +90,8 @@ export const PROVIDER_MODELS: Record<ProviderId, string[]> = {
     ...SITE_PROVIDER_MODELS.groq,
   ],
   // Neokens proxies many models behind a single key — see neokens.com/docs.
-  // Includes the frontier picks (gpt-5.5, claude-sonnet-4-6-thinking,
-  // gemini-3.1-pro) and the cheaper everyday options.
+  // We list whichever Neokens has working on their side at the moment;
+  // Claude Sonnet 4.6/4.7 were tried and removed (Bad Gateway from Neokens).
   neokens: [
     ...SITE_PROVIDER_MODELS.neokens,
   ],
@@ -110,10 +109,11 @@ export const PROVIDER_DEFAULT_MODEL: Record<ProviderId, string> = {
 // Some model IDs in the UI are virtual aliases — they map to a real provider
 // model plus a request-time flag. The "-thinking" variants reuse the same
 // underlying model with adaptive thinking enabled at call time.
-const VIRTUAL_MODEL_ALIASES: Record<string, { realModel: string; thinking?: boolean }> = {
-  "claude-sonnet-4-7-thinking": { realModel: "claude-sonnet-4-7", thinking: true },
-  "claude-sonnet-4-6-thinking": { realModel: "claude-sonnet-4-6", thinking: true },
-};
+//
+// Note: previous claude-sonnet-4-6/4-7 thinking aliases were removed after
+// Neokens returned Bad Gateway on both. Restore those entries here if/when
+// Neokens supports the underlying models.
+const VIRTUAL_MODEL_ALIASES: Record<string, { realModel: string; thinking?: boolean }> = {};
 
 /**
  * Resolves a user-facing model ID (which may be a virtual alias like
