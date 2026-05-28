@@ -385,6 +385,9 @@ export function HelpChat() {
           <button
             type="button"
             data-helpchat-handle
+            onPointerUp={() => {
+              if (!dragMovedRef.current) setOpen(true);
+            }}
             onClick={() => {
               if (dragMovedRef.current) return;
               setOpen(true);
@@ -395,9 +398,13 @@ export function HelpChat() {
             <MessageCircle className="h-6 w-6" />
           </button>
           {messages.length === 0 && (
-            <span className="hidden sm:inline-flex items-center rounded-full bg-surface-elevated/95 border border-border px-3 py-1.5 text-xs font-medium shadow-lg pointer-events-none select-none">
+            <button
+              type="button"
+              onClick={() => setOpen(true)}
+              className="hidden sm:inline-flex items-center rounded-full bg-surface-elevated/95 border border-border px-3 py-1.5 text-xs font-medium shadow-lg select-none hover:border-primary/50 hover:text-foreground transition"
+            >
               Need help?
-            </span>
+            </button>
           )}
         </div>
       )}
