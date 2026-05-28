@@ -5,6 +5,8 @@ import {
   Boxes,
   CheckCircle,
   Cpu,
+  CreditCard,
+  Eye,
   FileCode,
   FolderKanban,
   Image,
@@ -12,13 +14,16 @@ import {
   Layers,
   Map,
   Megaphone,
+  MessageSquare,
   Package,
   Palette,
   Play,
   RefreshCw,
   Server,
   ShieldCheck,
+  Smartphone,
   Sparkles,
+  Users,
   Wand2,
   Wrench,
   Zap,
@@ -35,6 +40,135 @@ const tagStyles = {
 };
 
 const changelogItems = [
+  {
+    version: "v2.7.0",
+    date: "May 28, 2026",
+    title: "Premium Homepage, Mobile UX & Creator Conversion Upgrade",
+    description:
+      "A major homepage and mobile-friendly update focused on making BloxSmith easier to understand, more trustworthy for new Roblox creators, and stronger at converting visitors into builders.",
+    updates: [
+      {
+        category: "Homepage",
+        tagColor: tagStyles.ui,
+        icon: Sparkles,
+        title: "What BloxSmith Can Make Section",
+        detail:
+          "Added a clear feature grid showing that BloxSmith can generate maps, Luau scripts, game systems, GUIs, VFX, sounds, toolbox assets, NPCs, thumbnails, icons, decals, and Roblox-ready game art.",
+      },
+      {
+        category: "Prompts",
+        tagColor: tagStyles.ai,
+        icon: MessageSquare,
+        title: "Try This Prompt Section",
+        detail:
+          "Added clickable example prompts for mining simulators, racing lobbies, shop GUIs, obby checkpoints, horror systems, and tycoon starter kits so new users know exactly what to ask the AI.",
+      },
+      {
+        category: "Marketing",
+        tagColor: tagStyles.tools,
+        icon: Eye,
+        title: "Live Demo Preview Flow",
+        detail:
+          "Added a live-demo style preview that explains the full BloxSmith flow: prompt, AI plan, generated files, and Roblox Studio plugin sync.",
+      },
+      {
+        category: "Plugin",
+        tagColor: tagStyles.plugin,
+        icon: Play,
+        title: "Roblox Studio Plugin Preview",
+        detail:
+          "Added a dedicated plugin preview showing that the plugin connects accounts, sends scripts into Studio, places files in the right services, scans projects, helps fix Studio errors, and safely inserts toolbox assets.",
+      },
+      {
+        category: "Beginner Friendly",
+        tagColor: tagStyles.ai,
+        icon: Users,
+        title: "Beginner Friendly Creator Section",
+        detail:
+          "Added copy that explains users do not need scripting experience. BloxSmith supports plain-English prompts, setup guidance, testing help, and Studio error fixing.",
+      },
+      {
+        category: "Trust",
+        tagColor: tagStyles.security,
+        icon: ShieldCheck,
+        title: "Trust Badges Near the Hero",
+        detail:
+          "Added quick trust badges for free start, no card needed, Roblox Studio plugin, daily free credits, Luau support, and beginner-friendly usage.",
+      },
+      {
+        category: "CTA",
+        tagColor: tagStyles.tools,
+        icon: Zap,
+        title: "Stronger Call-to-Action Buttons",
+        detail:
+          "Updated the main hero buttons to be clearer and more clickable: Start Building Free, Download Plugin, and Try Example Prompts.",
+      },
+      {
+        category: "Mobile",
+        tagColor: tagStyles.ui,
+        icon: Smartphone,
+        title: "Homepage Mobile Improvements",
+        detail:
+          "Shortened and cleaned up the mobile hero, improved button layout, reduced the visual code preview height on phones, and made the comparison table horizontally scroll instead of breaking the page.",
+      },
+      {
+        category: "Credits",
+        tagColor: tagStyles.backend,
+        icon: CreditCard,
+        title: "Clearer Credit Explanation",
+        detail:
+          "Added a credits section explaining free starter credits, daily credits, pay-as-you-go packs, and that credits power AI builds, scripts, fixes, planning, image generation, and plugin actions.",
+      },
+      {
+        category: "AI Modes",
+        tagColor: tagStyles.ai,
+        icon: Bot,
+        title: "AI Builder Modes Section",
+        detail:
+          "Added mode cards for Full Game Builder, Script Builder, Map Builder, GUI Builder, VFX Builder, and Game Fixer so users can quickly understand what BloxSmith can do.",
+      },
+      {
+        category: "Marketing",
+        tagColor: tagStyles.tools,
+        icon: Wrench,
+        title: "Why Creators Need This Section",
+        detail:
+          "Added a section explaining that BloxSmith helps creators stop wasting hours on tutorials, broken scripts, confusing file placement, and slow Roblox prototyping.",
+      },
+      {
+        category: "Community",
+        tagColor: tagStyles.integrations,
+        icon: Megaphone,
+        title: "Discord Community Promotion",
+        detail:
+          "Added a Discord promo section inviting builders to join for support, updates, free-credit announcements, prompt ideas, plugin help, and sharing Roblox creations.",
+      },
+      {
+        category: "Roadmap",
+        tagColor: tagStyles.backend,
+        icon: RefreshCw,
+        title: "Coming Soon Roadmap Section",
+        detail:
+          "Added upcoming features for a smarter project scanner, AI thumbnail generator, better toolbox search, team project building, and more payment options.",
+      },
+      {
+        category: "Help Chat",
+        tagColor: tagStyles.ui,
+        icon: MessageSquare,
+        title: "Compact Mobile Help Chat",
+        detail:
+          "Made the floating help chat much smaller on mobile, improved iPhone safe-area spacing, reduced intro text and suggestion button size, and disabled mobile dragging so the widget does not cover the whole screen or get stuck.",
+      },
+      {
+        category: "Navigation",
+        tagColor: tagStyles.ui,
+        icon: Smartphone,
+        title: "Mobile Header and Menu Upgrade",
+        detail:
+          "Improved the mobile header with a cleaner hamburger menu, scrollable mobile navigation, touch-friendly buttons, account links, Discord shortcut, theme toggle, language control, and iPhone bottom safe-area padding.",
+      },
+    ],
+  },
   {
     version: "v2.6.0",
     date: "May 28, 2026",
