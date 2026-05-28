@@ -36,11 +36,20 @@ function LoginPage() {
   const handleEmail = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
-    const { error } = await supabase.auth.signInWithPassword({ email, password });
-    setLoading(false);
-    if (error) return toast.error(error.message);
-    toast.success("Welcome back!");
-    nav({ to: "/dashboard" });
+    try {
+      const { error } = await supabase.auth.signInWithPassword({ email, password });
+      if (error) {
+        setLoading(false);
+        return toast.error(error.message);
+      }
+      toast.success("Welcome back!");
+      nav({ to: "/dashboard" });
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : "Sign in failed — please try again.";
+      toast.error(msg);
+    } finally {
+      setLoading(false);
+    }
   };
 
   const handleGoogle = async () => {

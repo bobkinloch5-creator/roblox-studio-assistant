@@ -52,18 +52,27 @@ function SignupPage() {
   const handle = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
-    const { error } = await supabase.auth.signUp({
-      email,
-      password,
-      options: {
-        emailRedirectTo: `${window.location.origin}/dashboard`,
-        data: { display_name: name, ref: refCode ?? undefined },
-      },
-    });
-    setLoading(false);
-    if (error) return toast.error(error.message);
-    toast.success("Account created — check your email to confirm.");
-    nav({ to: "/dashboard" });
+    try {
+      const { error } = await supabase.auth.signUp({
+        email,
+        password,
+        options: {
+          emailRedirectTo: `${window.location.origin}/dashboard`,
+          data: { display_name: name, ref: refCode ?? undefined },
+        },
+      });
+      if (error) {
+        setLoading(false);
+        return toast.error(error.message);
+      }
+      toast.success("Account created — check your email to confirm.");
+      nav({ to: "/dashboard" });
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : "Sign up failed — please try again.";
+      toast.error(msg);
+    } finally {
+      setLoading(false);
+    }
   };
 
   const handleGoogle = async () => {
