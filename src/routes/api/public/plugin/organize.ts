@@ -138,7 +138,7 @@ export const Route = createFileRoute("/api/public/plugin/organize")({
           );
 
         // Ask Groq (already configured) for ONLY organize/move/rename actions.
-        const apiKey = process.env.GROQ_API_KEY || "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";
+        const apiKey = process.env.GROQ_API_KEY;
         if (!apiKey)
           return new Response(
             JSON.stringify({ error: "AI not configured on server" }),
