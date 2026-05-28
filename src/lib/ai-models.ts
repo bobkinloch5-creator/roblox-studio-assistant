@@ -6,9 +6,8 @@ export const SITE_PROVIDER_LABELS: Record<SiteProviderId, string> = {
 };
 
 export const SITE_PROVIDER_MODELS: Record<SiteProviderId, string[]> = {
-  groq: ["llama-3.3-70b-versatile", "llama-3.1-8b-instant", "gemma2-9b-it"],
+  groq: ["llama-3.3-70b-versatile", "llama-3.1-8b-instant"],
   neokens: [
-    "claude-sonnet-4-7-thinking",
     "claude-sonnet-4-6-thinking",
     "gpt-5.5",
     "gpt-5.3-codex",
@@ -25,7 +24,6 @@ export const SITE_PROVIDER_DEFAULT_MODEL: Record<SiteProviderId, string> = {
 };
 
 export const SITE_MODEL_DESCRIPTIONS: Record<string, string> = {
-  "claude-sonnet-4-7-thinking": "Newest Claude Sonnet with adaptive thinking. Top pick for the hardest Roblox builds — full-game architecture, tricky anti-exploit, multi-system refactors.",
   "claude-sonnet-4-6-thinking": "Frontier reasoning with adaptive thinking. Best for full-game architecture, complex anti-exploit, and hard debugging where it should slow down and think first.",
   "gpt-5.5": "OpenAI's newest flagship — strongest at agentic coding, multi-step Roblox builds, and complex Luau refactors. Use for full games and ambitious systems.",
   "gpt-5.3-codex": "Code specialist. Best for long Luau files, OOP classes, CFrame math, and raycast logic.",
@@ -35,5 +33,4 @@ export const SITE_MODEL_DESCRIPTIONS: Record<string, string> = {
   "claude-haiku-4-5-20251001": "Cheap and careful for cleaning messy Luau, refactoring scripts, and writing tidy ModuleScripts.",
   "llama-3.3-70b-versatile": "Free Groq workhorse — solid for Roblox scripts, gameplay loops, and normal chat help. No API key needed.",
   "llama-3.1-8b-instant": "Ultra-fast free Groq option for tiny edits, quick snippets, and simple LocalScripts.",
-  "gemma2-9b-it": "Small free Groq fallback for short answers, simple bug fixes, and lightweight Roblox help.",
 };

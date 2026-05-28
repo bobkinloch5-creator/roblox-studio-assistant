@@ -116,7 +116,7 @@ function pickGateway() {
   // Prefer Neokens (cheapest multi-model gateway) when available — gemini-3-flash
   // is the fast/cheap choice for short Q&A. Fall back to Groq llama-3.1-8b-instant
   // (free) if Neokens isn't configured.
-  const neoKey = process.env.NEOKENS_API_KEY;
+  const neoKey = process.env.NEOKENS_API_KEY || process.env.NEOKENS_KEY;
   if (neoKey) {
     const gw = createProvider("neokens", neoKey);
     return { gw, modelName: "gemini-3-flash", providerName: "neokens" as const };

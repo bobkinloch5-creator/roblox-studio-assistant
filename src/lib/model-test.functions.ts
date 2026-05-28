@@ -74,7 +74,7 @@ async function testOneModel(provider: SiteProviderId, modelId: string): Promise<
   let model: any;
   try {
     if (provider === "neokens") {
-      const key = process.env.NEOKENS_API_KEY;
+      const key = process.env.NEOKENS_API_KEY || process.env.NEOKENS_KEY;
       if (!key) {
         return {
           provider, modelId, realModel: aliased.realModel,

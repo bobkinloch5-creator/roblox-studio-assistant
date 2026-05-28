@@ -269,7 +269,7 @@ export type ResolvedGateway = {
 };
 
 export function resolveBuiltInGateway(opts: { kind: ModelKind; thinking?: boolean }): ResolvedGateway {
-  const neokensKey = process.env.NEOKENS_API_KEY;
+  const neokensKey = process.env.NEOKENS_API_KEY || process.env.NEOKENS_KEY;
   if (neokensKey) {
     const modelName = NEOKENS_MODEL_BY_KIND[opts.kind] ?? SITE_PROVIDER_DEFAULT_MODEL.neokens;
     const gw = createProvider("neokens", neokensKey);
@@ -331,7 +331,7 @@ export async function resolveAiGateway(opts: {
 
   // Neokens & Groq are site-wide gateways — use env keys, no per-user key.
   if (provider === "neokens") {
-    const neoKey = process.env.NEOKENS_API_KEY;
+    const neoKey = process.env.NEOKENS_API_KEY || process.env.NEOKENS_KEY;
     if (!neoKey) return fallback();
     const gw = createProvider("neokens", neoKey);
     return { source: "api_key", provider, modelName, model: gw(modelName) };
