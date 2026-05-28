@@ -113,6 +113,7 @@ export const PROVIDER_DEFAULT_MODEL: Record<ProviderId, string> = {
 // model plus a request-time flag. The "-thinking" variants reuse the same
 // underlying model with adaptive thinking enabled at call time.
 const VIRTUAL_MODEL_ALIASES: Record<string, { realModel: string; thinking?: boolean }> = {
+  "claude-opus-4-7-thinking": { realModel: "claude-opus-4-7", thinking: true },
   "claude-sonnet-4-7-thinking": { realModel: "claude-sonnet-4-7", thinking: true },
   "claude-opus-4-6-thinking": { realModel: "claude-opus-4-6", thinking: true },
   "claude-sonnet-4-6-thinking": { realModel: "claude-sonnet-4-6", thinking: true },
