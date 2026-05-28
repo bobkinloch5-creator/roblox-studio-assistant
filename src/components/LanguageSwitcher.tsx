@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { ChevronDown, Globe2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -58,8 +58,23 @@ const LANGUAGES: Language[] = [
 ];
 
 const RTL_LANGUAGES = new Set(["ar", "fa", "he", "ur"]);
+
+// Google Translate's website widget uses a handful of legacy/non-ISO codes.
+// The dropdown option values that Google injects use these codes, so the value
+// we feed to the combo (and the googtrans cookie) must match them — otherwise
+// the language silently fails to switch. The most common gotcha is Hebrew,
+// which Google exposes as "iw" rather than the modern "he".
+const GOOGLE_CODE_ALIASES: Record<string, string> = {
+  he: "iw",
+};
+
+function toGoogleCode(code: string) {
+  return GOOGLE_CODE_ALIASES[code] ?? code;
+}
+
+// The list Google initializes with must use Google's own codes too.
 const INCLUDED_LANGUAGES = LANGUAGES.filter((language) => language.code !== "en")
-  .map((language) => language.code)
+  .map((language) => toGoogleCode(language.code))
   .join(",");
 
 declare global {
@@ -77,7 +92,7 @@ function getStoredLanguage() {
 }
 
 function setTranslateCookie(language: string) {
-  const value = `/en/${language}`;
+  const value = `/en/${toGoogleCode(language)}`;
   document.cookie = `googtrans=${value};path=/;SameSite=Lax`;
 
   if (window.location.hostname.includes(".")) {
@@ -162,10 +177,25 @@ function loadGoogleTranslate() {
   return translateLoader;
 }
 
+// Prevents an infinite reload loop if Google never exposes a combo option for
+// the requested language (e.g. an unsupported code). We allow exactly one
+// cookie-based reload attempt per language, tracked for the tab session.
+function reloadOnceForLanguage(language: string) {
+  try {
+    const key = `bloxsmith-translate-reload:${language}`;
+    if (window.sessionStorage.getItem(key)) return;
+    window.sessionStorage.setItem(key, "1");
+  } catch (_) {
+    // sessionStorage unavailable — fall through and reload anyway.
+  }
+  window.location.reload();
+}
+
 function applyGoogleLanguage(language: string, attempts = 0) {
+  const googleCode = toGoogleCode(language);
   const combo = document.querySelector<HTMLSelectElement>(".goog-te-combo");
   if (combo) {
-    combo.value = language;
+    combo.value = googleCode;
     combo.dispatchEvent(new Event("change"));
     return;
   }
@@ -175,16 +205,20 @@ function applyGoogleLanguage(language: string, attempts = 0) {
     return;
   }
 
-  window.location.reload();
+  // The cookie is already set, so a single reload lets Google apply the
+  // translation server-side on the next page load.
+  reloadOnceForLanguage(language);
 }
 
+const PROTECT_SELECTOR =
+  "pre, code, textarea, input, .notranslate, [data-notranslate]";
+
 function protectTechnicalText() {
-  document
-    .querySelectorAll<HTMLElement>("pre, code, textarea, input, .notranslate, [data-notranslate]")
-    .forEach((element) => {
-      element.classList.add("notranslate");
-      element.setAttribute("translate", "no");
-    });
+  document.querySelectorAll<HTMLElement>(PROTECT_SELECTOR).forEach((element) => {
+    if (element.getAttribute("translate") === "no") return;
+    element.classList.add("notranslate");
+    element.setAttribute("translate", "no");
+  });
 }
 
 export function LanguageSwitcher({ compact = false }: { compact?: boolean }) {
@@ -194,6 +228,10 @@ export function LanguageSwitcher({ compact = false }: { compact?: boolean }) {
   // picked a non-English language — the server-rendered HTML said "en" but
   // the client immediately re-rendered with the stored value.
   const [language, setLanguage] = useState("en");
+
+  // Holds the active DOM observer so we only ever run one and can tear it
+  // down the moment the user returns to English.
+  const observerRef = useRef<MutationObserver | null>(null);
 
   useEffect(() => {
     setLanguage(getStoredLanguage());
@@ -210,31 +248,80 @@ export function LanguageSwitcher({ compact = false }: { compact?: boolean }) {
     document.documentElement.dir = RTL_LANGUAGES.has(language) ? "rtl" : "ltr";
   }, [language]);
 
+  // Single effect that owns translation + the technical-text protector.
+  //
+  // Previously a MutationObserver watched the entire <body> for *every* user,
+  // English included, and ran a full-document querySelectorAll synchronously on
+  // every DOM mutation. On streaming pages (the AI builder) that fired hundreds
+  // of times per second and was the main source of the reported lag.
+  //
+  // Now: English users get no observer and no scanning at all. When a language
+  // is active, the protector runs once up front and afterwards only via a
+  // coalesced, idle-time observer so bursts of mutations collapse into a single
+  // scan instead of one scan per mutation.
   useEffect(() => {
     if (typeof window === "undefined") return;
 
-    protectTechnicalText();
-    const observer = new MutationObserver(protectTechnicalText);
-    observer.observe(document.body, { childList: true, subtree: true });
+    // Tear down any previous observer before reconfiguring.
+    observerRef.current?.disconnect();
+    observerRef.current = null;
 
-    return () => observer.disconnect();
-  }, []);
+    if (language === "en") {
+      clearTranslateCookie();
+      return;
+    }
 
-  useEffect(() => {
-    if (typeof window === "undefined" || language === "en") return;
+    let scheduled = false;
+    let idleHandle: number | null = null;
+    let timeoutHandle: number | null = null;
 
+    const runProtect = () => {
+      scheduled = false;
+      idleHandle = null;
+      timeoutHandle = null;
+      protectTechnicalText();
+    };
+
+    // Coalesce a burst of mutations into one scan during idle time, with a
+    // timeout fallback so it still runs even when the page never goes idle
+    // (e.g. continuous token streaming).
+    const schedule = () => {
+      if (scheduled) return;
+      scheduled = true;
+      const ric = (window as any).requestIdleCallback as
+        | ((cb: () => void, opts?: { timeout: number }) => number)
+        | undefined;
+      if (ric) {
+        idleHandle = ric(runProtect, { timeout: 500 });
+      } else {
+        timeoutHandle = window.setTimeout(runProtect, 300);
+      }
+    };
+
+    // Initial pass so existing technical text is protected immediately.
     protectTechnicalText();
     setTranslateCookie(language);
+
+    const observer = new MutationObserver(schedule);
+    observer.observe(document.body, { childList: true, subtree: true });
+    observerRef.current = observer;
+
     loadGoogleTranslate()
       .then(() => applyGoogleLanguage(language))
       .catch(() => {
-        window.location.reload();
+        reloadOnceForLanguage(language);
       });
-  }, [language]);
 
-  useEffect(() => {
-    if (typeof window === "undefined" || language !== "en") return;
-    clearTranslateCookie();
+    return () => {
+      observer.disconnect();
+      observerRef.current = null;
+      if (idleHandle != null && (window as any).cancelIdleCallback) {
+        (window as any).cancelIdleCallback(idleHandle);
+      }
+      if (timeoutHandle != null) {
+        window.clearTimeout(timeoutHandle);
+      }
+    };
   }, [language]);
 
   const handleChange = (nextLanguage: string) => {
@@ -243,17 +330,14 @@ export function LanguageSwitcher({ compact = false }: { compact?: boolean }) {
 
     if (nextLanguage === "en") {
       clearTranslateCookie();
+      // Google Translate cannot fully revert an in-place translation, so a
+      // reload is required to return to the original English DOM.
       window.location.reload();
       return;
     }
 
-    setTranslateCookie(nextLanguage);
-    protectTechnicalText();
-    loadGoogleTranslate()
-      .then(() => applyGoogleLanguage(nextLanguage))
-      .catch(() => {
-        window.location.reload();
-      });
+    // The language effect above handles cookie + load + apply for the new
+    // language once state updates; nothing else needed here.
   };
 
   return (
