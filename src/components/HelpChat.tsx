@@ -8,12 +8,13 @@ const STORAGE_OPEN_KEY = "bloxsmith.helpchat.open";
 const STORAGE_POS_KEY = "bloxsmith.helpchat.pos";
 const MAX_STORED_TURNS = 12;
 
-const BUBBLE_SIZE = 52;
+const BUBBLE_SIZE = 56;
 const PANEL_WIDTH = 352;
 const PANEL_HEIGHT = 512;
 const EDGE_PAD = 16;
 const MOBILE_EDGE_PAD = 12;
 const MOBILE_BREAKPOINT = 640;
+const MOBILE_NAV_CLEARANCE = 74;
 
 type Pos = { left: number; top: number };
 
@@ -28,7 +29,7 @@ function getWidgetSize(open: boolean) {
   if (isMobileViewport()) {
     return {
       width: Math.min(window.innerWidth - MOBILE_EDGE_PAD * 2, 360),
-      height: Math.min(Math.round(window.innerHeight * 0.56), 420),
+      height: Math.min(Math.round(window.innerHeight * 0.58), 440),
     };
   }
   return { width: PANEL_WIDTH, height: PANEL_HEIGHT };
@@ -63,10 +64,10 @@ function defaultPos(open: boolean): Pos {
     return { left: 1000, top: 600 };
   }
   const { width, height } = getWidgetSize(open);
-  if (open && isMobileViewport()) {
+  if (isMobileViewport()) {
     return {
-      left: MOBILE_EDGE_PAD,
-      top: Math.max(MOBILE_EDGE_PAD, window.innerHeight - height - MOBILE_EDGE_PAD),
+      left: Math.max(MOBILE_EDGE_PAD, window.innerWidth - width - MOBILE_EDGE_PAD),
+      top: Math.max(MOBILE_EDGE_PAD, window.innerHeight - height - MOBILE_EDGE_PAD - MOBILE_NAV_CLEARANCE),
     };
   }
   return {
@@ -79,20 +80,26 @@ function clampPos(pos: Pos, open: boolean): Pos {
   if (typeof window === "undefined") return pos;
   const { width, height } = getWidgetSize(open);
 
-  if (open && isMobileViewport()) {
+  if (isMobileViewport()) {
+    if (open) {
+      return {
+        left: MOBILE_EDGE_PAD,
+        top: Math.min(
+          Math.max(MOBILE_EDGE_PAD, pos.top),
+          Math.max(MOBILE_EDGE_PAD, window.innerHeight - height - MOBILE_EDGE_PAD),
+        ),
+      };
+    }
     return {
-      left: MOBILE_EDGE_PAD,
-      top: Math.min(
-        Math.max(MOBILE_EDGE_PAD, pos.top),
-        Math.max(MOBILE_EDGE_PAD, window.innerHeight - height - MOBILE_EDGE_PAD),
-      ),
+      left: Math.max(MOBILE_EDGE_PAD, window.innerWidth - width - MOBILE_EDGE_PAD),
+      top: Math.max(MOBILE_EDGE_PAD, window.innerHeight - height - MOBILE_EDGE_PAD - MOBILE_NAV_CLEARANCE),
     };
   }
 
-  const minLeft = -width + 20;
-  const maxLeft = window.innerWidth - 20;
-  const minTop = 0;
-  const maxTop = window.innerHeight - 20;
+  const minLeft = EDGE_PAD;
+  const maxLeft = Math.max(EDGE_PAD, window.innerWidth - width - EDGE_PAD);
+  const minTop = EDGE_PAD;
+  const maxTop = Math.max(EDGE_PAD, window.innerHeight - height - EDGE_PAD);
 
   return {
     left: Math.min(Math.max(minLeft, pos.left), maxLeft),
@@ -153,7 +160,7 @@ export function HelpChat() {
   }, []);
 
   useEffect(() => {
-    if (pos) savePos(pos);
+    if (pos && !isMobileViewport()) savePos(pos);
   }, [pos]);
 
   useEffect(() => {
@@ -195,7 +202,7 @@ export function HelpChat() {
   }, [open]);
 
   useEffect(() => {
-    if (!open) return;
+    if (!open || !isMobileViewport()) return;
     const origBodyOverflow = document.body.style.overflow;
     const origHtmlOverflow = document.documentElement.style.overflow;
     document.body.style.overflow = "hidden";
@@ -255,7 +262,7 @@ export function HelpChat() {
 
   function startDrag(e: ReactPointerEvent<HTMLElement>) {
     if (!pos) return;
-    if (open && isMobileViewport()) return;
+    if (isMobileViewport()) return;
     if (e.button !== 0) return;
     const target = e.target as HTMLElement;
     if (target.closest("input, textarea, button:not([data-helpchat-handle])")) return;
@@ -317,7 +324,11 @@ export function HelpChat() {
   if (!pos) return null;
 
   const cursorClass = dragging ? "cursor-grabbing" : "cursor-grab";
-  const mobileOpen = open && isMobileViewport();
+  const mobile = isMobileViewport();
+  const mobileOpen = open && mobile;
+  const closedStyle = mobile
+    ? { right: MOBILE_EDGE_PAD, bottom: `calc(${MOBILE_NAV_CLEARANCE}px + max(0.75rem, env(safe-area-inset-bottom)))` as const, left: "auto" as const, top: "auto" as const }
+    : { left: pos.left, top: pos.top };
   const panelStyle = mobileOpen
     ? { left: MOBILE_EDGE_PAD, right: MOBILE_EDGE_PAD, bottom: "max(0.75rem, env(safe-area-inset-bottom))" as const, top: "auto" as const }
     : { left: pos.left, top: pos.top };
@@ -326,8 +337,8 @@ export function HelpChat() {
     <>
       {!open && (
         <div
-          className="fixed z-[60] flex items-center gap-2"
-          style={{ left: pos.left, top: pos.top, touchAction: "none" }}
+          className="fixed z-[9999] flex items-center gap-2"
+          style={{ ...closedStyle, touchAction: mobile ? "auto" : "none" }}
           onPointerDown={startDrag}
         >
           <button
@@ -337,10 +348,10 @@ export function HelpChat() {
               if (dragMovedRef.current) return;
               setOpen(true);
             }}
-            aria-label="Open help chat"
-            className={`h-13 w-13 sm:h-14 sm:w-14 rounded-full bg-primary text-primary-foreground shadow-2xl shadow-primary/40 grid place-items-center hover:scale-105 transition-transform ring-2 ring-primary/30 ring-offset-2 ring-offset-background ${cursorClass}`}
+            aria-label="Open BloxSmith help chat"
+            className={`h-14 w-14 rounded-full bg-primary text-primary-foreground shadow-2xl shadow-primary/40 grid place-items-center hover:scale-105 transition-transform ring-2 ring-primary/30 ring-offset-2 ring-offset-background ${mobile ? "cursor-pointer" : cursorClass}`}
           >
-            <MessageCircle className="h-5 w-5 sm:h-6 sm:w-6" />
+            <MessageCircle className="h-6 w-6" />
           </button>
           {messages.length === 0 && (
             <span className="hidden sm:inline-flex items-center rounded-full bg-surface-elevated/95 border border-border px-3 py-1.5 text-xs font-medium shadow-lg pointer-events-none select-none">
@@ -352,7 +363,7 @@ export function HelpChat() {
 
       {open && (
         <aside
-          className="fixed z-[60] w-[22rem] max-w-[calc(100vw-2rem)] h-[32rem] max-h-[calc(100vh-2rem)] max-sm:w-auto max-sm:max-w-none max-sm:h-[min(56dvh,26rem)] max-sm:max-h-[56dvh] rounded-2xl border border-border bg-surface-elevated/95 backdrop-blur-xl shadow-2xl flex flex-col overflow-hidden"
+          className="fixed z-[9999] w-[22rem] max-w-[calc(100vw-2rem)] h-[32rem] max-h-[calc(100vh-2rem)] max-sm:w-auto max-sm:max-w-none max-sm:h-[min(58dvh,27.5rem)] max-sm:max-h-[58dvh] rounded-2xl border border-border bg-surface-elevated/98 backdrop-blur-xl shadow-2xl flex flex-col overflow-hidden"
           style={panelStyle}
           role="dialog"
           aria-label="BloxSmith help chat"
