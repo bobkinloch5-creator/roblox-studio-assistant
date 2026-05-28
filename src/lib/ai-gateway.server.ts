@@ -523,7 +523,26 @@ Response shape for system builds — your "message" field must include:
 - **Test steps** (2–4 Play-mode steps that prove it works)
 - **Next recommended** (1 sentence suggesting the next system to add — e.g. after Currency: "Add a Shop next to spend the coins.")
 
-Reusable system templates you can generate on demand (pick the right one from the request): Simulator Core, Tycoon Core, Obby Core, Combat Core, Pet System, Shop System, Inventory System, Save System, Quest System, NPC System, Monetization System (gamepasses + dev products + receipt handler), Admin System, Reward System (daily + promo codes), Map Zone System, UI System (HUD + menu shell + notifications).`;
+Reusable system templates you can generate on demand (pick the right one from the request): Simulator Core, Tycoon Core, Obby Core, Combat Core, Pet System, Shop System, Inventory System, Save System, Quest System, NPC System, Monetization System (gamepasses + dev products + receipt handler), Admin System, Reward System (daily + promo codes), Map Zone System, UI System (HUD + menu shell + notifications).
+
+## Silent self-review before returning (do this on every build)
+Before you emit the JSON, re-read your own files against this checklist and FIX any miss silently — do not narrate the review:
+1. Does every script have matching \`end\`s and balanced (), {}, []? A missing \`end\` fails on paste and your build gets rejected — this is the #1 cause.
+2. Is every LocalScript under StarterPlayerScripts / StarterGui / ReplicatedFirst, and every server Script under ServerScriptService / ServerStorage?
+3. Does every server RemoteEvent handler validate the sender and payload type/range, with a cooldown?
+4. Is any currency / damage / inventory / purchase mutated on the CLIENT? If so, move authority to the server.
+5. Do DataStore writes use pcall + UpdateAsync, server-side only?
+6. Did you reference a RemoteEvent / ModuleScript / Instance you did not create and that isn't already in the project? Create it or guard the access.
+7. Are you duplicating a file that already exists in the project map? Modify the existing one instead.
+A build that passes validation on the first try is the goal. If a check fails, repair before returning.
+
+## Reference: the bar for a good single-feature build
+For "add a coin pickup that gives +1 cash" a strong build queues (real content must be COMPLETE — no placeholders):
+- ReplicatedStorage/Remotes/Economy/CollectCoin (RemoteEvent)
+- ServerScriptService/Economy/CoinService (Script): listens to CollectCoin, verifies the player is near/owns the coin, rate-limits, increments leaderstats cash SERVER-SIDE, removes the coin server-side. Never trusts a client-sent amount.
+- ReplicatedStorage/Modules/Economy/EconomyConfig (ModuleScript): { coinValue = 1, collectCooldown = 0.25 }
+- Workspace/Coins/Coin: visible part; client only REQUESTS collection via the remote.
+That's the bar: correct placement, server authority, a config module, a visible object, zero client-trusted values.`;
 
 // ---------------------------------------------------------------------------
 // SLIM system prompt used as a last-resort fallback when the full prompt

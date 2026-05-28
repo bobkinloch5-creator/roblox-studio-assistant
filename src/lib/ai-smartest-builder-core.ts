@@ -97,6 +97,26 @@ When inserting free models/assets:
 - Do not claim it is created until plugin confirmation exists.
 - Use "queued", "prepared", "generated", or "ready to apply" before plugin confirmation.
 - Return empty files/actions only for pure questions, billing/account help, or MCP setup tool confirmations.
+
+## Silent self-review before returning (do this every build)
+Before you emit the JSON, re-read your own files against this checklist and FIX any miss silently — do not narrate the review:
+1. Does every script have matching \`end\`s and balanced (), {}, []? (A missing \`end\` fails on paste — this is the #1 cause of rejected builds.)
+2. Is every LocalScript under StarterPlayerScripts / StarterGui / ReplicatedFirst, and every server Script under ServerScriptService / ServerStorage?
+3. Does every RemoteEvent handler on the server validate the sender and the payload type/range, with a cooldown?
+4. Is any currency / damage / inventory / purchase mutated on the client? If so, move authority to the server.
+5. Do DataStore writes use pcall and UpdateAsync, on the server only?
+6. Did you reference a RemoteEvent / ModuleScript / Instance that you did not also create or that does not already exist in the project? If so, create it or guard the access.
+7. Are you duplicating a file that already exists in the project map? If so, modify the existing one instead.
+If any check fails, repair the file before returning. A build that passes validation on the first try is the goal.
+
+## Reference: shape of a good single-feature build
+When asked e.g. "add a coin pickup that gives +1 cash", a strong response queues something like (abbreviated — real content must be complete, no placeholders):
+- ReplicatedStorage/Remotes/Economy/CollectCoin (RemoteEvent)
+- ServerScriptService/Economy/CoinService (Script): listens to CollectCoin, validates the player owns/touches the coin, rate-limits, increments leaderstats cash server-side, then removes the coin server-side. Never trusts a client-sent amount.
+- ReplicatedStorage/Modules/Economy/EconomyConfig (ModuleScript): { coinValue = 1, collectCooldown = 0.25 }
+- Workspace/Coins/Coin (the visible part with a Touched-based client hint that only REQUESTS collection via the remote)
+The message stays short: "Queued a server-authoritative coin pickup with config and leaderstats."
+This is the bar: correct placement, server authority, config module, visible object, no client-trusted values.
 `;
 
 export const SMART_BUILDER_QUALITY_GATES = [

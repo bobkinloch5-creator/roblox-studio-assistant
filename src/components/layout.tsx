@@ -74,7 +74,7 @@ export function Header() {
 
   return (
     <header className="sticky top-0 z-50 border-b border-border bg-background/95 supports-[backdrop-filter]:bg-background/80 backdrop-blur-xl">
-      <div className="mx-auto flex max-w-[96rem] items-center justify-between gap-3 px-3 py-2.5 sm:px-6 sm:py-3">
+      <div className="mx-auto flex max-w-7xl items-center justify-between gap-3 px-3 py-2.5 sm:px-6 sm:py-3">
         <Link
           to="/"
           className="flex min-w-0 items-center gap-2 shrink-0 notranslate"
@@ -95,7 +95,7 @@ export function Header() {
           </span>
         </Link>
 
-        <nav className="hidden 2xl:flex flex-1 min-w-0 items-center justify-center gap-4 text-sm text-muted-foreground px-4">
+        <nav className="hidden xl:flex items-center gap-5 text-sm text-muted-foreground ml-4 shrink-0">
           {visibleNavItems
             .filter(
               (item) =>
@@ -125,7 +125,7 @@ export function Header() {
           )}
         </nav>
 
-        <div className="flex min-w-0 shrink-0 items-center gap-2 lg:gap-3 notranslate" translate="no">
+        <div className="flex items-center gap-2 lg:gap-3 min-w-0">
           <div className="hidden md:flex items-center gap-2 lg:gap-3 min-w-0">
             <a
               href="https://discord.gg/J9TU7syJCr"
@@ -140,7 +140,7 @@ export function Header() {
               Discord +5
             </a>
             <ThemeToggle />
-            <LanguageSwitcher compact />
+            <LanguageSwitcher />
             {user && (
               <div className="hidden lg:flex items-center gap-2">
                 <PluginStatus />
@@ -251,7 +251,7 @@ export function Header() {
       </div>
 
       <nav
-        className="2xl:hidden border-t border-border/70 bg-background/95 px-2 py-2 overflow-x-auto overscroll-x-contain [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden"
+        className="md:hidden border-t border-border/70 bg-background/95 px-2 py-2 overflow-x-auto overscroll-x-contain [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden"
         aria-label="Mobile navigation"
       >
         <div className="flex w-max min-w-full items-center gap-2">

@@ -242,7 +242,7 @@ export const generateWithAI = createServerFn({ method: "POST" })
       heavyBuild: isComplex,
     });
 
-    const [liveContextResult, allFilesResult, memoryBlock] = await Promise.all([
+    const [liveContextResult, allFilesResult, memoryBlock, studioErrorBlock] = await Promise.all([
       supabase
         .from("plugin_context")
         .select("context,instance_count,updated_at")
@@ -254,6 +254,11 @@ export const generateWithAI = createServerFn({ method: "POST" })
         .eq("project_id", projectId)
         .limit(isComplex ? 120 : 80),
       buildProjectMemoryBlock(supabase, projectId, { limit: 10, maxChars: isComplex ? 1400 : 900 }),
+      (await import("./ai-studio-errors.server")).buildStudioErrorBlock(supabase, projectId, {
+        windowMinutes: 90,
+        limit: 6,
+        maxChars: 1200,
+      }),
     ]);
     const liveContext = liveContextResult.data;
     const allFiles = allFilesResult.data;
@@ -313,7 +318,7 @@ export const generateWithAI = createServerFn({ method: "POST" })
 
     let result: { message: string; files: GenFile[]; actions: GenAction[] };
     try {
-      const fullPrompt = `${memoryBlock ? `${memoryBlock}\n\n` : ""}${liveBlock}\n\nFULL PROJECT FILE MAP (${(allFiles ?? []).length} files - every file your project has, by location):\n${projectMap || "  (no files yet)"}\n\nRelevant project files (with content preview):\n${filesBlock || "(none indexed)"}\n\nUser request:\n${prompt}\n\nRules:\n- You have FULL AWARENESS of the project above. Reference real files by path. NEVER duplicate something that already exists - MODIFY it.\n- Use PROJECT MEMORY for durable preferences, naming, genre, and recent context. If memory conflicts with live files or the user's latest request, obey the latest request and live project state.
+      const fullPrompt = `${memoryBlock ? `${memoryBlock}\n\n` : ""}${studioErrorBlock ? `${studioErrorBlock}\n\n` : ""}${liveBlock}\n\nFULL PROJECT FILE MAP (${(allFiles ?? []).length} files - every file your project has, by location):\n${projectMap || "  (no files yet)"}\n\nRelevant project files (with content preview):\n${filesBlock || "(none indexed)"}\n\nUser request:\n${prompt}\n\nRules:\n- You have FULL AWARENESS of the project above. Reference real files by path. NEVER duplicate something that already exists - MODIFY it.\n- Use PROJECT MEMORY for durable preferences, naming, genre, and recent context. If memory conflicts with live files or the user's latest request, obey the latest request and live project state.
 - Organize new files into clean subfolders by feature (e.g. ServerScriptService/Combat/HitService, ReplicatedStorage/Modules/Config, StarterPlayerScripts/UI/Hud). Do NOT dump everything at the root of a service.\n- Place server Scripts in ServerScriptService, LocalScripts in StarterPlayerScripts or StarterGui, GUIs in StarterGui, RemoteEvents/RemoteFunctions in ReplicatedStorage/Remotes, ModuleScripts in ReplicatedStorage/Modules (shared) or ServerStorage/Modules (server-only), Tools in StarterPack, physical/world objects in Workspace.\n- For ground/landscape requests (grass, sand, snow, water, hills, islands), use real Roblox Terrain via the \`terrainFill\` action. NEVER spawn hundreds of thin Parts.\n- Do NOT claim success - phrase as "Queued for Studio...".\n- If the request is a casual question (no code changes), reply naturally in 'message' with empty 'files' and 'actions'.\n- Use tools (web_search, roblox_asset_*, fetch_url) ONLY when you genuinely need fresh info - every tool call slows you down.\n\nReturn the JSON object as specified.`;
       const { generateTextWithToolFallback } = await import("./ai-retry.server");
       const builtInTools = pickGenerationTools(

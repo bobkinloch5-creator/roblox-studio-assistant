@@ -5,6 +5,8 @@
 // Returns errors (block the offending item), warnings (allow but surface),
 // and a filtered list of files/actions safe to push.
 
+import { checkLuauSyntax } from "./luau-syntax";
+
 export type GenFile = {
   path: string;
   file_type: "Script" | "LocalScript" | "ModuleScript";
@@ -133,53 +135,6 @@ function isUnderAny(loc: string, roots: string[]): boolean {
 // Cheap Luau balance check — counts block openers vs closers. Strings,
 // long-strings, and comments are stripped first so we don't false-positive
 // on the word "end" inside a string.
-function checkLuauBalance(src: string): string | null {
-  if (!src || !src.trim()) return "empty script body";
-
-  let s = src;
-  // Strip long-bracket comments/strings (--[[ ]] / [[ ]])
-  s = s.replace(/--\[\[[\s\S]*?\]\]/g, "");
-  s = s.replace(/\[\[[\s\S]*?\]\]/g, "");
-  // Strip line comments
-  s = s.replace(/--[^\n]*/g, "");
-  // Strip simple strings (single + double quoted, non-greedy, escape-aware-ish)
-  s = s.replace(/"(?:\\.|[^"\\])*"/g, '""');
-  s = s.replace(/'(?:\\.|[^'\\])*'/g, "''");
-
-  const tokens = s.match(/\b[a-zA-Z_]\w*\b/g) ?? [];
-  let opens = 0;
-  let ends = 0;
-  let repeats = 0;
-  let untils = 0;
-  for (const t of tokens) {
-    if (t === "function" || t === "do" || t === "then") opens++;
-    else if (t === "end") ends++;
-    else if (t === "repeat") repeats++;
-    else if (t === "until") untils++;
-  }
-  // "if x then ... end" — `then` counts as opener, `end` closes it. Good.
-  // "elseif x then" reuses an existing if-block; subtract those `then`s.
-  const elseifs = (s.match(/\belseif\b/g) ?? []).length;
-  opens -= elseifs;
-  if (opens !== ends) {
-    return `unbalanced blocks: ${opens} openers (function/do/then) vs ${ends} ends`;
-  }
-  if (repeats !== untils) {
-    return `unbalanced repeat/until: ${repeats} vs ${untils}`;
-  }
-  // Parentheses balance
-  const opensP = (s.match(/\(/g) ?? []).length;
-  const closesP = (s.match(/\)/g) ?? []).length;
-  if (opensP !== closesP) {
-    return `unbalanced parentheses: ${opensP} '(' vs ${closesP} ')'`;
-  }
-  const opensB = (s.match(/\{/g) ?? []).length;
-  const closesB = (s.match(/\}/g) ?? []).length;
-  if (opensB !== closesB) {
-    return `unbalanced braces: ${opensB} '{' vs ${closesB} '}'`;
-  }
-  return null;
-}
 
 // Find remote names referenced in scripts: WaitForChild("X") / FindFirstChild("X")
 function extractRemoteRefs(src: string): string[] {
@@ -308,9 +263,14 @@ export function validateGenerated(
       });
     }
 
-    const balanceErr = checkLuauBalance(f.content);
-    if (balanceErr) {
-      errors.push({ level: "error", scope: "file", target, message: `Luau syntax: ${balanceErr}` });
+    const syntaxErr = checkLuauSyntax(f.content);
+    if (syntaxErr) {
+      errors.push({
+        level: "error",
+        scope: "file",
+        target,
+        message: `Luau syntax: ${syntaxErr.message}`,
+      });
       continue;
     }
 
