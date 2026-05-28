@@ -273,7 +273,7 @@ function Admin() {
           <h2 className="font-semibold mb-3">Tools</h2>
           <div className="flex flex-wrap gap-2">
             <a
-              href="/admin/model-test"
+              href="/model-diagnostics"
               className="inline-flex items-center gap-2 rounded-lg border border-border bg-surface-elevated/40 px-3 py-2 text-sm hover:border-primary/50 hover:bg-surface transition"
             >
               Model diagnostics

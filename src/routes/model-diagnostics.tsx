@@ -6,7 +6,7 @@ import { CheckCircle2, XCircle, Loader2, PlayCircle, RefreshCw } from "lucide-re
 import { requireAdmin } from "@/lib/admin.functions";
 import { testAllSiteModels, type ModelTestResult } from "@/lib/model-test.functions";
 
-export const Route = createFileRoute("/admin/model-test")({
+export const Route = createFileRoute("/model-diagnostics")({
   beforeLoad: async () => {
     try {
       await requireAdmin();
