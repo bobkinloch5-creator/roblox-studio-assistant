@@ -56,6 +56,7 @@ import {
   History,
   ImagePlus,
   Globe,
+  Palette,
 } from "lucide-react";
 import { toast } from "sonner";
 import { downloadRbxmx } from "@/lib/rbxmx-export";
@@ -1370,6 +1371,23 @@ function ProjectEditor() {
     if (chatMode) await runChatRequest(composedPrompt, imgs);
     else if (planMode) await runPlanRequest(composedPrompt);
     else await runGenerate(composedPrompt, { images: imgs });
+  };
+
+  const generateImage = async () => {
+    if (aiBusy) return;
+    if (outOfCredits) {
+      toast.error("Out of credits. Buy more or wait for the daily refill.");
+      return;
+    }
+    const theme = prompt.trim() || project?.name || project?.game_type || "my Roblox game";
+    const imagePrompt =
+      "Generate a Roblox-ready 16:9 game thumbnail image using the generate_image tool. " +
+      "Make it colorful, premium, high-energy, clickable, and polished, with dramatic lighting and room for bold title text. " +
+      `Theme: ${theme}. ` +
+      "Embed the generated image preview in your reply as markdown and explain how to use it as a Roblox thumbnail.";
+    setPrompt("");
+    setAttachments([]);
+    await runGenerate(imagePrompt);
   };
 
   const buildFromPlan = async (msgId: string) => {
@@ -2709,6 +2727,16 @@ function ProjectEditor() {
                     >
                       <ImagePlus className="h-4 w-4" />
                       <span className="text-[11px] font-medium">Image</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={generateImage}
+                      disabled={aiBusy || outOfCredits}
+                      title="Generate Roblox thumbnail, icon, decal, badge, gamepass image, or promo art"
+                      className="inline-flex h-8 items-center gap-1 rounded-lg border border-orange-400/40 bg-orange-500/10 px-2 text-orange-300 hover:bg-orange-500/20 transition disabled:opacity-40"
+                    >
+                      <Palette className="h-4 w-4" />
+                      <span className="text-[11px] font-medium">Generate Image</span>
                     </button>
                     <button
                       type="button"
