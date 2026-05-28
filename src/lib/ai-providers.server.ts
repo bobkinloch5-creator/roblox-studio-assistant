@@ -154,9 +154,10 @@ export function getModelProfile(
   const isGemini = provider === "google" || id.includes("gemini");
   const isOpenAI = provider === "openai" || id.includes("gpt-");
   const isClaude = provider === "anthropic" || id.includes("claude");
+  const isThinkingModel = !!opts.thinking || id.includes("thinking");
 
   const inputTokenBudget = isHuge ? 100_000 : isSmall ? 12_000 : 32_000;
-  const maxOutputTokens = opts.thinking
+  const maxOutputTokens = isThinkingModel
     ? isHuge ? 16_000 : 9_000
     : opts.retry
       ? isHuge ? 8_000 : 5_500
@@ -167,24 +168,24 @@ export function getModelProfile(
   return {
     inputTokenBudget,
     maxOutputTokens,
-    chatOutputTokens: opts.thinking ? (isHuge ? 2_000 : 1_600) : isSmall ? 700 : 1_100,
+    chatOutputTokens: isThinkingModel ? (isHuge ? 2_000 : 1_600) : isSmall ? 700 : 1_100,
     // Timeouts. These were tightened in an earlier pass and combined with
     // the expanded system prompt produced 502 Bad Gateway errors on
     // heavier builds when Cloudflare's worker wall-time ran out before
     // the upstream model finished streaming. Restored to generous values
     // so the bigger prompt has room to complete; perceived speed comes
     // from the model and prompt upgrades, not from cutting the timeout.
-    timeoutMs: opts.thinking ? 45_000 : opts.heavyBuild ? 42_000 : isSmall ? 20_000 : 30_000,
-    chatTimeoutMs: opts.thinking ? 40_000 : isSmall ? 12_000 : 18_000,
-    stopSteps: opts.thinking ? 12 : isSmall ? 3 : 6,
+    timeoutMs: isThinkingModel ? 45_000 : opts.heavyBuild ? 42_000 : isSmall ? 20_000 : 30_000,
+    chatTimeoutMs: isThinkingModel ? 40_000 : isSmall ? 12_000 : 18_000,
+    stopSteps: isThinkingModel ? 12 : isSmall ? 3 : 6,
     supportsTools: !opts.retry && !(provider === "groq" && id.includes("gemma")),
     supportsVision:
       isGemini ||
       isClaude ||
       (isOpenAI && !id.includes("nano")) ||
       (provider === "neokens" && (id.includes("gemini") || id.includes("gpt-5") || id.includes("claude"))),
-    historyTurns: opts.thinking ? (isHuge ? 8 : 5) : isSmall ? 3 : 5,
-    historyChars: opts.thinking ? (isHuge ? 1_800 : 1_200) : isSmall ? 700 : 1_000,
+    historyTurns: isThinkingModel ? (isHuge ? 8 : 5) : isSmall ? 3 : 5,
+    historyChars: isThinkingModel ? (isHuge ? 1_800 : 1_200) : isSmall ? 700 : 1_000,
   };
 }
 
