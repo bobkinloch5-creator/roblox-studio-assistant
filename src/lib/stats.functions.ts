@@ -5,18 +5,23 @@ import { templateFiles } from "./templates";
 
 export const getPublicStats = createServerFn({ method: "GET" })
   .handler(async () => {
-    const [projectsRes, usersRes, showcaseRes, scriptsRes] = await Promise.all([
-      supabaseAdmin.from("projects").select("*", { count: "exact", head: true }),
-      supabaseAdmin.from("profiles").select("*", { count: "exact", head: true }),
-      supabaseAdmin.from("projects").select("*", { count: "exact", head: true }).eq("showcase_published", true),
-      supabaseAdmin.from("project_files").select("*", { count: "exact", head: true }),
-    ]);
-    return {
-      projects: projectsRes.count ?? 0,
-      users: usersRes.count ?? 0,
-      showcased: showcaseRes.count ?? 0,
-      scripts: scriptsRes.count ?? 0,
-    };
+    try {
+      const [projectsRes, usersRes, showcaseRes, scriptsRes] = await Promise.all([
+        supabaseAdmin.from("projects").select("*", { count: "exact", head: true }),
+        supabaseAdmin.from("profiles").select("*", { count: "exact", head: true }),
+        supabaseAdmin.from("projects").select("*", { count: "exact", head: true }).eq("showcase_published", true),
+        supabaseAdmin.from("project_files").select("*", { count: "exact", head: true }),
+      ]);
+      return {
+        projects: projectsRes.count ?? 0,
+        users: usersRes.count ?? 0,
+        showcased: showcaseRes.count ?? 0,
+        scripts: scriptsRes.count ?? 0,
+      };
+    } catch (error) {
+      console.warn("[public-stats] unavailable:", error);
+      return { projects: 0, users: 0, showcased: 0, scripts: 0 };
+    }
   });
 
 export const ensureStarterProject = createServerFn({ method: "POST" })
