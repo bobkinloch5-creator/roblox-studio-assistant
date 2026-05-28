@@ -1,4 +1,10 @@
-import { useState, useRef, useEffect, type FormEvent, type PointerEvent as ReactPointerEvent } from "react";
+import {
+  useState,
+  useRef,
+  useEffect,
+  type FormEvent,
+  type PointerEvent as ReactPointerEvent,
+} from "react";
 import { MessageCircle, X, Send, Loader2 } from "lucide-react";
 
 type Message = { role: "user" | "assistant"; content: string };
@@ -67,7 +73,10 @@ function defaultPos(open: boolean): Pos {
   if (isMobileViewport()) {
     return {
       left: Math.max(MOBILE_EDGE_PAD, window.innerWidth - width - MOBILE_EDGE_PAD),
-      top: Math.max(MOBILE_EDGE_PAD, window.innerHeight - height - MOBILE_EDGE_PAD - MOBILE_NAV_CLEARANCE),
+      top: Math.max(
+        MOBILE_EDGE_PAD,
+        window.innerHeight - height - MOBILE_EDGE_PAD - MOBILE_NAV_CLEARANCE,
+      ),
     };
   }
   return {
@@ -92,7 +101,10 @@ function clampPos(pos: Pos, open: boolean): Pos {
     }
     return {
       left: Math.max(MOBILE_EDGE_PAD, window.innerWidth - width - MOBILE_EDGE_PAD),
-      top: Math.max(MOBILE_EDGE_PAD, window.innerHeight - height - MOBILE_EDGE_PAD - MOBILE_NAV_CLEARANCE),
+      top: Math.max(
+        MOBILE_EDGE_PAD,
+        window.innerHeight - height - MOBILE_EDGE_PAD - MOBILE_NAV_CLEARANCE,
+      ),
     };
   }
 
@@ -115,7 +127,10 @@ function loadHistory(): Message[] {
     const parsed = JSON.parse(raw);
     if (!Array.isArray(parsed)) return [];
     return parsed
-      .filter((m: any) => m && (m.role === "user" || m.role === "assistant") && typeof m.content === "string")
+      .filter(
+        (m: any) =>
+          m && (m.role === "user" || m.role === "assistant") && typeof m.content === "string",
+      )
       .slice(-MAX_STORED_TURNS);
   } catch {
     return [];
@@ -153,7 +168,8 @@ export function HelpChat() {
 
   useEffect(() => {
     setMessages(loadHistory());
-    const openStored = typeof localStorage !== "undefined" && localStorage.getItem(STORAGE_OPEN_KEY) === "1";
+    const openStored =
+      typeof localStorage !== "undefined" && localStorage.getItem(STORAGE_OPEN_KEY) === "1";
     setOpen(openStored);
     const stored = loadPos();
     setPos(clampPos(stored ?? defaultPos(openStored), openStored));
@@ -232,7 +248,10 @@ export function HelpChat() {
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) {
-        const msg = typeof data?.message === "string" ? data.message : "Sorry — I couldn't answer that. Please try again.";
+        const msg =
+          typeof data?.message === "string"
+            ? data.message
+            : "Sorry — I couldn't answer that. Please try again.";
         setError(msg);
         return;
       }
@@ -327,10 +346,21 @@ export function HelpChat() {
   const mobile = isMobileViewport();
   const mobileOpen = open && mobile;
   const closedStyle = mobile
-    ? { right: MOBILE_EDGE_PAD, bottom: `calc(${MOBILE_NAV_CLEARANCE}px + max(0.75rem, env(safe-area-inset-bottom)))` as const, left: "auto" as const, top: "auto" as const }
+    ? {
+        right: MOBILE_EDGE_PAD,
+        bottom:
+          `calc(${MOBILE_NAV_CLEARANCE}px + max(0.75rem, env(safe-area-inset-bottom)))` as const,
+        left: "auto" as const,
+        top: "auto" as const,
+      }
     : { left: pos.left, top: pos.top };
   const panelStyle = mobileOpen
-    ? { left: MOBILE_EDGE_PAD, right: MOBILE_EDGE_PAD, bottom: "max(0.75rem, env(safe-area-inset-bottom))" as const, top: "auto" as const }
+    ? {
+        left: MOBILE_EDGE_PAD,
+        right: MOBILE_EDGE_PAD,
+        bottom: "max(0.75rem, env(safe-area-inset-bottom))" as const,
+        top: "auto" as const,
+      }
     : { left: pos.left, top: pos.top };
 
   return (
@@ -380,7 +410,9 @@ export function HelpChat() {
               <div className="min-w-0">
                 <div className="text-xs font-semibold leading-tight">Help</div>
                 <div className="truncate text-[10px] text-muted-foreground leading-tight">
-                  {mobileOpen ? "Ask anything about BloxSmith" : "Drag to move · ask anything about BloxSmith"}
+                  {mobileOpen
+                    ? "Ask anything about BloxSmith"
+                    : "Drag to move · ask anything about BloxSmith"}
                 </div>
               </div>
             </div>
@@ -405,14 +437,20 @@ export function HelpChat() {
             </div>
           </header>
 
-          <div ref={scrollRef} className="flex-1 overflow-y-auto overscroll-contain px-3 py-3 max-sm:px-3 max-sm:py-2.5 space-y-2.5">
+          <div
+            ref={scrollRef}
+            className="flex-1 overflow-y-auto overscroll-contain px-3 py-3 max-sm:px-3 max-sm:py-2.5 space-y-2.5"
+          >
             {messages.length === 0 && (
               <div className="space-y-2.5">
                 <p className="text-xs max-sm:text-[11px] text-muted-foreground leading-relaxed">
-                  Hi! I'm the BloxSmith help bot. Ask about credits, the Roblox Studio plugin, MCP, or how the site works.
+                  Hi! I'm the BloxSmith help bot. Ask about credits, the Roblox Studio plugin, MCP,
+                  or how the site works.
                 </p>
                 <div className="space-y-1.5">
-                  <div className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold">Try asking</div>
+                  <div className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold">
+                    Try asking
+                  </div>
                   {SUGGESTED.map((s) => (
                     <button
                       key={s}
@@ -428,7 +466,10 @@ export function HelpChat() {
             )}
 
             {messages.map((m, i) => (
-              <div key={i} className={`flex ${m.role === "user" ? "justify-end" : "justify-start"}`}>
+              <div
+                key={i}
+                className={`flex ${m.role === "user" ? "justify-end" : "justify-start"}`}
+              >
                 <div
                   className={`max-w-[85%] rounded-xl px-3 py-2 text-xs leading-relaxed whitespace-pre-wrap break-words ${
                     m.role === "user"

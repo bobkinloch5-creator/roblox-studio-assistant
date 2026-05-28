@@ -48,7 +48,10 @@ export function ThemeToggle() {
       </button>
       {open && (
         <>
-          <div className="fixed inset-0 z-40 bg-background/45 backdrop-blur-[1px] sm:bg-transparent sm:backdrop-blur-0" onClick={() => setOpen(false)} />
+          <div
+            className="fixed inset-0 z-40 bg-background/45 backdrop-blur-[1px] sm:bg-transparent sm:backdrop-blur-0"
+            onClick={() => setOpen(false)}
+          />
           <div className="fixed inset-x-3 top-[5.75rem] z-50 max-h-[calc(100dvh-7rem)] overflow-hidden rounded-2xl border border-border/70 bg-surface-elevated/98 shadow-2xl backdrop-blur-xl animate-fade-in sm:absolute sm:inset-x-auto sm:right-0 sm:top-full sm:mt-3 sm:max-h-[28rem] sm:w-[19rem]">
             <div className="sticky top-0 z-20 flex items-center justify-between border-b border-border/60 bg-surface-elevated/98 px-4 py-3 sm:hidden">
               <div>
@@ -76,7 +79,10 @@ export function ThemeToggle() {
                     {THEMES.filter((t) => t.category === cat).map((t) => (
                       <button
                         key={t.id}
-                        onClick={() => { setTheme(t.id as Theme); setOpen(false); }}
+                        onClick={() => {
+                          setTheme(t.id as Theme);
+                          setOpen(false);
+                        }}
                         className="flex w-full items-center gap-3 px-4 py-3 text-left transition hover:bg-background/35 active:bg-background/45 sm:py-2.5"
                         role="menuitemradio"
                         aria-checked={theme === t.id}
@@ -86,8 +92,12 @@ export function ThemeToggle() {
                           {t.emoji}
                         </span>
                         <span className="min-w-0 flex-1">
-                          <span className="block truncate text-[0.98rem] font-semibold text-foreground sm:text-[0.95rem]">{t.label}</span>
-                          <span className="mt-0.5 block truncate text-[11px] text-muted-foreground">{t.hint}</span>
+                          <span className="block truncate text-[0.98rem] font-semibold text-foreground sm:text-[0.95rem]">
+                            {t.label}
+                          </span>
+                          <span className="mt-0.5 block truncate text-[11px] text-muted-foreground">
+                            {t.hint}
+                          </span>
                         </span>
                         <span className="flex h-7 w-7 shrink-0 items-center justify-center">
                           {theme === t.id && <Check className="h-4 w-4 text-primary-glow" />}

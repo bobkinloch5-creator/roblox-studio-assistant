@@ -8,7 +8,14 @@ const corsHeaders = {
 };
 
 type GenFile = { path: string; file_type: string; service_location: string; content: string };
-type GenAction = { type: string; parent?: string; name?: string; className?: string; properties?: Record<string, unknown>; [key: string]: unknown };
+type GenAction = {
+  type: string;
+  parent?: string;
+  name?: string;
+  className?: string;
+  properties?: Record<string, unknown>;
+  [key: string]: unknown;
+};
 
 function cleanPrompt(value: unknown) {
   return typeof value === "string" ? value.trim().slice(0, 4000) : "";
@@ -26,14 +33,21 @@ function featureName(prompt: string) {
   const words = prompt
     .replace(/[^a-zA-Z0-9\s]/g, " ")
     .split(/\s+/)
-    .filter((w) => w.length > 2 && !/^(make|create|add|build|the|for|with|and|this|that|roblox|game|please)$/i.test(w))
+    .filter(
+      (w) =>
+        w.length > 2 &&
+        !/^(make|create|add|build|the|for|with|and|this|that|roblox|game|please)$/i.test(w),
+    )
     .slice(0, 4);
   const name = words.map((w) => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase()).join("");
   return name || "CustomFeature";
 }
 
 function makeLeaderstatsScript(): GenFile {
-  return scriptFile("ServerScriptService/BloxSmith/Leaderstats.server.lua", "ServerScriptService", `local Players = game:GetService("Players")
+  return scriptFile(
+    "ServerScriptService/BloxSmith/Leaderstats.server.lua",
+    "ServerScriptService",
+    `local Players = game:GetService("Players")
 
 Players.PlayerAdded:Connect(function(player)
     local leaderstats = Instance.new("Folder")
@@ -45,11 +59,15 @@ Players.PlayerAdded:Connect(function(player)
     cash.Value = 0
     cash.Parent = leaderstats
 end)
-`);
+`,
+  );
 }
 
 function makeTycoonControllerScript(): GenFile {
-  return scriptFile("ServerScriptService/BloxSmith/TycoonController.server.lua", "ServerScriptService", `local Players = game:GetService("Players")
+  return scriptFile(
+    "ServerScriptService/BloxSmith/TycoonController.server.lua",
+    "ServerScriptService",
+    `local Players = game:GetService("Players")
 local CollectionService = game:GetService("CollectionService")
 
 local function getCash(player)
@@ -74,11 +92,15 @@ end
 CollectionService:GetInstanceAddedSignal("BloxSmithCollector"):Connect(function(part)
     if part:IsA("BasePart") then hookCollector(part) end
 end)
-`);
+`,
+  );
 }
 
 function makeLoadingScreenScript(): GenFile {
-  return scriptFile("StarterGui/BloxSmithLoadingScreen/LoadingScreen.client.lua", "StarterGui", `local Players = game:GetService("Players")
+  return scriptFile(
+    "StarterGui/BloxSmithLoadingScreen/LoadingScreen.client.lua",
+    "StarterGui",
+    `local Players = game:GetService("Players")
 local TweenService = game:GetService("TweenService")
 local ReplicatedFirst = game:GetService("ReplicatedFirst")
 
@@ -164,11 +186,16 @@ end
 TweenService:Create(background, TweenInfo.new(0.45), { BackgroundTransparency = 1 }):Play()
 task.wait(0.5)
 gui:Destroy()
-`, "LocalScript");
+`,
+    "LocalScript",
+  );
 }
 
 function makeUniversalServerScript(prompt: string, name: string): GenFile {
-  return scriptFile(`ServerScriptService/BloxSmith/${name}.server.lua`, "ServerScriptService", `-- BloxSmith generated starter system
+  return scriptFile(
+    `ServerScriptService/BloxSmith/${name}.server.lua`,
+    "ServerScriptService",
+    `-- BloxSmith generated starter system
 -- Request: ${prompt.replace(/\n/g, " ").slice(0, 180)}
 
 local Players = game:GetService("Players")
@@ -194,11 +221,15 @@ end)
 
 Players.PlayerRemoving:Connect(function(player) cooldowns[player] = nil end)
 print("[BloxSmith] Loaded generated feature:", featureName)
-`);
+`,
+  );
 }
 
 function makeUniversalGuiScript(prompt: string, name: string): GenFile {
-  return scriptFile(`StarterGui/BloxSmith${name}/${name}.client.lua`, "StarterGui", `local Players = game:GetService("Players")
+  return scriptFile(
+    `StarterGui/BloxSmith${name}/${name}.client.lua`,
+    "StarterGui",
+    `local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local gui = Instance.new("ScreenGui")
@@ -256,13 +287,21 @@ button.Activated:Connect(function()
     local remote = remotes and remotes:FindFirstChild(${luaString(name)} .. "Event")
     if remote then remote:FireServer("use") end
 end)
-`, "LocalScript");
+`,
+    "LocalScript",
+  );
 }
 
 function loadingScreenActions(): GenAction[] {
   return [
     { type: "create_folder", parent: "StarterGui", name: "BloxSmithLoadingScreen" },
-    { type: "script", parent: "StarterGui/BloxSmithLoadingScreen", name: "LoadingScreen.client.lua", className: "LocalScript", source: makeLoadingScreenScript().content },
+    {
+      type: "script",
+      parent: "StarterGui/BloxSmithLoadingScreen",
+      name: "LoadingScreen.client.lua",
+      className: "LocalScript",
+      source: makeLoadingScreenScript().content,
+    },
   ];
 }
 
@@ -270,18 +309,44 @@ function universalActions(prompt: string, name: string): GenAction[] {
   const lower = prompt.toLowerCase();
   const actions: GenAction[] = [
     { type: "create_folder", parent: "Workspace", name: `BloxSmith${name}` },
-    { type: "create_part", parent: `Workspace/BloxSmith${name}`, name: `${name}Base`, properties: { Size: [44, 2, 44], Position: [0, 1, 0], Color: [60, 180, 130], Anchored: true } },
-    { type: "create_part", parent: `Workspace/BloxSmith${name}`, name: `${name}Display`, properties: { Size: [18, 10, 2], Position: [0, 7, -18], Color: [35, 45, 70], Anchored: true } },
+    {
+      type: "create_part",
+      parent: `Workspace/BloxSmith${name}`,
+      name: `${name}Base`,
+      properties: { Size: [44, 2, 44], Position: [0, 1, 0], Color: [60, 180, 130], Anchored: true },
+    },
+    {
+      type: "create_part",
+      parent: `Workspace/BloxSmith${name}`,
+      name: `${name}Display`,
+      properties: { Size: [18, 10, 2], Position: [0, 7, -18], Color: [35, 45, 70], Anchored: true },
+    },
   ];
 
   if (/shop|menu|ui|inventory|loading|screen|button|hud|main menu/.test(lower)) {
     actions.push({ type: "create_folder", parent: "StarterGui", name: `BloxSmith${name}` });
   }
   if (/npc|enemy|pet|dog|cat|monster|boss|zombie|character/.test(lower)) {
-    actions.push({ type: "create_part", parent: `Workspace/BloxSmith${name}`, name: `${name}Character`, properties: { Size: [4, 7, 3], Position: [10, 5, 0], Color: [255, 145, 55], Anchored: true } });
+    actions.push({
+      type: "create_part",
+      parent: `Workspace/BloxSmith${name}`,
+      name: `${name}Character`,
+      properties: { Size: [4, 7, 3], Position: [10, 5, 0], Color: [255, 145, 55], Anchored: true },
+    });
   }
   if (/portal|door|teleport|entry|gate/.test(lower)) {
-    actions.push({ type: "create_part", parent: `Workspace/BloxSmith${name}`, name: `${name}Portal`, properties: { Size: [8, 14, 2], Position: [-10, 8, 0], Color: [120, 90, 255], Transparency: 0.2, Anchored: true } });
+    actions.push({
+      type: "create_part",
+      parent: `Workspace/BloxSmith${name}`,
+      name: `${name}Portal`,
+      properties: {
+        Size: [8, 14, 2],
+        Position: [-10, 8, 0],
+        Color: [120, 90, 255],
+        Transparency: 0.2,
+        Anchored: true,
+      },
+    });
   }
   return actions;
 }
@@ -289,30 +354,127 @@ function universalActions(prompt: string, name: string): GenAction[] {
 function basicWorkspaceActions(prompt: string): GenAction[] {
   const lower = prompt.toLowerCase();
   const name = featureName(prompt);
-  if (/loading|load screen|loading screen|splash screen|start screen/.test(lower)) return loadingScreenActions();
+  if (/loading|load screen|loading screen|splash screen|start screen/.test(lower))
+    return loadingScreenActions();
   if (/tycoon|cash|dropper|conveyor|collector|owner/.test(lower)) {
     return [
       { type: "create_folder", parent: "Workspace", name: "BloxSmithTycoon" },
-      { type: "create_part", parent: "Workspace/BloxSmithTycoon", name: "TycoonBase", properties: { Size: [90, 2, 90], Position: [0, 0, 0], Color: [60, 180, 90], Anchored: true } },
-      { type: "create_part", parent: "Workspace/BloxSmithTycoon", name: "Conveyor", properties: { Size: [8, 1, 45], Position: [0, 2, 0], Color: [35, 35, 45], Anchored: true } },
-      { type: "create_part", parent: "Workspace/BloxSmithTycoon", name: "Collector", properties: { Size: [14, 2, 8], Position: [0, 3, 28], Color: [0, 255, 90], Anchored: true, Tags: ["BloxSmithCollector"] } },
-      { type: "create_part", parent: "Workspace/BloxSmithTycoon", name: "BuyDropperButton", properties: { Size: [8, 1, 8], Position: [-18, 2, -18], Color: [255, 210, 0], Anchored: true } },
+      {
+        type: "create_part",
+        parent: "Workspace/BloxSmithTycoon",
+        name: "TycoonBase",
+        properties: {
+          Size: [90, 2, 90],
+          Position: [0, 0, 0],
+          Color: [60, 180, 90],
+          Anchored: true,
+        },
+      },
+      {
+        type: "create_part",
+        parent: "Workspace/BloxSmithTycoon",
+        name: "Conveyor",
+        properties: { Size: [8, 1, 45], Position: [0, 2, 0], Color: [35, 35, 45], Anchored: true },
+      },
+      {
+        type: "create_part",
+        parent: "Workspace/BloxSmithTycoon",
+        name: "Collector",
+        properties: {
+          Size: [14, 2, 8],
+          Position: [0, 3, 28],
+          Color: [0, 255, 90],
+          Anchored: true,
+          Tags: ["BloxSmithCollector"],
+        },
+      },
+      {
+        type: "create_part",
+        parent: "Workspace/BloxSmithTycoon",
+        name: "BuyDropperButton",
+        properties: {
+          Size: [8, 1, 8],
+          Position: [-18, 2, -18],
+          Color: [255, 210, 0],
+          Anchored: true,
+        },
+      },
     ];
   }
   if (/obby|checkpoint|stage/.test(lower)) {
     return [
       { type: "create_folder", parent: "Workspace", name: "BloxSmithObby" },
-      { type: "create_part", parent: "Workspace/BloxSmithObby", name: "Start", properties: { Size: [18, 1, 18], Position: [0, 1, 0], Color: [0, 255, 100], Anchored: true } },
-      { type: "create_part", parent: "Workspace/BloxSmithObby", name: "Checkpoint1", properties: { Size: [14, 1, 14], Position: [0, 5, -35], Color: [0, 170, 255], Anchored: true } },
-      { type: "create_part", parent: "Workspace/BloxSmithObby", name: "Winner", properties: { Size: [20, 1, 20], Position: [0, 8, -70], Color: [255, 220, 0], Anchored: true } },
+      {
+        type: "create_part",
+        parent: "Workspace/BloxSmithObby",
+        name: "Start",
+        properties: {
+          Size: [18, 1, 18],
+          Position: [0, 1, 0],
+          Color: [0, 255, 100],
+          Anchored: true,
+        },
+      },
+      {
+        type: "create_part",
+        parent: "Workspace/BloxSmithObby",
+        name: "Checkpoint1",
+        properties: {
+          Size: [14, 1, 14],
+          Position: [0, 5, -35],
+          Color: [0, 170, 255],
+          Anchored: true,
+        },
+      },
+      {
+        type: "create_part",
+        parent: "Workspace/BloxSmithObby",
+        name: "Winner",
+        properties: {
+          Size: [20, 1, 20],
+          Position: [0, 8, -70],
+          Color: [255, 220, 0],
+          Anchored: true,
+        },
+      },
     ];
   }
   if (/map|city|forest|lobby|world|horror|school|restaurant|simulator/.test(lower)) {
     return [
       { type: "create_folder", parent: "Workspace", name: "BloxSmithMap" },
-      { type: "create_part", parent: "Workspace/BloxSmithMap", name: "MainGround", properties: { Size: [140, 2, 140], Position: [0, 0, 0], Color: [90, 170, 90], Anchored: true } },
-      { type: "create_part", parent: "Workspace/BloxSmithMap", name: "SpawnPlatform", properties: { Size: [20, 1, 20], Position: [0, 3, 0], Color: [0, 255, 180], Anchored: true } },
-      { type: "create_part", parent: "Workspace/BloxSmithMap", name: "FeatureBuilding", properties: { Size: [28, 24, 28], Position: [35, 13, 35], Color: [80, 90, 120], Anchored: true } },
+      {
+        type: "create_part",
+        parent: "Workspace/BloxSmithMap",
+        name: "MainGround",
+        properties: {
+          Size: [140, 2, 140],
+          Position: [0, 0, 0],
+          Color: [90, 170, 90],
+          Anchored: true,
+        },
+      },
+      {
+        type: "create_part",
+        parent: "Workspace/BloxSmithMap",
+        name: "SpawnPlatform",
+        properties: {
+          Size: [20, 1, 20],
+          Position: [0, 3, 0],
+          Color: [0, 255, 180],
+          Anchored: true,
+        },
+      },
+      {
+        type: "create_part",
+        parent: "Workspace/BloxSmithMap",
+        name: "FeatureBuilding",
+        properties: {
+          Size: [28, 24, 28],
+          Position: [35, 13, 35],
+          Color: [80, 90, 120],
+          Anchored: true,
+        },
+      },
     ];
   }
   return universalActions(prompt, name);
@@ -326,7 +488,8 @@ function buildFallbackResult(prompt: string) {
 
   if (/loading|load screen|loading screen|splash screen|start screen/.test(lower)) {
     files.push(makeLoadingScreenScript());
-    message = "Prepared a premium Roblox loading screen with animated progress, gradient background, mobile-friendly scaling, and a LocalScript under StarterGui/BloxSmithLoadingScreen.";
+    message =
+      "Prepared a premium Roblox loading screen with animated progress, gradient background, mobile-friendly scaling, and a LocalScript under StarterGui/BloxSmithLoadingScreen.";
   } else {
     files.push(makeUniversalServerScript(prompt, name));
     files.push(makeUniversalGuiScript(prompt, name));
@@ -338,11 +501,20 @@ function buildFallbackResult(prompt: string) {
   }
   if (/tycoon|collector|dropper|conveyor/.test(lower)) {
     files.push(makeTycoonControllerScript());
-    message = "Prepared a starter tycoon system with a base, collector, conveyor, currency, UI, and server script.";
+    message =
+      "Prepared a starter tycoon system with a base, collector, conveyor, currency, UI, and server script.";
   }
 
   const actions = basicWorkspaceActions(prompt);
-  return { message, files, actions, autoExecute: true, queuedCount: files.length + actions.length, chargedCredits: 0, model: "safe-universal-builder" };
+  return {
+    message,
+    files,
+    actions,
+    autoExecute: true,
+    queuedCount: files.length + actions.length,
+    chargedCredits: 0,
+    model: "safe-universal-builder",
+  };
 }
 
 export const Route = createFileRoute("/api/assistant/execute")({
@@ -354,12 +526,32 @@ export const Route = createFileRoute("/api/assistant/execute")({
           const body = await request.json().catch(() => ({}));
           const prompt = cleanPrompt(body?.prompt ?? body?.message ?? body?.input);
           if (!prompt) {
-            return new Response(JSON.stringify({ error: "missing_prompt", message: "Please type what you want BloxSmith to build." }), { status: 400, headers: corsHeaders });
+            return new Response(
+              JSON.stringify({
+                error: "missing_prompt",
+                message: "Please type what you want BloxSmith to build.",
+              }),
+              { status: 400, headers: corsHeaders },
+            );
           }
-          return new Response(JSON.stringify(buildFallbackResult(prompt)), { status: 200, headers: corsHeaders });
+          return new Response(JSON.stringify(buildFallbackResult(prompt)), {
+            status: 200,
+            headers: corsHeaders,
+          });
         } catch (error: any) {
           console.error("assistant execute safe route failed", error?.message ?? error);
-          return new Response(JSON.stringify({ message: "BloxSmith recovered from an assistant error. Try again or refresh the project.", files: [], actions: [], queuedCount: 0, chargedCredits: 0, model: "safe-error-fallback" }), { status: 200, headers: corsHeaders });
+          return new Response(
+            JSON.stringify({
+              message:
+                "BloxSmith recovered from an assistant error. Try again or refresh the project.",
+              files: [],
+              actions: [],
+              queuedCount: 0,
+              chargedCredits: 0,
+              model: "safe-error-fallback",
+            }),
+            { status: 200, headers: corsHeaders },
+          );
         }
       },
     },

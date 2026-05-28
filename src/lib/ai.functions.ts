@@ -116,7 +116,9 @@ function isToolAIError(err: unknown): boolean {
   );
 }
 
-function classifyAIError(err: unknown): "timeout" | "context" | "rate_limit" | "tool" | "json" | "provider" | "unknown" {
+function classifyAIError(
+  err: unknown,
+): "timeout" | "context" | "rate_limit" | "tool" | "json" | "provider" | "unknown" {
   const msg = getAIErrorMessage(err);
   const status = getAIStatus(err);
   if (isAbortError(err) || /aborted|abort|timeout|timed out/i.test(msg)) return "timeout";
@@ -128,24 +130,43 @@ function classifyAIError(err: unknown): "timeout" | "context" | "rate_limit" | "
   return "unknown";
 }
 
-function pickGenerationTools(prompt: string, allTools: Record<string, any>): Record<string, unknown> {
+function pickGenerationTools(
+  prompt: string,
+  allTools: Record<string, any>,
+): Record<string, unknown> {
   const lower = prompt.toLowerCase();
   const picked: Record<string, unknown> = {};
   const add = (name: string) => {
     if (name in allTools) picked[name] = allTools[name];
   };
 
-  if (/\b(datastore|remoteevent|remotefunction|marketplaceservice|pathfindingservice|tweenservice|runservice|animation|animator|humanoid|screen.?gui|luau|creator hub|api reference|docs|documentation)\b/i.test(lower)) {
+  if (
+    /\b(datastore|remoteevent|remotefunction|marketplaceservice|pathfindingservice|tweenservice|runservice|animation|animator|humanoid|screen.?gui|luau|creator hub|api reference|docs|documentation)\b/i.test(
+      lower,
+    )
+  ) {
     add("roblox_docs_search");
   }
-  if (/\b(search the web|web search|look up|current|latest|today|internet|url|https?:\/\/)\b/i.test(lower)) {
+  if (
+    /\b(search the web|web search|look up|current|latest|today|internet|url|https?:\/\/)\b/i.test(
+      lower,
+    )
+  ) {
     add("web_search");
     add("fetch_url");
   }
-  if (/\b(toolbox|creator store|free model|asset|model id|insert model|use a model|marketplace|skybox|music|sound|decal|image id|thumbnail|icon|logo|banner|loading screen)\b/i.test(lower)) {
+  if (
+    /\b(toolbox|creator store|free model|asset|model id|insert model|use a model|marketplace|skybox|music|sound|decal|image id|thumbnail|icon|logo|banner|loading screen)\b/i.test(
+      lower,
+    )
+  ) {
     add("roblox_asset_search");
   }
-  if (/\b(asset info|asset details|verify asset|thumbnail|preview|safe model|scan scripts?)\b/i.test(lower)) {
+  if (
+    /\b(asset info|asset details|verify asset|thumbnail|preview|safe model|scan scripts?)\b/i.test(
+      lower,
+    )
+  ) {
     add("roblox_asset_info");
     add("roblox_asset_thumbnail");
   }
@@ -185,14 +206,16 @@ export const generateWithAI = createServerFn({ method: "POST" })
     const { generateText, Output, stepCountIs } = await import("ai");
     const { SYSTEM_PROMPT } = await import("./ai-gateway.server");
     const { getModelProfile, resolveAiGateway } = await import("./ai-providers.server");
-    const { buildProjectMemoryBlock, rememberProjectInteraction } = await import("./ai-memory.server");
+    const { buildProjectMemoryBlock, rememberProjectInteraction } =
+      await import("./ai-memory.server");
 
     const { buildBloxSmithTools } = await import("./ai-tools.server");
 
     // Heuristic: short prompts (edits, tweaks, single-feature asks) use the fast
     // tier even in generate mode. Big/complex asks keep the deeper model.
     const promptLen = prompt.trim().length;
-    const complexKeywords = /(system|datastore|leaderboard|tycoon|simulator|obby|admin|gamepass|multiple|all|whole|full game|entire|refactor|rewrite|architecture)/i;
+    const complexKeywords =
+      /(system|datastore|leaderboard|tycoon|simulator|obby|admin|gamepass|multiple|all|whole|full game|entire|refactor|rewrite|architecture)/i;
     const isComplex = mode === "generate" && (promptLen > 400 || complexKeywords.test(prompt));
     const routingKind: "build" | "fast" = mode === "generate" && isComplex ? "build" : "fast";
 
@@ -272,9 +295,15 @@ export const generateWithAI = createServerFn({ method: "POST" })
         const ctx: any = liveContext.context;
         const services = ctx?.services ?? ctx;
         const summary = Array.isArray(services)
-          ? services.slice(0, 12).map((s: any) => `${s.name ?? s.className}:${s.childCount ?? 0}`).join(", ")
+          ? services
+              .slice(0, 12)
+              .map((s: any) => `${s.name ?? s.className}:${s.childCount ?? 0}`)
+              .join(", ")
           : typeof services === "object"
-            ? Object.keys(services).slice(0, 12).map((k) => `${k}:${Array.isArray(services[k]) ? services[k].length : 1}`).join(", ")
+            ? Object.keys(services)
+                .slice(0, 12)
+                .map((k) => `${k}:${Array.isArray(services[k]) ? services[k].length : 1}`)
+                .join(", ")
             : JSON.stringify(services).slice(0, 600);
         liveBlock = `LIVE STUDIO WORKSPACE (${liveContext.instance_count} instances): ${summary}`;
       } catch {
@@ -287,7 +316,10 @@ export const generateWithAI = createServerFn({ method: "POST" })
       const fullPrompt = `${memoryBlock ? `${memoryBlock}\n\n` : ""}${liveBlock}\n\nFULL PROJECT FILE MAP (${(allFiles ?? []).length} files - every file your project has, by location):\n${projectMap || "  (no files yet)"}\n\nRelevant project files (with content preview):\n${filesBlock || "(none indexed)"}\n\nUser request:\n${prompt}\n\nRules:\n- You have FULL AWARENESS of the project above. Reference real files by path. NEVER duplicate something that already exists - MODIFY it.\n- Use PROJECT MEMORY for durable preferences, naming, genre, and recent context. If memory conflicts with live files or the user's latest request, obey the latest request and live project state.
 - Organize new files into clean subfolders by feature (e.g. ServerScriptService/Combat/HitService, ReplicatedStorage/Modules/Config, StarterPlayerScripts/UI/Hud). Do NOT dump everything at the root of a service.\n- Place server Scripts in ServerScriptService, LocalScripts in StarterPlayerScripts or StarterGui, GUIs in StarterGui, RemoteEvents/RemoteFunctions in ReplicatedStorage/Remotes, ModuleScripts in ReplicatedStorage/Modules (shared) or ServerStorage/Modules (server-only), Tools in StarterPack, physical/world objects in Workspace.\n- For ground/landscape requests (grass, sand, snow, water, hills, islands), use real Roblox Terrain via the \`terrainFill\` action. NEVER spawn hundreds of thin Parts.\n- Do NOT claim success - phrase as "Queued for Studio...".\n- If the request is a casual question (no code changes), reply naturally in 'message' with empty 'files' and 'actions'.\n- Use tools (web_search, roblox_asset_*, fetch_url) ONLY when you genuinely need fresh info - every tool call slows you down.\n\nReturn the JSON object as specified.`;
       const { generateTextWithToolFallback } = await import("./ai-retry.server");
-      const builtInTools = pickGenerationTools(prompt, buildBloxSmithTools({ userId }) as Record<string, any>);
+      const builtInTools = pickGenerationTools(
+        prompt,
+        buildBloxSmithTools({ userId }) as Record<string, any>,
+      );
       const mcpTools = shouldLoadUserMcpTools(prompt)
         ? await (await import("./mcp-client.server")).buildUserMcpTools(userId)
         : {};
@@ -295,17 +327,24 @@ export const generateWithAI = createServerFn({ method: "POST" })
       const timeoutMs = isComplex
         ? Math.min(profile.timeoutMs, thinking ? 38_000 : 30_000)
         : Math.min(profile.timeoutMs, thinking ? 28_000 : 16_000);
-      const { text: rawText } = await generateTextWithToolFallback(generateText, {
-        model,
-        system: SYSTEM_PROMPT,
-        prompt: fullPrompt,
-        ...(Object.keys(tools).length > 0
-          ? { tools: tools as any, stopWhen: stepCountIs(Math.min(profile.stopSteps, isComplex ? 8 : 3)) }
-          : {}),
-        maxOutputTokens: Math.min(profile.maxOutputTokens, isComplex ? 9000 : 4500),
-        maxRetries: 0,
-        timeout: { totalMs: timeoutMs, stepMs: timeoutMs, chunkMs: 12_000 },
-      }, "generateWithAI");
+      const { text: rawText } = await generateTextWithToolFallback(
+        generateText,
+        {
+          model,
+          system: SYSTEM_PROMPT,
+          prompt: fullPrompt,
+          ...(Object.keys(tools).length > 0
+            ? {
+                tools: tools as any,
+                stopWhen: stepCountIs(Math.min(profile.stopSteps, isComplex ? 8 : 3)),
+              }
+            : {}),
+          maxOutputTokens: Math.min(profile.maxOutputTokens, isComplex ? 9000 : 4500),
+          maxRetries: 0,
+          timeout: { totalMs: timeoutMs, stepMs: timeoutMs, chunkMs: 12_000 },
+        },
+        "generateWithAI",
+      );
       // Parse JSON from the raw text response
       const jsonMatch = rawText.match(/\{[\s\S]*\}/);
       if (!jsonMatch) {
@@ -586,7 +625,8 @@ export const planBuild = createServerFn({ method: "POST" })
 
     const { generateText } = await import("ai");
     const { resolveBuiltInGateway } = await import("./ai-providers.server");
-    const { buildProjectMemoryBlock, rememberProjectInteraction } = await import("./ai-memory.server");
+    const { buildProjectMemoryBlock, rememberProjectInteraction } =
+      await import("./ai-memory.server");
     let model;
     try {
       model = resolveBuiltInGateway({ kind: "fast", thinking }).model;
@@ -704,10 +744,7 @@ const ChatInputSchema = z.object({
   // Vision: data URLs (e.g. "data:image/png;base64,...") captured from the
   // chat composer's attach-image button. Limited to 4 images, ~6 MB each
   // after base64 encoding to stay within model + gateway limits.
-  attachments: z
-    .array(z.string().startsWith("data:image/").max(8_500_000))
-    .max(4)
-    .optional(),
+  attachments: z.array(z.string().startsWith("data:image/").max(8_500_000)).max(4).optional(),
 });
 
 function pickChatTools(prompt: string, allTools: Record<string, any>): Record<string, unknown> {
@@ -717,17 +754,33 @@ function pickChatTools(prompt: string, allTools: Record<string, any>): Record<st
     if (name in allTools) picked[name] = allTools[name];
   };
 
-  if (/\b(datastore|remoteevent|remotefunction|marketplaceservice|pathfindingservice|tweenservice|runservice|animation|animator|humanoid|screen.?gui|luau|creator hub|api reference|docs|documentation)\b/i.test(lower)) {
+  if (
+    /\b(datastore|remoteevent|remotefunction|marketplaceservice|pathfindingservice|tweenservice|runservice|animation|animator|humanoid|screen.?gui|luau|creator hub|api reference|docs|documentation)\b/i.test(
+      lower,
+    )
+  ) {
     add("roblox_docs_search");
   }
-  if (/\b(search the web|web search|look up|current|latest|today|internet|url|https?:\/\/)\b/i.test(lower)) {
+  if (
+    /\b(search the web|web search|look up|current|latest|today|internet|url|https?:\/\/)\b/i.test(
+      lower,
+    )
+  ) {
     add("web_search");
     add("fetch_url");
   }
-  if (/\b(toolbox|creator store|free model|asset|model id|insert model|use a model|marketplace|skybox|music|sound|decal|image id)\b/i.test(lower)) {
+  if (
+    /\b(toolbox|creator store|free model|asset|model id|insert model|use a model|marketplace|skybox|music|sound|decal|image id)\b/i.test(
+      lower,
+    )
+  ) {
     add("roblox_asset_search");
   }
-  if (/\b(asset info|asset details|verify asset|thumbnail|preview|safe model|scan scripts?)\b/i.test(lower)) {
+  if (
+    /\b(asset info|asset details|verify asset|thumbnail|preview|safe model|scan scripts?)\b/i.test(
+      lower,
+    )
+  ) {
     add("roblox_asset_info");
     add("roblox_asset_thumbnail");
   }
@@ -754,9 +807,11 @@ export const chatWithAI = createServerFn({ method: "POST" })
       if (spendErr) throw new Error("Not enough credits. Buy more on the Pricing page.");
     }
 
-    const { getModelProfile, recordProviderHealth, resolveAiGateway, resolveBuiltInGateway } = await import("./ai-providers.server");
+    const { getModelProfile, recordProviderHealth, resolveAiGateway, resolveBuiltInGateway } =
+      await import("./ai-providers.server");
     const { ROBLOX_KNOWLEDGE_PROMPT } = await import("./roblox-knowledge");
-    const { buildProjectMemoryBlock, rememberProjectInteraction } = await import("./ai-memory.server");
+    const { buildProjectMemoryBlock, rememberProjectInteraction } =
+      await import("./ai-memory.server");
     let resolved;
     try {
       resolved = await resolveAiGateway({
@@ -874,7 +929,7 @@ ${ROBLOX_KNOWLEDGE_PROMPT}${includeProject && memoryBlock ? `\n\n${memoryBlock}`
         console.log(`[chatWithAI] ${label} model=${modelLabel} messages=${messages.length}`);
         return await generateText({
           model,
-          messages: messages as Parameters<typeof generateText>[0]["messages"],
+          messages: messages as NonNullable<Parameters<typeof generateText>[0]["messages"]>,
           maxOutputTokens,
           maxRetries: 0,
           timeout: { totalMs: timeoutMs, stepMs: timeoutMs, chunkMs: 10_000 },
@@ -892,11 +947,15 @@ ${ROBLOX_KNOWLEDGE_PROMPT}${includeProject && memoryBlock ? `\n\n${memoryBlock}`
       {
         label: "primary",
         resolved,
-        historyTurns: getModelProfile(resolved.provider, resolved.modelName, { thinking }).historyTurns,
-        historyChars: getModelProfile(resolved.provider, resolved.modelName, { thinking }).historyChars,
+        historyTurns: getModelProfile(resolved.provider, resolved.modelName, { thinking })
+          .historyTurns,
+        historyChars: getModelProfile(resolved.provider, resolved.modelName, { thinking })
+          .historyChars,
         includeProject: true,
-        maxOutputTokens: getModelProfile(resolved.provider, resolved.modelName, { thinking }).chatOutputTokens,
-        timeoutMs: getModelProfile(resolved.provider, resolved.modelName, { thinking }).chatTimeoutMs,
+        maxOutputTokens: getModelProfile(resolved.provider, resolved.modelName, { thinking })
+          .chatOutputTokens,
+        timeoutMs: getModelProfile(resolved.provider, resolved.modelName, { thinking })
+          .chatTimeoutMs,
       },
       {
         label: "primary-compact",
@@ -943,8 +1002,7 @@ ${ROBLOX_KNOWLEDGE_PROMPT}${includeProject && memoryBlock ? `\n\n${memoryBlock}`
           thinking,
         });
         const tools = !toolsDisabled && profile.supportsTools ? chatTools : {};
-        const includeImages =
-          !!attachments?.length && profile.supportsVision;
+        const includeImages = !!attachments?.length && profile.supportsVision;
         const messages = makeMessages({
           includeProject: attempt.includeProject,
           historyTurns: attempt.historyTurns,
@@ -989,7 +1047,10 @@ ${ROBLOX_KNOWLEDGE_PROMPT}${includeProject && memoryBlock ? `\n\n${memoryBlock}`
           });
           lastErr = err;
           const retryable =
-            isTransientAIError(err) || isContextAIError(err) || isAbortError(err) || isToolAIError(err);
+            isTransientAIError(err) ||
+            isContextAIError(err) ||
+            isAbortError(err) ||
+            isToolAIError(err);
           if (isToolAIError(err)) toolsDisabled = true;
           console.warn(
             `[chatWithAI] ${attempt.label} failed retryable=${retryable}: ${getAIErrorMessage(err).slice(0, 220)}`,
@@ -1107,7 +1168,8 @@ export const fixErrorsWithAI = createServerFn({ method: "POST" })
     const { generateText, Output, stepCountIs } = await import("ai");
     const { resolveBuiltInGateway } = await import("./ai-providers.server");
     const { buildBloxSmithTools } = await import("./ai-tools.server");
-    const { buildProjectMemoryBlock, rememberProjectInteraction } = await import("./ai-memory.server");
+    const { buildProjectMemoryBlock, rememberProjectInteraction } =
+      await import("./ai-memory.server");
 
     let model;
     try {
@@ -1174,15 +1236,22 @@ Respond ONLY with the JSON object specified.`;
     let result: { message: string; files: GenFile[]; actions: GenAction[]; errors_found: number };
     try {
       const { generateTextWithToolFallback } = await import("./ai-retry.server");
-      const { text: rawText } = await generateTextWithToolFallback(generateText, {
-        model,
-        system: FIX_SYSTEM,
-        prompt: `STUDIO OUTPUT LOGS:\n\`\`\`\n${logs}\n\`\`\`\n\n${memoryBlock ? `${memoryBlock}\n\n` : ""}${liveBlock}\n\nProject files in DB:\n${filesBlock || "(empty)"}\n\nThink step-by-step. Use web_search / fetch_url if you need to look up a Roblox API to fix the error. Then patch the broken files now.`,
-        tools: pickGenerationTools(logs, buildBloxSmithTools({ userId }) as Record<string, any>) as any,
-        stopWhen: stepCountIs(8),
-        maxRetries: 0,
-        timeout: { totalMs: 24_000, stepMs: 24_000, chunkMs: 10_000 },
-      }, "fixErrorsWithAI");
+      const { text: rawText } = await generateTextWithToolFallback(
+        generateText,
+        {
+          model,
+          system: FIX_SYSTEM,
+          prompt: `STUDIO OUTPUT LOGS:\n\`\`\`\n${logs}\n\`\`\`\n\n${memoryBlock ? `${memoryBlock}\n\n` : ""}${liveBlock}\n\nProject files in DB:\n${filesBlock || "(empty)"}\n\nThink step-by-step. Use web_search / fetch_url if you need to look up a Roblox API to fix the error. Then patch the broken files now.`,
+          tools: pickGenerationTools(
+            logs,
+            buildBloxSmithTools({ userId }) as Record<string, any>,
+          ) as any,
+          stopWhen: stepCountIs(8),
+          maxRetries: 0,
+          timeout: { totalMs: 24_000, stepMs: 24_000, chunkMs: 10_000 },
+        },
+        "fixErrorsWithAI",
+      );
       // Parse JSON from raw text
       const fixJsonMatch = rawText.match(/\{[\s\S]*\}/);
       if (!fixJsonMatch) throw new Error("AI did not return valid JSON.");
@@ -1487,11 +1556,7 @@ Build EVERYTHING. Ship the complete game.`;
       // Whitelist a small tool subset to keep tool-definition tokens low.
       // MCP tools are NOT included — they bloat the request and aren't needed
       // for an initial whole-game build.
-      const TOOL_WHITELIST = [
-        "web_search",
-        "roblox_asset_search",
-        "roblox_asset_info",
-      ];
+      const TOOL_WHITELIST = ["web_search", "roblox_asset_search", "roblox_asset_info"];
       const slimTools: Record<string, any> = {};
       for (const k of TOOL_WHITELIST) if (allTools[k]) slimTools[k] = allTools[k];
 

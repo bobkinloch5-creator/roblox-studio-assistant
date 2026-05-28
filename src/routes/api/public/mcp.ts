@@ -162,7 +162,9 @@ function publicDiscovery() {
 async function sha256(text: string) {
   const buf = new TextEncoder().encode(text);
   const hash = await crypto.subtle.digest("SHA-256", buf);
-  return Array.from(new Uint8Array(hash)).map((b) => b.toString(16).padStart(2, "0")).join("");
+  return Array.from(new Uint8Array(hash))
+    .map((b) => b.toString(16).padStart(2, "0"))
+    .join("");
 }
 
 function detectClient(ua: string | null): string {
@@ -200,9 +202,11 @@ function recordTokenAttempt(userId: string, ok: boolean, ua: string | null, erro
       ...(ok ? { last_used_at: now } : {}),
     })
     .eq("user_id", userId)
-    .then(() => {}, () => {});
+    .then(
+      () => {},
+      () => {},
+    );
 }
-
 
 function authError(message: string, hint?: string) {
   const fullMessage = hint ? `${message} ${hint}` : message;
@@ -228,8 +232,7 @@ function authError(message: string, hint?: string) {
 }
 
 async function authenticate(request: Request) {
-  const authHeader =
-    request.headers.get("Authorization") ?? request.headers.get("authorization");
+  const authHeader = request.headers.get("Authorization") ?? request.headers.get("authorization");
   const apiKeyHeader =
     request.headers.get("X-Bloxsmith-Api-Key") ??
     request.headers.get("x-bloxsmith-api-key") ??
@@ -239,10 +242,7 @@ async function authenticate(request: Request) {
     request.headers.get("api-key");
   const hasAuthHeader = !!authHeader;
   const hasApiKeyHeader = !!apiKeyHeader;
-  const token =
-    authHeader?.replace(/^Bearer\s+/i, "").trim() ||
-    apiKeyHeader?.trim() ||
-    "";
+  const token = authHeader?.replace(/^Bearer\s+/i, "").trim() || apiKeyHeader?.trim() || "";
   const ua = request.headers.get("User-Agent");
   const client = detectClient(ua);
   const path = new URL(request.url).pathname;
@@ -345,7 +345,6 @@ async function authenticate(request: Request) {
   // Reuse existing downstream code that expects `data.user_id`
   const data = { user_id: userId! };
 
-
   const { data: userRow, error: userErr } = await supabaseAdmin
     .from("profiles")
     .select("id,banned")
@@ -356,7 +355,10 @@ async function authenticate(request: Request) {
     recordTokenAttempt(data.user_id, false, ua, "user not found");
     return {
       ok: false as const,
-      response: authError("User account not found.", "Sign in at https://bloxsmith.pro and regenerate your token."),
+      response: authError(
+        "User account not found.",
+        "Sign in at https://bloxsmith.pro and regenerate your token.",
+      ),
     };
   }
   if (userRow.banned) {

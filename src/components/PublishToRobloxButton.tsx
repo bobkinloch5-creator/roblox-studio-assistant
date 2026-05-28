@@ -39,9 +39,7 @@ export function PublishToRobloxButton({
       const r = await publishFn({
         data: { projectId, universeId, placeId, versionType: "Published" },
       });
-      toast.success(
-        `Published v${r.versionNumber ?? "?"} to Roblox · ${r.filesUploaded} files`,
-      );
+      toast.success(`Published v${r.versionNumber ?? "?"} to Roblox · ${r.filesUploaded} files`);
       setOpen(false);
     } catch (e: any) {
       toast.error(e?.message ?? "Publish failed");
@@ -78,15 +76,13 @@ export function PublishToRobloxButton({
               Publish to Roblox
             </h2>
             <p className="mt-1 text-sm text-muted-foreground">
-              We'll build a <code>.rbxlx</code> place from your project and upload it to
-              Roblox using Open Cloud. Existing place content will be replaced.
+              We'll build a <code>.rbxlx</code> place from your project and upload it to Roblox
+              using Open Cloud. Existing place content will be replaced.
             </p>
 
             <div className="mt-5 space-y-3">
               <label className="block">
-                <span className="text-xs font-medium text-muted-foreground">
-                  Universe ID
-                </span>
+                <span className="text-xs font-medium text-muted-foreground">Universe ID</span>
                 <input
                   value={universeId}
                   onChange={(e) => setUniverseId(e.target.value.trim())}
@@ -96,9 +92,7 @@ export function PublishToRobloxButton({
                 />
               </label>
               <label className="block">
-                <span className="text-xs font-medium text-muted-foreground">
-                  Place ID
-                </span>
+                <span className="text-xs font-medium text-muted-foreground">Place ID</span>
                 <input
                   value={placeId}
                   onChange={(e) => setPlaceId(e.target.value.trim())}
@@ -115,13 +109,25 @@ export function PublishToRobloxButton({
               </summary>
               <ol className="mt-2 list-decimal pl-4 space-y-1">
                 <li>
-                  Open <a className="underline" href="https://create.roblox.com/dashboard/creations" target="_blank" rel="noopener">create.roblox.com/dashboard/creations</a>.
+                  Open{" "}
+                  <a
+                    className="underline"
+                    href="https://create.roblox.com/dashboard/creations"
+                    target="_blank"
+                    rel="noopener"
+                  >
+                    create.roblox.com/dashboard/creations
+                  </a>
+                  .
                 </li>
-                <li>Click the experience → copy the Universe ID (top of the URL bar after <code>/creations/experiences/</code>).</li>
+                <li>
+                  Click the experience → copy the Universe ID (top of the URL bar after{" "}
+                  <code>/creations/experiences/</code>).
+                </li>
                 <li>Click the Places tab → copy the start-place's Place ID.</li>
                 <li>
-                  Ensure your Open Cloud API key has scope{" "}
-                  <code>universe-places:write</code> for this universe.
+                  Ensure your Open Cloud API key has scope <code>universe-places:write</code> for
+                  this universe.
                 </li>
               </ol>
             </details>
@@ -154,7 +160,11 @@ export function PublishToRobloxButton({
                 onClick={doPublish}
                 className="rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground hover:bg-primary/90 disabled:opacity-50 flex items-center gap-2"
               >
-                {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <Rocket className="h-4 w-4" />}
+                {busy ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <Rocket className="h-4 w-4" />
+                )}
                 {busy ? "Publishing..." : "Publish now"}
               </button>
             </div>

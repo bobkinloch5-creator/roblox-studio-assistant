@@ -14,7 +14,11 @@ function parseMarkdown(input: string): Block[] {
       const text = input.slice(last, m.index);
       if (text.trim()) blocks.push({ type: "text", content: text });
     }
-    blocks.push({ type: "code", lang: (m[1] || "lua").toLowerCase(), content: m[2].replace(/\n$/, "") });
+    blocks.push({
+      type: "code",
+      lang: (m[1] || "lua").toLowerCase(),
+      content: m[2].replace(/\n$/, ""),
+    });
     last = re.lastIndex;
   }
   if (last < input.length) {

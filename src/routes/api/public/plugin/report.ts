@@ -13,7 +13,9 @@ const cors = {
 async function sha256(text: string) {
   const buf = new TextEncoder().encode(text);
   const hash = await crypto.subtle.digest("SHA-256", buf);
-  return Array.from(new Uint8Array(hash)).map((b) => b.toString(16).padStart(2, "0")).join("");
+  return Array.from(new Uint8Array(hash))
+    .map((b) => b.toString(16).padStart(2, "0"))
+    .join("");
 }
 
 async function userFromToken(token: string | null) {
@@ -39,7 +41,11 @@ export const Route = createFileRoute("/api/public/plugin/report")({
       OPTIONS: async () => new Response(null, { status: 204, headers: cors }),
       POST: async ({ request }) => {
         const userId = await userFromToken(request.headers.get("x-plugin-token"));
-        if (!userId) return new Response(JSON.stringify({ error: "invalid token" }), { status: 401, headers: cors });
+        if (!userId)
+          return new Response(JSON.stringify({ error: "invalid token" }), {
+            status: 401,
+            headers: cors,
+          });
         const body = (await request.json().catch(() => ({}))) as { reports?: Report[] };
         const reports = Array.isArray(body?.reports) ? body.reports : [];
         if (reports.length === 0) {

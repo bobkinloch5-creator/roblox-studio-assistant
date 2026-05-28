@@ -62,7 +62,7 @@ export function AutoPluginInstaller({ onInstalled }: { onInstalled?: () => void 
 
       <div className="relative">
         <pre className="rounded-lg bg-surface-elevated/70 border border-border p-3 text-[11px] font-mono text-foreground overflow-x-auto whitespace-pre-wrap break-all max-h-48">
-{cmd}
+          {cmd}
         </pre>
         <button
           type="button"

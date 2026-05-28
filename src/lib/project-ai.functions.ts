@@ -48,20 +48,21 @@ export const getProjectAiConfig = createServerFn({ method: "POST" })
         .select("mode,provider,model,updated_at")
         .eq("project_id", projectId)
         .maybeSingle(),
-      supabase
-        .from("user_provider_keys")
-        .select("provider,label,updated_at")
-        .eq("user_id", userId),
+      supabase.from("user_provider_keys").select("provider,label,updated_at").eq("user_id", userId),
     ]);
 
-    const settings = settingsRes.data ?? { mode: "mcp", provider: null, model: null, updated_at: null };
-    const keys = (keysRes.data ?? []).reduce<Record<string, { label: string | null; updatedAt: string }>>(
-      (acc, k) => {
-        acc[k.provider] = { label: k.label, updatedAt: k.updated_at };
-        return acc;
-      },
-      {},
-    );
+    const settings = settingsRes.data ?? {
+      mode: "mcp",
+      provider: null,
+      model: null,
+      updated_at: null,
+    };
+    const keys = (keysRes.data ?? []).reduce<
+      Record<string, { label: string | null; updatedAt: string }>
+    >((acc, k) => {
+      acc[k.provider] = { label: k.label, updatedAt: k.updated_at };
+      return acc;
+    }, {});
 
     return { settings, keys };
   });
@@ -92,17 +93,15 @@ export const saveProviderKey = createServerFn({ method: "POST" })
   .inputValidator((input: unknown) => SaveKeySchema.parse(input))
   .handler(async ({ data, context }) => {
     const { supabase, userId } = context;
-    const { error } = await supabase
-      .from("user_provider_keys")
-      .upsert(
-        {
-          user_id: userId,
-          provider: data.provider,
-          api_key: data.apiKey.trim(),
-          label: null,
-        },
-        { onConflict: "user_id,provider" },
-      );
+    const { error } = await supabase.from("user_provider_keys").upsert(
+      {
+        user_id: userId,
+        provider: data.provider,
+        api_key: data.apiKey.trim(),
+        label: null,
+      },
+      { onConflict: "user_id,provider" },
+    );
     if (error) throw new Error(error.message);
     return { ok: true };
   });

@@ -151,12 +151,17 @@ function loadGoogleTranslate() {
         },
         { once: true },
       );
-      existing.addEventListener("error", () => reject(new Error("Google Translate failed to load")), { once: true });
+      existing.addEventListener(
+        "error",
+        () => reject(new Error("Google Translate failed to load")),
+        { once: true },
+      );
       return;
     }
 
     const script = document.createElement("script");
-    script.src = "https://translate.google.com/translate_a/element.js?cb=googleTranslateElementInit";
+    script.src =
+      "https://translate.google.com/translate_a/element.js?cb=googleTranslateElementInit";
     script.async = true;
     script.onerror = () => reject(new Error("Google Translate failed to load"));
     document.head.appendChild(script);
@@ -212,9 +217,18 @@ export function LanguageSwitcher({ compact = false }: { compact?: boolean }) {
     setLanguage(getStoredLanguage());
   }, []);
 
-  const languageLabel = useMemo(() => LANGUAGES.find((item) => item.code === language)?.label ?? "Language", [language]);
-  const popularLanguages = useMemo(() => LANGUAGES.filter((item) => POPULAR_CODES.has(item.code)), []);
-  const otherLanguages = useMemo(() => LANGUAGES.filter((item) => !POPULAR_CODES.has(item.code)), []);
+  const languageLabel = useMemo(
+    () => LANGUAGES.find((item) => item.code === language)?.label ?? "Language",
+    [language],
+  );
+  const popularLanguages = useMemo(
+    () => LANGUAGES.filter((item) => POPULAR_CODES.has(item.code)),
+    [],
+  );
+  const otherLanguages = useMemo(
+    () => LANGUAGES.filter((item) => !POPULAR_CODES.has(item.code)),
+    [],
+  );
 
   useEffect(() => {
     if (typeof document === "undefined") return;
@@ -246,7 +260,9 @@ export function LanguageSwitcher({ compact = false }: { compact?: boolean }) {
     const schedule = () => {
       if (scheduled) return;
       scheduled = true;
-      const ric = (window as any).requestIdleCallback as ((cb: () => void, opts?: { timeout: number }) => number) | undefined;
+      const ric = (window as any).requestIdleCallback as
+        | ((cb: () => void, opts?: { timeout: number }) => number)
+        | undefined;
       if (ric) {
         idleHandle = ric(runProtect, { timeout: 500 });
       } else {
@@ -316,7 +332,9 @@ export function LanguageSwitcher({ compact = false }: { compact?: boolean }) {
       </span>
       <span className="min-w-0 flex-1">
         <span className="block truncate text-sm font-semibold text-foreground">{item.label}</span>
-        <span className="block truncate text-[11px] text-muted-foreground">{item.code === "en" ? "Original website language" : "Translate website"}</span>
+        <span className="block truncate text-[11px] text-muted-foreground">
+          {item.code === "en" ? "Original website language" : "Translate website"}
+        </span>
       </span>
       <span className="flex h-7 w-7 shrink-0 items-center justify-center">
         {language === item.code && <Check className="h-4 w-4 text-primary-glow" />}
@@ -340,7 +358,10 @@ export function LanguageSwitcher({ compact = false }: { compact?: boolean }) {
 
         {open && (
           <>
-            <div className="fixed inset-0 z-40 bg-background/45 backdrop-blur-[1px]" onClick={() => setOpen(false)} />
+            <div
+              className="fixed inset-0 z-40 bg-background/45 backdrop-blur-[1px]"
+              onClick={() => setOpen(false)}
+            />
             <div className="fixed inset-x-3 top-[5.75rem] z-50 max-h-[calc(100dvh-7rem)] overflow-hidden rounded-2xl border border-border/70 bg-surface-elevated/98 shadow-2xl backdrop-blur-xl animate-fade-in">
               <div className="sticky top-0 z-20 flex items-center justify-between border-b border-border/60 bg-surface-elevated/98 px-4 py-3">
                 <div>
@@ -358,13 +379,19 @@ export function LanguageSwitcher({ compact = false }: { compact?: boolean }) {
               </div>
               <div className="max-h-[calc(100dvh-12rem)] overflow-y-auto overscroll-contain">
                 <div className="sticky top-0 z-10 border-b border-border/40 bg-surface-elevated/95 px-4 py-2 backdrop-blur-xl">
-                  <p className="text-[10.5px] font-bold uppercase tracking-[0.18em] text-muted-foreground">Popular</p>
+                  <p className="text-[10.5px] font-bold uppercase tracking-[0.18em] text-muted-foreground">
+                    Popular
+                  </p>
                 </div>
                 <div className="py-1.5">{popularLanguages.map(renderLanguageButton)}</div>
                 <div className="sticky top-0 z-10 border-b border-border/40 bg-surface-elevated/95 px-4 py-2 backdrop-blur-xl">
-                  <p className="text-[10.5px] font-bold uppercase tracking-[0.18em] text-muted-foreground">More languages</p>
+                  <p className="text-[10.5px] font-bold uppercase tracking-[0.18em] text-muted-foreground">
+                    More languages
+                  </p>
                 </div>
-                <div className="py-1.5 pb-[max(1rem,env(safe-area-inset-bottom))]">{otherLanguages.map(renderLanguageButton)}</div>
+                <div className="py-1.5 pb-[max(1rem,env(safe-area-inset-bottom))]">
+                  {otherLanguages.map(renderLanguageButton)}
+                </div>
               </div>
             </div>
           </>

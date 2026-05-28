@@ -22,6 +22,7 @@ import { Route as McpRouteImport } from './routes/mcp'
 import { Route as LoginRouteImport } from './routes/login'
 import { Route as IdeasRouteImport } from './routes/ideas'
 import { Route as FaqRouteImport } from './routes/faq'
+import { Route as ExecuteRouteImport } from './routes/execute'
 import { Route as DocsRouteImport } from './routes/docs'
 import { Route as DashboardRouteImport } from './routes/dashboard'
 import { Route as ChangelogRouteImport } from './routes/changelog'
@@ -114,6 +115,11 @@ const IdeasRoute = IdeasRouteImport.update({
 const FaqRoute = FaqRouteImport.update({
   id: '/faq',
   path: '/faq',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ExecuteRoute = ExecuteRouteImport.update({
+  id: '/execute',
+  path: '/execute',
   getParentRoute: () => rootRouteImport,
 } as any)
 const DocsRoute = DocsRouteImport.update({
@@ -267,6 +273,7 @@ export interface FileRoutesByFullPath {
   '/changelog': typeof ChangelogRoute
   '/dashboard': typeof DashboardRoute
   '/docs': typeof DocsRoute
+  '/execute': typeof ExecuteRoute
   '/faq': typeof FaqRoute
   '/ideas': typeof IdeasRoute
   '/login': typeof LoginRoute
@@ -310,6 +317,7 @@ export interface FileRoutesByTo {
   '/changelog': typeof ChangelogRoute
   '/dashboard': typeof DashboardRoute
   '/docs': typeof DocsRoute
+  '/execute': typeof ExecuteRoute
   '/faq': typeof FaqRoute
   '/ideas': typeof IdeasRoute
   '/login': typeof LoginRoute
@@ -354,6 +362,7 @@ export interface FileRoutesById {
   '/changelog': typeof ChangelogRoute
   '/dashboard': typeof DashboardRoute
   '/docs': typeof DocsRoute
+  '/execute': typeof ExecuteRoute
   '/faq': typeof FaqRoute
   '/ideas': typeof IdeasRoute
   '/login': typeof LoginRoute
@@ -399,6 +408,7 @@ export interface FileRouteTypes {
     | '/changelog'
     | '/dashboard'
     | '/docs'
+    | '/execute'
     | '/faq'
     | '/ideas'
     | '/login'
@@ -442,6 +452,7 @@ export interface FileRouteTypes {
     | '/changelog'
     | '/dashboard'
     | '/docs'
+    | '/execute'
     | '/faq'
     | '/ideas'
     | '/login'
@@ -485,6 +496,7 @@ export interface FileRouteTypes {
     | '/changelog'
     | '/dashboard'
     | '/docs'
+    | '/execute'
     | '/faq'
     | '/ideas'
     | '/login'
@@ -529,6 +541,7 @@ export interface RootRouteChildren {
   ChangelogRoute: typeof ChangelogRoute
   DashboardRoute: typeof DashboardRoute
   DocsRoute: typeof DocsRoute
+  ExecuteRoute: typeof ExecuteRoute
   FaqRoute: typeof FaqRoute
   IdeasRoute: typeof IdeasRoute
   LoginRoute: typeof LoginRoute
@@ -655,6 +668,13 @@ declare module '@tanstack/react-router' {
       path: '/faq'
       fullPath: '/faq'
       preLoaderRoute: typeof FaqRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/execute': {
+      id: '/execute'
+      path: '/execute'
+      fullPath: '/execute'
+      preLoaderRoute: typeof ExecuteRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/docs': {
@@ -876,6 +896,7 @@ const rootRouteChildren: RootRouteChildren = {
   ChangelogRoute: ChangelogRoute,
   DashboardRoute: DashboardRoute,
   DocsRoute: DocsRoute,
+  ExecuteRoute: ExecuteRoute,
   FaqRoute: FaqRoute,
   IdeasRoute: IdeasRoute,
   LoginRoute: LoginRoute,

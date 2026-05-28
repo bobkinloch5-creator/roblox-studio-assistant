@@ -61,11 +61,7 @@ const LOCAL_CONTAINERS = [
 ];
 
 // Server Scripts only run server-side; valid containers:
-const SERVER_CONTAINERS = [
-  "ServerScriptService",
-  "ServerStorage",
-  "Workspace",
-];
+const SERVER_CONTAINERS = ["ServerScriptService", "ServerStorage", "Workspace"];
 
 const REMOTE_CLASSES = new Set([
   "RemoteEvent",
@@ -76,17 +72,39 @@ const REMOTE_CLASSES = new Set([
 ]);
 
 const BACKDOOR_PATTERNS: Array<{ re: RegExp; message: string }> = [
-  { re: /\brequire\s*\(\s*\d{5,}\s*\)/i, message: "requires a numeric marketplace module id; this is a common backdoor pattern" },
+  {
+    re: /\brequire\s*\(\s*\d{5,}\s*\)/i,
+    message: "requires a numeric marketplace module id; this is a common backdoor pattern",
+  },
   { re: /\bloadstring\s*\(/i, message: "uses loadstring, which executes arbitrary code" },
-  { re: /\bgetfenv\s*\(|\bsetfenv\s*\(/i, message: "uses getfenv/setfenv, which is suspicious in generated game code" },
-  { re: /\bHttpService\s*:\s*(GetAsync|PostAsync|RequestAsync)\s*\(/i, message: "makes raw HTTP requests; generated Roblox gameplay code should not phone home" },
-  { re: /\bInsertService\s*:\s*LoadAsset\s*\(\s*\d{5,}\s*\)/i, message: "loads an unchecked marketplace asset at runtime" },
+  {
+    re: /\bgetfenv\s*\(|\bsetfenv\s*\(/i,
+    message: "uses getfenv/setfenv, which is suspicious in generated game code",
+  },
+  {
+    re: /\bHttpService\s*:\s*(GetAsync|PostAsync|RequestAsync)\s*\(/i,
+    message: "makes raw HTTP requests; generated Roblox gameplay code should not phone home",
+  },
+  {
+    re: /\bInsertService\s*:\s*LoadAsset\s*\(\s*\d{5,}\s*\)/i,
+    message: "loads an unchecked marketplace asset at runtime",
+  },
 ];
 
 const CLIENT_AUTHORITY_PATTERNS: Array<{ re: RegExp; message: string }> = [
-  { re: /\bleaderstats\b[\s\S]{0,120}\b(Value\s*=\s*Value\s*[+\-]|\+=|-=)/i, message: "client-side leaderstats/currency mutation must be moved to the server" },
-  { re: /\bHumanoid\s*:\s*TakeDamage\s*\(/i, message: "client-side damage must be requested through a server-validated RemoteEvent" },
-  { re: /\bMarketplaceService\s*:\s*Prompt(ProductPurchase|GamePassPurchase)\b/i, message: "purchase prompts are fine, but receipt/ownership rewards must be validated server-side" },
+  {
+    re: /\bleaderstats\b[\s\S]{0,120}\b(Value\s*=\s*Value\s*[+\-]|\+=|-=)/i,
+    message: "client-side leaderstats/currency mutation must be moved to the server",
+  },
+  {
+    re: /\bHumanoid\s*:\s*TakeDamage\s*\(/i,
+    message: "client-side damage must be requested through a server-validated RemoteEvent",
+  },
+  {
+    re: /\bMarketplaceService\s*:\s*Prompt(ProductPurchase|GamePassPurchase)\b/i,
+    message:
+      "purchase prompts are fine, but receipt/ownership rewards must be validated server-side",
+  },
 ];
 
 // Invented / non-existent Roblox Instance classes that the AI sometimes
@@ -194,7 +212,12 @@ function autoOrganize(files: GenFile[]): GenFile[] {
       out.service_location = "StarterPlayer/StarterPlayerScripts";
     } else if (out.file_type === "Script" && !SERVER_CONTAINERS.includes(root)) {
       out.service_location = "ServerScriptService";
-    } else if (out.file_type === "ModuleScript" && root !== "ReplicatedStorage" && root !== "ServerStorage" && root !== "ServerScriptService") {
+    } else if (
+      out.file_type === "ModuleScript" &&
+      root !== "ReplicatedStorage" &&
+      root !== "ServerStorage" &&
+      root !== "ServerScriptService"
+    ) {
       out.service_location = "ReplicatedStorage/Modules";
     }
 
@@ -202,9 +225,11 @@ function autoOrganize(files: GenFile[]): GenFile[] {
     // under a sensible default subfolder so Explorer stays tidy.
     if (!out.path.includes("/")) {
       const folder =
-        out.file_type === "ModuleScript" ? "Modules" :
-        out.file_type === "LocalScript" ? "Client" :
-        "Server";
+        out.file_type === "ModuleScript"
+          ? "Modules"
+          : out.file_type === "LocalScript"
+            ? "Client"
+            : "Server";
       out.path = `${folder}/${out.path}`;
     }
     return out;
@@ -214,7 +239,7 @@ function autoOrganize(files: GenFile[]): GenFile[] {
 export function validateGenerated(
   files: GenFile[],
   actions: GenAction[],
-  existingFiles: Pick<GenFile, "path">[] = []
+  existingFiles: Pick<GenFile, "path">[] = [],
 ): ValidationResult {
   files = autoOrganize(files);
   const errors: ValidationIssue[] = [];
@@ -233,11 +258,21 @@ export function validateGenerated(
       continue;
     }
     if (f.path.startsWith("/") || f.path.includes("\\")) {
-      errors.push({ level: "error", scope: "file", target, message: "invalid path (no leading '/' or backslashes)" });
+      errors.push({
+        level: "error",
+        scope: "file",
+        target,
+        message: "invalid path (no leading '/' or backslashes)",
+      });
       continue;
     }
     if (batchPaths.has(f.path)) {
-      errors.push({ level: "error", scope: "file", target, message: "duplicate path in this generation" });
+      errors.push({
+        level: "error",
+        scope: "file",
+        target,
+        message: "duplicate path in this generation",
+      });
       continue;
     }
     batchPaths.add(f.path);
@@ -309,17 +344,20 @@ export function validateGenerated(
     // Reject runtime terrain-painting scripts — they only run in Play mode,
     // so in Studio edit (what the user sees) nothing happens. AI MUST use
     // the `terrainFill` action so the plugin paints in edit mode.
-    if (/Terrain\s*:\s*(FillBlock|FillRegion|FillBall|FillCylinder|FillWedge|WriteVoxels|PasteRegion|SetMaterialColor)\b/.test(f.content)) {
+    if (
+      /Terrain\s*:\s*(FillBlock|FillRegion|FillBall|FillCylinder|FillWedge|WriteVoxels|PasteRegion|SetMaterialColor)\b/.test(
+        f.content,
+      )
+    ) {
       errors.push({
         level: "error",
         scope: "file",
         target,
-        message: "runtime Terrain:Fill*/WriteVoxels script — use the `terrainFill` action so the plugin paints in Studio edit mode (Play-mode scripts don't affect what you see)",
+        message:
+          "runtime Terrain:Fill*/WriteVoxels script — use the `terrainFill` action so the plugin paints in Studio edit mode (Play-mode scripts don't affect what you see)",
       });
       continue;
     }
-
-
 
     // Service references inside the script
     for (const svc of extractServiceRefs(f.content)) {
@@ -342,14 +380,23 @@ export function validateGenerated(
   for (const a of actions) {
     const target = `${a.type}:${a.name ?? a.path ?? "?"}`;
     if (!a || typeof a !== "object" || typeof a.type !== "string") {
-      errors.push({ level: "error", scope: "action", target, message: "action missing 'type' field" });
+      errors.push({
+        level: "error",
+        scope: "action",
+        target,
+        message: "action missing 'type' field",
+      });
       continue;
     }
 
     // Catch hallucinated Instance classes (e.g. "DirectionalLight") before
     // they reach the Studio plugin and throw "Unable to create an Instance
     // of type X". Remap to a real equivalent when we know one; otherwise drop.
-    if (a.type === "create" && typeof a.className === "string" && a.className in INVALID_CLASS_REMAP) {
+    if (
+      a.type === "create" &&
+      typeof a.className === "string" &&
+      a.className in INVALID_CLASS_REMAP
+    ) {
       const remap = INVALID_CLASS_REMAP[a.className];
       if (remap) {
         warnings.push({
@@ -399,7 +446,12 @@ export function validateGenerated(
       const parent = (a.parent ?? "") as string;
       const className = (a.className ?? "RemoteEvent") as string;
       if (!a.name) {
-        errors.push({ level: "error", scope: "remote", target, message: "remote action missing 'name'" });
+        errors.push({
+          level: "error",
+          scope: "remote",
+          target,
+          message: "remote action missing 'name'",
+        });
         continue;
       }
       if (!REMOTE_CLASSES.has(className)) {
@@ -424,7 +476,12 @@ export function validateGenerated(
     }
 
     if ((a.type === "folder" || a.type === "create" || a.type === "script") && !a.parent) {
-      errors.push({ level: "error", scope: "action", target, message: `${a.type} action missing 'parent'` });
+      errors.push({
+        level: "error",
+        scope: "action",
+        target,
+        message: `${a.type} action missing 'parent'`,
+      });
       continue;
     }
     if ((a.type === "folder" || a.type === "create" || a.type === "script") && a.parent) {
@@ -442,61 +499,121 @@ export function validateGenerated(
 
     if (a.type === "move") {
       if (!a.path) {
-        errors.push({ level: "error", scope: "action", target, message: "move action missing 'path'" });
+        errors.push({
+          level: "error",
+          scope: "action",
+          target,
+          message: "move action missing 'path'",
+        });
         continue;
       }
       if (!a.newParent) {
-        errors.push({ level: "error", scope: "action", target, message: "move action missing 'newParent'" });
+        errors.push({
+          level: "error",
+          scope: "action",
+          target,
+          message: "move action missing 'newParent'",
+        });
         continue;
       }
       const r = rootOf(a.newParent);
       if (!VALID_SERVICES.has(r)) {
-        errors.push({ level: "error", scope: "action", target, message: `move newParent "${a.newParent}" is not a real Roblox service` });
+        errors.push({
+          level: "error",
+          scope: "action",
+          target,
+          message: `move newParent "${a.newParent}" is not a real Roblox service`,
+        });
         continue;
       }
     }
 
     if (a.type === "rename") {
       if (!a.path) {
-        errors.push({ level: "error", scope: "action", target, message: "rename action missing 'path'" });
+        errors.push({
+          level: "error",
+          scope: "action",
+          target,
+          message: "rename action missing 'path'",
+        });
         continue;
       }
       if (!a.newName || typeof a.newName !== "string") {
-        errors.push({ level: "error", scope: "action", target, message: "rename action missing 'newName'" });
+        errors.push({
+          level: "error",
+          scope: "action",
+          target,
+          message: "rename action missing 'newName'",
+        });
         continue;
       }
       if (!/^[A-Za-z0-9_\- ]+$/.test(a.newName)) {
-        warnings.push({ level: "warning", scope: "action", target, message: `unusual characters in newName "${a.newName}"` });
+        warnings.push({
+          level: "warning",
+          scope: "action",
+          target,
+          message: `unusual characters in newName "${a.newName}"`,
+        });
       }
     }
 
     if (a.type === "organize") {
       if (!a.parent || !rootOf(a.parent) || !VALID_SERVICES.has(rootOf(a.parent))) {
-        errors.push({ level: "error", scope: "action", target, message: `organize action needs 'parent' under a real Roblox service` });
+        errors.push({
+          level: "error",
+          scope: "action",
+          target,
+          message: `organize action needs 'parent' under a real Roblox service`,
+        });
         continue;
       }
       if (!a.name) {
-        errors.push({ level: "error", scope: "action", target, message: "organize action missing container 'name'" });
+        errors.push({
+          level: "error",
+          scope: "action",
+          target,
+          message: "organize action missing container 'name'",
+        });
         continue;
       }
       const container = a.container ?? "Folder";
       if (container !== "Folder" && container !== "Model") {
-        errors.push({ level: "error", scope: "action", target, message: `organize 'container' must be Folder or Model (got "${container}")` });
+        errors.push({
+          level: "error",
+          scope: "action",
+          target,
+          message: `organize 'container' must be Folder or Model (got "${container}")`,
+        });
         continue;
       }
       if (!Array.isArray(a.items) || a.items.length === 0) {
-        warnings.push({ level: "warning", scope: "action", target, message: "organize action has no 'items' to move — container will be created empty" });
+        warnings.push({
+          level: "warning",
+          scope: "action",
+          target,
+          message: "organize action has no 'items' to move — container will be created empty",
+        });
       }
     }
 
     if (a.type === "delete" && !a.path) {
-      errors.push({ level: "error", scope: "action", target, message: "delete action missing 'path'" });
+      errors.push({
+        level: "error",
+        scope: "action",
+        target,
+        message: "delete action missing 'path'",
+      });
       continue;
     }
 
     if ((a.type === "insert_toolbox_asset" || a.type === "insertAsset") && a.assetId) {
       if (typeof a.assetId !== "number" || !Number.isFinite(a.assetId) || a.assetId <= 0) {
-        errors.push({ level: "error", scope: "security", target, message: "toolbox insert has an invalid assetId" });
+        errors.push({
+          level: "error",
+          scope: "security",
+          target,
+          message: "toolbox insert has an invalid assetId",
+        });
         continue;
       }
       if (a.scanScripts !== true && a.removeUnsafeScripts !== true) {
@@ -507,12 +624,16 @@ export function validateGenerated(
           message: "toolbox asset should be scanned and unsafe scripts removed before insertion",
         });
       }
-      if (a.requiresApprovalIfScriptsFound !== true && a.removeScriptsFromDecorativeAssets !== true) {
+      if (
+        a.requiresApprovalIfScriptsFound !== true &&
+        a.removeScriptsFromDecorativeAssets !== true
+      ) {
         warnings.push({
           level: "warning",
           scope: "security",
           target,
-          message: "toolbox asset scripts should require approval or be stripped for decorative models",
+          message:
+            "toolbox asset scripts should require approval or be stripped for decorative models",
         });
       }
     }

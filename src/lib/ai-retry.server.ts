@@ -6,7 +6,7 @@
 //   Tool call validation failed: attempted to call tool 'json'
 //   which was not in request.tools.
 
-type GenerateTextFn = (opts: any) => Promise<{ text: string;[k: string]: any }>;
+type GenerateTextFn = (opts: any) => Promise<{ text: string; [k: string]: any }>;
 
 const TOOL_VALIDATION_RE =
   /tool[_ ]use[_ ]failed|tool call validation|attempted to call tool|tool .*not in request\.tools|tools? (are|is) not supported|function calling|invalid tool|unsupported.*tool/i;
@@ -22,12 +22,30 @@ No markdown, no code fences, no commentary, no tool calls.`;
 
 export type AIToolEvent = {
   tool: string;
-  args?: any;
-  result?: any;
+  args?: unknown;
+  result?: unknown;
   ok: boolean;
 };
 
-export function extractToolActivity(textRes: any): AIToolEvent[] {
+type ToolStep = {
+  toolCalls?: Array<{
+    toolName?: string;
+    name?: string;
+    args?: unknown;
+    input?: unknown;
+    toolCallId?: string;
+  }>;
+  toolResults?: Array<{
+    toolCallId?: string;
+    result?: unknown;
+    output?: unknown;
+    isError?: boolean;
+  }>;
+};
+
+export function extractToolActivity(
+  textRes: { steps?: ToolStep[] } | null | undefined,
+): AIToolEvent[] {
   const steps = textRes?.steps ?? [];
   const events: AIToolEvent[] = [];
   for (const step of steps) {
@@ -36,9 +54,16 @@ export function extractToolActivity(textRes: any): AIToolEvent[] {
     for (const c of calls) {
       const toolName = c.toolName ?? c.name ?? "tool";
       const args = c.args ?? c.input ?? undefined;
-      const matched = results.find((r: any) => r.toolCallId === c.toolCallId);
+      const matched = results.find((r) => r.toolCallId === c.toolCallId);
       const resultVal = matched?.result ?? matched?.output;
-      const ok = !matched?.isError && !(resultVal && typeof resultVal === "object" && "error" in resultVal && resultVal.error);
+      const ok =
+        !matched?.isError &&
+        !(
+          resultVal &&
+          typeof resultVal === "object" &&
+          "error" in resultVal &&
+          (resultVal as { error?: unknown }).error
+        );
       events.push({ tool: toolName, args, result: resultVal, ok });
     }
   }
@@ -56,8 +81,8 @@ export async function generateTextWithToolFallback(
   );
   try {
     return await generateText(opts);
-  } catch (err: any) {
-    const msg = String(err?.message ?? err);
+  } catch (err: unknown) {
+    const msg = String(err instanceof Error ? err.message : err);
     if (!TOOL_VALIDATION_RE.test(msg)) throw err;
 
     console.warn(

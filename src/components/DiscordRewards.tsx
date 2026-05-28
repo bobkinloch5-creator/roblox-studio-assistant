@@ -146,12 +146,16 @@ export function DiscordRewards() {
 
         {!alreadyReferred && (
           <div className="pt-2 border-t border-border/40 space-y-2">
-            <label className="text-xs font-semibold text-muted-foreground">Have a referral code?</label>
+            <label className="text-xs font-semibold text-muted-foreground">
+              Have a referral code?
+            </label>
             <div className="flex gap-2">
               <input
                 value={code}
                 onChange={(e) => setCode(e.target.value.toLowerCase())}
-                onKeyDown={(e) => { if (e.key === "Enter") applyCode(); }}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") applyCode();
+                }}
                 placeholder="enter code"
                 className="flex-1 rounded-lg bg-surface border border-border px-3 py-2 text-xs font-mono"
               />

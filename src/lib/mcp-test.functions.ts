@@ -13,13 +13,17 @@ import {
 function randomToken(len = 32) {
   const bytes = new Uint8Array(len);
   crypto.getRandomValues(bytes);
-  return Array.from(bytes).map((b) => b.toString(16).padStart(2, "0")).join("");
+  return Array.from(bytes)
+    .map((b) => b.toString(16).padStart(2, "0"))
+    .join("");
 }
 
 async function sha256(text: string) {
   const buf = new TextEncoder().encode(text);
   const hash = await crypto.subtle.digest("SHA-256", buf);
-  return Array.from(new Uint8Array(hash)).map((b) => b.toString(16).padStart(2, "0")).join("");
+  return Array.from(new Uint8Array(hash))
+    .map((b) => b.toString(16).padStart(2, "0"))
+    .join("");
 }
 
 async function ensureOwnToken(userId: string): Promise<string> {
@@ -42,7 +46,12 @@ export async function runMcpHealthCheck(
   userId: string,
   serverId: string,
 ): Promise<
-  | { ok: true; toolCount: number; tools: Array<{ name: string; description: string }>; latencyMs: number }
+  | {
+      ok: true;
+      toolCount: number;
+      tools: Array<{ name: string; description: string }>;
+      latencyMs: number;
+    }
   | { ok: false; error: string; latencyMs: number }
 > {
   const started = Date.now();
@@ -86,11 +95,15 @@ export async function runMcpHealthCheck(
   };
 
   try {
-    await rpc("initialize", {
-      protocolVersion: MCP_PROTOCOL_VERSION,
-      capabilities: {},
-      clientInfo: { name: "bloxsmith", version: "1.0.0" },
-    }, 1);
+    await rpc(
+      "initialize",
+      {
+        protocolVersion: MCP_PROTOCOL_VERSION,
+        capabilities: {},
+        clientInfo: { name: "bloxsmith", version: "1.0.0" },
+      },
+      1,
+    );
     await fetch(server.url, {
       method: "POST",
       headers: mcpHttpHeaders(authHeader),
@@ -98,7 +111,9 @@ export async function runMcpHealthCheck(
     }).catch(() => null);
     const list = await rpc("tools/list", {}, 2);
     const tools = (list?.tools ?? []) as Array<{ name: string; description?: string }>;
-    const trimmed = tools.slice(0, 20).map((t) => ({ name: t.name, description: t.description ?? "" }));
+    const trimmed = tools
+      .slice(0, 20)
+      .map((t) => ({ name: t.name, description: t.description ?? "" }));
     const latencyMs = Date.now() - started;
     await supabase
       .from("user_mcp_servers")
@@ -128,9 +143,7 @@ export async function runMcpHealthCheck(
 
 export const testMcpServer = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((input: unknown) =>
-    z.object({ serverId: z.string().uuid() }).parse(input),
-  )
+  .inputValidator((input: unknown) => z.object({ serverId: z.string().uuid() }).parse(input))
   .handler(async ({ data, context }) => {
     const { supabase, userId } = context;
     return runMcpHealthCheck(supabase, userId, data.serverId);
@@ -156,7 +169,14 @@ export const retestAllMcpServers = createServerFn({ method: "POST" })
     }
 
     // Bound concurrency to 4 to avoid hammering remote MCP hosts.
-    const results: Array<{ id: string; name: string; ok: boolean; latencyMs: number; error?: string; toolCount?: number }> = [];
+    const results: Array<{
+      id: string;
+      name: string;
+      ok: boolean;
+      latencyMs: number;
+      error?: string;
+      toolCount?: number;
+    }> = [];
     const queue = [...list];
     const workers = Array.from({ length: Math.min(4, queue.length) }, async () => {
       while (queue.length > 0) {

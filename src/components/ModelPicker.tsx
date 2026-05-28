@@ -11,7 +11,6 @@ import {
 
 type ProviderId = SiteProviderId;
 
-
 export function ModelPicker({
   projectId,
   provider,
@@ -28,7 +27,8 @@ export function ModelPicker({
   const [saving, setSaving] = useState(false);
   const ref = useRef<HTMLDivElement | null>(null);
 
-  const currentProvider: ProviderId = (provider && provider in SITE_PROVIDER_LABELS) ? provider : "neokens";
+  const currentProvider: ProviderId =
+    provider && provider in SITE_PROVIDER_LABELS ? provider : "neokens";
   const currentModel = model ?? SITE_PROVIDER_MODELS[currentProvider][0];
 
   useEffect(() => {
@@ -88,7 +88,9 @@ export function ModelPicker({
                     }`}
                   >
                     <div className="flex items-center justify-between gap-2">
-                      <span className={`truncate text-xs font-medium ${active ? "text-foreground" : "text-foreground/90"}`}>
+                      <span
+                        className={`truncate text-xs font-medium ${active ? "text-foreground" : "text-foreground/90"}`}
+                      >
                         {m}
                       </span>
                       {active && <Check className="h-3 w-3 text-primary shrink-0" />}

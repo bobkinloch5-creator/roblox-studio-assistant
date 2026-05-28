@@ -10,6 +10,8 @@
     "preview": "vite preview",
     "ai:eval": "node scripts/ai-eval.mjs",
     "lint": "eslint .",
+    "typecheck": "tsc --noEmit",
+    "check": "tsc --noEmit && eslint .",
     "format": "prettier --write ."
   },
   "dependencies": {

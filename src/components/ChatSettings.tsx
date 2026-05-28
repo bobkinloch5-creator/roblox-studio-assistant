@@ -35,7 +35,6 @@ type Props = {
   projectId?: string;
 };
 
-
 type McpServer = {
   id: string;
   name: string;
@@ -204,9 +203,7 @@ function McpServersSection() {
       {loading ? (
         <p className="text-[11px] text-muted-foreground px-1">Loading…</p>
       ) : servers.length === 0 ? (
-        <p className="text-[11px] text-muted-foreground px-1">
-          No MCP servers connected.
-        </p>
+        <p className="text-[11px] text-muted-foreground px-1">No MCP servers connected.</p>
       ) : (
         <ul className="space-y-1.5">
           {servers.map((s) => (
@@ -254,8 +251,13 @@ function StudioSyncSection() {
 
   useEffect(() => {
     (async () => {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) { setLoading(false); return; }
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+      if (!user) {
+        setLoading(false);
+        return;
+      }
       const { data } = await supabase
         .from("profiles")
         .select("manual_sync_only")
@@ -269,7 +271,9 @@ function StudioSyncSection() {
   async function toggle() {
     const next = !manualOnly;
     setManualOnly(next);
-    const { data: { user } } = await supabase.auth.getUser();
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
     if (!user) return;
     const { error } = await supabase
       .from("profiles")
@@ -279,7 +283,9 @@ function StudioSyncSection() {
       setManualOnly(!next);
       toast.error("Couldn't save setting");
     } else {
-      toast.success(next ? "Manual sync only — click Sync Now in Studio to apply" : "Auto-sync enabled");
+      toast.success(
+        next ? "Manual sync only — click Sync Now in Studio to apply" : "Auto-sync enabled",
+      );
     }
   }
 
@@ -336,7 +342,8 @@ function ProjectRulesSection({ projectId }: { projectId: string }) {
     <div className="space-y-2">
       <SectionTitle>Project AI rules</SectionTitle>
       <p className="text-[11px] text-muted-foreground px-1">
-        Injected into every AI request for this project. Use it for naming conventions, code style, do/don'ts.
+        Injected into every AI request for this project. Use it for naming conventions, code style,
+        do/don'ts.
       </p>
       <textarea
         value={rules}
@@ -355,9 +362,7 @@ function ProjectRulesSection({ projectId }: { projectId: string }) {
         className="w-full resize-y rounded-lg border border-border bg-background/40 px-2.5 py-2 text-xs leading-relaxed text-foreground placeholder:text-muted-foreground focus:outline-none focus:border-primary/50"
       />
       <div className="flex items-center justify-between px-1">
-        <span className="text-[10px] text-muted-foreground tabular-nums">
-          {rules.length}/4000
-        </span>
+        <span className="text-[10px] text-muted-foreground tabular-nums">{rules.length}/4000</span>
         <button
           onClick={save}
           disabled={!dirty || saving}
@@ -369,7 +374,6 @@ function ProjectRulesSection({ projectId }: { projectId: string }) {
     </div>
   );
 }
-
 
 function LinkRow({
   icon,
@@ -508,7 +512,6 @@ export function ChatSettings(props: Props) {
               {props.projectId && <ProjectRulesSection projectId={props.projectId} />}
 
               <McpServersSection />
-
 
               <div className="space-y-2">
                 <SectionTitle>Account & integrations</SectionTitle>

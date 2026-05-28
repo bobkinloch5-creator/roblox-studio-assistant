@@ -30,15 +30,20 @@ function slugKey(prefix: string, value: string): string {
 
 function pushUnique(list: MemoryCandidate[], item: MemoryCandidate) {
   if (!item.value || item.value.length < 3) return;
-  const duplicate = list.some((m) => m.key === item.key || m.value.toLowerCase() === item.value.toLowerCase());
+  const duplicate = list.some(
+    (m) => m.key === item.key || m.value.toLowerCase() === item.value.toLowerCase(),
+  );
   if (!duplicate) list.push(item);
 }
 
-export function extractProjectMemories(prompt: string, result?: {
-  message?: string;
-  files?: unknown[];
-  actions?: unknown[];
-}): MemoryCandidate[] {
+export function extractProjectMemories(
+  prompt: string,
+  result?: {
+    message?: string;
+    files?: unknown[];
+    actions?: unknown[];
+  },
+): MemoryCandidate[] {
   const text = compactMemoryText(prompt, 900);
   const lower = text.toLowerCase();
   const memories: MemoryCandidate[] = [];
@@ -53,7 +58,8 @@ export function extractProjectMemories(prompt: string, result?: {
     });
   }
 
-  const preference = /\b(always|never|prefer|avoid|don't|do not|use|make sure)\s+([^.!?\n]{6,180})/i.exec(text);
+  const preference =
+    /\b(always|never|prefer|avoid|don't|do not|use|make sure)\s+([^.!?\n]{6,180})/i.exec(text);
   if (preference) {
     pushUnique(memories, {
       key: slugKey("preference", `${preference[1]} ${preference[2]}`),
@@ -64,8 +70,12 @@ export function extractProjectMemories(prompt: string, result?: {
   }
 
   const gameName =
-    /\b(?:game|project|experience)\s+(?:is\s+)?(?:called|named)\s+["']?([^"'.!\n]{2,60})/i.exec(text)?.[1] ??
-    /\b(?:call|name)\s+(?:the\s+)?(?:game|project|experience)\s+["']?([^"'.!\n]{2,60})/i.exec(text)?.[1];
+    /\b(?:game|project|experience)\s+(?:is\s+)?(?:called|named)\s+["']?([^"'.!\n]{2,60})/i.exec(
+      text,
+    )?.[1] ??
+    /\b(?:call|name)\s+(?:the\s+)?(?:game|project|experience)\s+["']?([^"'.!\n]{2,60})/i.exec(
+      text,
+    )?.[1];
   if (gameName) {
     pushUnique(memories, {
       key: "game_name",
@@ -75,7 +85,9 @@ export function extractProjectMemories(prompt: string, result?: {
     });
   }
 
-  const theme = /\b(?:theme|style|vibe)\s+(?:is|should be|:|=)\s+([^.!?\n]{3,120})/i.exec(text)?.[1];
+  const theme = /\b(?:theme|style|vibe)\s+(?:is|should be|:|=)\s+([^.!?\n]{3,120})/i.exec(
+    text,
+  )?.[1];
   if (theme) {
     pushUnique(memories, {
       key: "visual_style",
@@ -85,7 +97,10 @@ export function extractProjectMemories(prompt: string, result?: {
     });
   }
 
-  const genre = /\b(obby|tycoon|simulator|rpg|horror|roleplay|tower defense|fps|shooter|combat|pet simulator|adventure|survival)\b/i.exec(lower)?.[1];
+  const genre =
+    /\b(obby|tycoon|simulator|rpg|horror|roleplay|tower defense|fps|shooter|combat|pet simulator|adventure|survival)\b/i.exec(
+      lower,
+    )?.[1];
   if (genre) {
     pushUnique(memories, {
       key: "game_genre",

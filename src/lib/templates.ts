@@ -1,13 +1,33 @@
 export const GAME_TYPES = [
-  "Simulator", "Tycoon", "Obby", "Fighting", "Roleplay", "Mining",
-  "Pet", "Tower Defense", "Round-based", "Horror", "Racing", "Adventure", "Custom",
+  "Simulator",
+  "Tycoon",
+  "Obby",
+  "Fighting",
+  "Roleplay",
+  "Mining",
+  "Pet",
+  "Tower Defense",
+  "Round-based",
+  "Horror",
+  "Racing",
+  "Adventure",
+  "Custom",
 ] as const;
 
 export const STARTER_TEMPLATES = [
-  "Blank", "Simulator", "Tycoon", "Obby", "Pet Simulator", "Mining Simulator", "Shop/Inventory", "Admin Commands",
+  "Blank",
+  "Simulator",
+  "Tycoon",
+  "Obby",
+  "Pet Simulator",
+  "Mining Simulator",
+  "Shop/Inventory",
+  "Admin Commands",
 ] as const;
 
-export function templateFiles(template: string): Array<{ path: string; file_type: string; service_location: string; content: string }> {
+export function templateFiles(
+  template: string,
+): Array<{ path: string; file_type: string; service_location: string; content: string }> {
   // Default: start with an empty project. The AI organizes scripts into
   // ServerScriptService / StarterPlayer / ReplicatedStorage on its own.
   if (template === "Simulator" || template === "Pet Simulator" || template === "Mining Simulator") {
@@ -43,4 +63,3 @@ return DataService
   }
   return [];
 }
-

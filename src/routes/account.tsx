@@ -44,7 +44,9 @@ import {
 
 export const Route = createFileRoute("/account")({
   component: Account,
-  head: () => ({ meta: [{ title: "Profile — BloxSmith" }, { name: "robots", content: "noindex, nofollow" }] }),
+  head: () => ({
+    meta: [{ title: "Profile — BloxSmith" }, { name: "robots", content: "noindex, nofollow" }],
+  }),
 });
 
 type Tx = { id: string; amount: number; type?: string; reason: string | null; created_at: string };
@@ -83,7 +85,9 @@ function Account() {
   const [redeeming, setRedeeming] = useState(false);
   const [claiming, setClaiming] = useState(false);
   const dailyCd = useDailyClaimCooldown(user?.id);
-  const [redemptions, setRedemptions] = useState<{ id: string; credits: number; redeemed_at: string; promo_codes: { code: string } | null }[]>([]);
+  const [redemptions, setRedemptions] = useState<
+    { id: string; credits: number; redeemed_at: string; promo_codes: { code: string } | null }[]
+  >([]);
 
   const loadRedemptions = async () => {
     if (!user) return;
@@ -126,8 +130,10 @@ function Account() {
     const { data, error } = await supabase.rpc("claim_daily_credits");
     setClaiming(false);
     if (error) {
-      if (error.message.includes("email_not_confirmed")) return toast.error("Please confirm your email before claiming daily credits.");
-      if (error.message.includes("account_too_new")) return toast.error("Account is too new — try again in a few minutes.");
+      if (error.message.includes("email_not_confirmed"))
+        return toast.error("Please confirm your email before claiming daily credits.");
+      if (error.message.includes("account_too_new"))
+        return toast.error("Account is too new — try again in a few minutes.");
       return toast.error(error.message);
     }
     const res = data as { claimed: boolean; reason?: string; amount?: number; credits?: number };
@@ -242,7 +248,7 @@ function Account() {
   const enrichedTxs = spendTxs.map((t) => {
     let modelName = "gemini-3-flash";
     let actionType = "AI Action";
-    
+
     const absAmt = Math.abs(t.amount);
     if (absAmt === 15) {
       modelName = "gpt-5.5";
@@ -308,7 +314,10 @@ function Account() {
 
   // Populate daily spend
   enrichedTxs.forEach((t) => {
-    const dateStr = new Date(t.created_at).toLocaleDateString("en-US", { month: "short", day: "numeric" });
+    const dateStr = new Date(t.created_at).toLocaleDateString("en-US", {
+      month: "short",
+      day: "numeric",
+    });
     if (dateStr in dailySpendMap) {
       dailySpendMap[dateStr] += Math.abs(t.amount);
     } else {
@@ -370,13 +379,15 @@ function Account() {
                 </span>
               </div>
               <p className="text-sm text-muted-foreground">{profile?.email}</p>
-              
+
               {bio ? (
                 <p className="text-sm text-foreground/80 italic max-w-2xl bg-surface-elevated/20 p-3 rounded-lg border border-border/40 mt-2">
                   "{bio}"
                 </p>
               ) : (
-                <p className="text-xs text-muted-foreground italic mt-2">No developer bio written yet. Edit details below to tell creators what you build.</p>
+                <p className="text-xs text-muted-foreground italic mt-2">
+                  No developer bio written yet. Edit details below to tell creators what you build.
+                </p>
               )}
 
               <div className="pt-2 flex flex-wrap justify-center md:justify-start gap-2">
@@ -456,7 +467,8 @@ function Account() {
                 <Sparkles className="h-5 w-5 text-primary-glow" /> AI Usage & Spend Analytics
               </h2>
               <p className="text-xs text-muted-foreground mt-0.5">
-                Monitor model consumption, credits used, and estimated spend based on your developer activity.
+                Monitor model consumption, credits used, and estimated spend based on your developer
+                activity.
               </p>
             </div>
             <div className="flex gap-2 text-xs">
@@ -471,25 +483,31 @@ function Account() {
             <div className="rounded-xl border border-border/40 bg-surface-elevated/20 p-4">
               <div className="text-xs text-muted-foreground">Total Credits Used</div>
               <div className="text-2xl font-black mt-1 text-primary-glow">
-                {totalCreditsUsed.toLocaleString()} <span className="text-xs font-normal text-muted-foreground">credits</span>
+                {totalCreditsUsed.toLocaleString()}{" "}
+                <span className="text-xs font-normal text-muted-foreground">credits</span>
               </div>
-              <div className="text-[10px] text-muted-foreground mt-1">Sum of all code tasks & chat runs</div>
+              <div className="text-[10px] text-muted-foreground mt-1">
+                Sum of all code tasks & chat runs
+              </div>
             </div>
-            
+
             <div className="rounded-xl border border-border/40 bg-surface-elevated/20 p-4">
               <div className="text-xs text-muted-foreground">Estimated Total Spend</div>
               <div className="text-2xl font-black mt-1 text-success">
-                ${totalSpendUsd.toFixed(2)} <span className="text-xs font-normal text-muted-foreground">USD</span>
+                ${totalSpendUsd.toFixed(2)}{" "}
+                <span className="text-xs font-normal text-muted-foreground">USD</span>
               </div>
-              <div className="text-[10px] text-muted-foreground mt-1">Based on credit cash value</div>
+              <div className="text-[10px] text-muted-foreground mt-1">
+                Based on credit cash value
+              </div>
             </div>
 
             <div className="rounded-xl border border-border/40 bg-surface-elevated/20 p-4">
               <div className="text-xs text-muted-foreground">Most Active Model</div>
-              <div className="text-2xl font-black mt-1 text-accent truncate">
-                {mostActiveModel}
+              <div className="text-2xl font-black mt-1 text-accent truncate">{mostActiveModel}</div>
+              <div className="text-[10px] text-muted-foreground mt-1">
+                Model with the highest execution count
               </div>
-              <div className="text-[10px] text-muted-foreground mt-1">Model with the highest execution count</div>
             </div>
           </div>
 
@@ -498,17 +516,28 @@ function Account() {
             <div className="grid lg:grid-cols-12 gap-6">
               {/* Daily Spend Area Chart */}
               <div className="lg:col-span-8 rounded-xl border border-border/40 bg-surface-elevated/10 p-4 space-y-3">
-                <h3 className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Daily Credit Spend (7 Days)</h3>
+                <h3 className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
+                  Daily Credit Spend (7 Days)
+                </h3>
                 <div className="h-64 w-full">
                   <ResponsiveContainer width="100%" height="100%">
-                    <AreaChart data={dailySpendData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
+                    <AreaChart
+                      data={dailySpendData}
+                      margin={{ top: 10, right: 10, left: -20, bottom: 0 }}
+                    >
                       <defs>
                         <linearGradient id="colorCredits" x1="0" y1="0" x2="0" y2="1">
-                          <stop offset="5%" stopColor="#8B5CF6" stopOpacity={0.3}/>
-                          <stop offset="95%" stopColor="#8B5CF6" stopOpacity={0}/>
+                          <stop offset="5%" stopColor="#8B5CF6" stopOpacity={0.3} />
+                          <stop offset="95%" stopColor="#8B5CF6" stopOpacity={0} />
                         </linearGradient>
                       </defs>
-                      <XAxis dataKey="date" stroke="#94A3B8" fontSize={10} tickLine={false} axisLine={false} />
+                      <XAxis
+                        dataKey="date"
+                        stroke="#94A3B8"
+                        fontSize={10}
+                        tickLine={false}
+                        axisLine={false}
+                      />
                       <YAxis stroke="#94A3B8" fontSize={10} tickLine={false} axisLine={false} />
                       <Tooltip
                         contentStyle={{
@@ -519,7 +548,14 @@ function Account() {
                           fontSize: "11px",
                         }}
                       />
-                      <Area type="monotone" dataKey="Credits" stroke="#8B5CF6" strokeWidth={2} fillOpacity={1} fill="url(#colorCredits)" />
+                      <Area
+                        type="monotone"
+                        dataKey="Credits"
+                        stroke="#8B5CF6"
+                        strokeWidth={2}
+                        fillOpacity={1}
+                        fill="url(#colorCredits)"
+                      />
                     </AreaChart>
                   </ResponsiveContainer>
                 </div>
@@ -527,7 +563,9 @@ function Account() {
 
               {/* Model Distribution Pie Chart */}
               <div className="lg:col-span-4 rounded-xl border border-border/40 bg-surface-elevated/10 p-4 flex flex-col justify-between space-y-3">
-                <h3 className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Spend by AI Model</h3>
+                <h3 className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
+                  Spend by AI Model
+                </h3>
                 {modelDistributionData.length > 0 ? (
                   <>
                     <div className="h-44 w-full relative grid place-items-center">
@@ -558,8 +596,12 @@ function Account() {
                         </PieChart>
                       </ResponsiveContainer>
                       <div className="absolute flex flex-col items-center justify-center">
-                        <span className="text-[10px] uppercase text-muted-foreground tracking-wider font-semibold">Total</span>
-                        <span className="text-base font-bold text-foreground">{totalCreditsUsed} cr</span>
+                        <span className="text-[10px] uppercase text-muted-foreground tracking-wider font-semibold">
+                          Total
+                        </span>
+                        <span className="text-base font-bold text-foreground">
+                          {totalCreditsUsed} cr
+                        </span>
                       </div>
                     </div>
                     {/* Legend */}
@@ -567,8 +609,13 @@ function Account() {
                       {modelDistributionData.map((item) => (
                         <div key={item.name} className="flex items-center justify-between text-xs">
                           <div className="flex items-center gap-2">
-                            <div className="h-2 w-2 rounded-full" style={{ backgroundColor: item.color }} />
-                            <span className="text-muted-foreground truncate max-w-[120px]">{item.name}</span>
+                            <div
+                              className="h-2 w-2 rounded-full"
+                              style={{ backgroundColor: item.color }}
+                            />
+                            <span className="text-muted-foreground truncate max-w-[120px]">
+                              {item.name}
+                            </span>
                           </div>
                           <span className="font-semibold text-foreground">{item.value} cr</span>
                         </div>
@@ -576,20 +623,26 @@ function Account() {
                     </div>
                   </>
                 ) : (
-                  <div className="h-full flex items-center justify-center text-xs text-muted-foreground">No model distribution data.</div>
+                  <div className="h-full flex items-center justify-center text-xs text-muted-foreground">
+                    No model distribution data.
+                  </div>
                 )}
               </div>
             </div>
           ) : (
             <div className="rounded-xl border border-dashed border-border/60 bg-surface-elevated/5 p-8 text-center text-sm text-muted-foreground">
-              {spendTxs.length === 0 ? "No AI usage history found. Your spent credits will be graphed here." : "Loading analytics dashboard..."}
+              {spendTxs.length === 0
+                ? "No AI usage history found. Your spent credits will be graphed here."
+                : "Loading analytics dashboard..."}
             </div>
           )}
 
           {/* Model Usage Logs List */}
           {spendTxs.length > 0 && (
             <div className="space-y-3 pt-2">
-              <h3 className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Detailed AI Operation Logs</h3>
+              <h3 className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
+                Detailed AI Operation Logs
+              </h3>
               <div className="rounded-xl border border-border/40 overflow-hidden bg-surface-elevated/5">
                 <div className="max-h-60 overflow-y-auto pr-1">
                   <table className="w-full text-left text-xs border-collapse">
@@ -605,15 +658,21 @@ function Account() {
                     <tbody className="divide-y divide-border/20">
                       {enrichedTxs.map((t) => (
                         <tr key={t.id} className="hover:bg-surface-elevated/10 transition">
-                          <td className="p-3 text-muted-foreground">{new Date(t.created_at).toLocaleString()}</td>
+                          <td className="p-3 text-muted-foreground">
+                            {new Date(t.created_at).toLocaleString()}
+                          </td>
                           <td className="p-3 font-semibold text-foreground">{t.actionType}</td>
                           <td className="p-3">
                             <span className="rounded bg-primary/10 border border-primary/20 px-2 py-0.5 text-[10px] font-mono text-primary-glow">
                               {t.modelName}
                             </span>
                           </td>
-                          <td className="p-3 text-right text-destructive font-semibold">-{Math.abs(t.amount)} credits</td>
-                          <td className="p-3 text-right text-muted-foreground">${t.costUsd.toFixed(2)}</td>
+                          <td className="p-3 text-right text-destructive font-semibold">
+                            -{Math.abs(t.amount)} credits
+                          </td>
+                          <td className="p-3 text-right text-muted-foreground">
+                            ${t.costUsd.toFixed(2)}
+                          </td>
                         </tr>
                       ))}
                     </tbody>
@@ -633,10 +692,12 @@ function Account() {
               <h2 className="text-lg font-bold flex items-center gap-2">
                 <User className="h-5 w-5 text-primary" /> Creator Identity
               </h2>
-              
+
               <div className="grid sm:grid-cols-2 gap-4">
                 <div className="space-y-1">
-                  <label className="text-xs font-semibold text-muted-foreground">Display Name</label>
+                  <label className="text-xs font-semibold text-muted-foreground">
+                    Display Name
+                  </label>
                   <input
                     value={name}
                     onChange={(e) => setName(e.target.value)}
@@ -645,7 +706,9 @@ function Account() {
                   />
                 </div>
                 <div className="space-y-1">
-                  <label className="text-xs font-semibold text-muted-foreground">Studio Specialty</label>
+                  <label className="text-xs font-semibold text-muted-foreground">
+                    Studio Specialty
+                  </label>
                   <select
                     value={specialization}
                     onChange={(e) => setSpecialization(e.target.value)}
@@ -673,7 +736,9 @@ function Account() {
 
               <div className="flex items-center justify-between pt-2">
                 <div className="space-y-0.5">
-                  <label className="text-xs font-semibold text-muted-foreground block">Email Address</label>
+                  <label className="text-xs font-semibold text-muted-foreground block">
+                    Email Address
+                  </label>
                   <span className="text-xs text-muted-foreground/80">{profile?.email}</span>
                 </div>
                 <button
@@ -691,9 +756,11 @@ function Account() {
                 <KeyRound className="h-5 w-5 text-primary" /> Studio Plugin Sync Token
               </h2>
               <p className="text-sm text-muted-foreground leading-relaxed">
-                Connect your Roblox Studio plugin to your web account. Paste this token into the widget to link the project files. Generating a new token will invalidate previous session authorizations.
+                Connect your Roblox Studio plugin to your web account. Paste this token into the
+                widget to link the project files. Generating a new token will invalidate previous
+                session authorizations.
               </p>
-              
+
               {token ? (
                 <div className="flex gap-2">
                   <code className="flex-1 rounded-lg bg-surface-elevated border border-border px-3 py-2 text-xs font-mono break-all select-all text-primary-glow">
@@ -717,7 +784,6 @@ function Account() {
                     <Copy className="h-4 w-4" />
                   </button>
                 </div>
-
               ) : (
                 <div className="rounded-lg bg-surface-elevated/40 border border-dashed border-border p-4 text-center text-sm text-muted-foreground">
                   Security Token hidden. Click below to retrieve or generate a token.
@@ -746,7 +812,8 @@ function Account() {
                 <Ticket className="h-5 w-5 text-primary" /> Promo Codes & Free Credits
               </h2>
               <p className="text-sm text-muted-foreground leading-relaxed">
-                Enter a promo code to add credits to your account, or claim your free daily refill (+10 credits per day).
+                Enter a promo code to add credits to your account, or claim your free daily refill
+                (+10 credits per day).
               </p>
 
               <div className="space-y-2">
@@ -755,7 +822,9 @@ function Account() {
                   <input
                     value={promoCode}
                     onChange={(e) => setPromoCode(e.target.value.toUpperCase())}
-                    onKeyDown={(e) => { if (e.key === "Enter") redeemPromo(); }}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") redeemPromo();
+                    }}
                     placeholder="ENTER CODE"
                     className="flex-1 rounded-lg bg-surface-elevated border border-border px-3 py-2 text-sm uppercase font-mono tracking-wider focus:outline-none focus:ring-2 focus:ring-primary/40"
                   />
@@ -786,11 +855,15 @@ function Account() {
 
               {redemptions.length > 0 && (
                 <div className="pt-2 border-t border-border/40">
-                  <div className="text-xs font-semibold text-muted-foreground mb-2">Recent redemptions</div>
+                  <div className="text-xs font-semibold text-muted-foreground mb-2">
+                    Recent redemptions
+                  </div>
                   <ul className="space-y-1.5 text-xs">
                     {redemptions.map((r) => (
                       <li key={r.id} className="flex justify-between text-muted-foreground">
-                        <span className="font-mono text-foreground">{r.promo_codes?.code ?? "—"}</span>
+                        <span className="font-mono text-foreground">
+                          {r.promo_codes?.code ?? "—"}
+                        </span>
                         <span className="text-success">+{r.credits} credits</span>
                         <span>{new Date(r.redeemed_at).toLocaleDateString()}</span>
                       </li>
@@ -843,7 +916,9 @@ function Account() {
                       <div className="flex justify-between items-center">
                         <div className="min-w-0">
                           <div className="font-semibold text-sm truncate">{p.name}</div>
-                          <div className="text-[10px] text-muted-foreground uppercase tracking-wider">{p.game_type || "Empty Template"}</div>
+                          <div className="text-[10px] text-muted-foreground uppercase tracking-wider">
+                            {p.game_type || "Empty Template"}
+                          </div>
                         </div>
                         <ChevronRight className="h-4 w-4 text-muted-foreground" />
                       </div>
@@ -874,10 +949,16 @@ function Account() {
                   {txs.slice(0, 10).map((t) => (
                     <div key={t.id} className="pt-2 flex justify-between items-center first:pt-0">
                       <div className="min-w-0">
-                        <div className="font-medium text-xs truncate max-w-[200px]">{t.reason ?? t.type}</div>
-                        <div className="text-[10px] text-muted-foreground">{new Date(t.created_at).toLocaleDateString()}</div>
+                        <div className="font-medium text-xs truncate max-w-[200px]">
+                          {t.reason ?? t.type}
+                        </div>
+                        <div className="text-[10px] text-muted-foreground">
+                          {new Date(t.created_at).toLocaleDateString()}
+                        </div>
                       </div>
-                      <span className={`font-bold text-xs shrink-0 ${t.amount > 0 ? "text-success" : "text-muted-foreground/80"}`}>
+                      <span
+                        className={`font-bold text-xs shrink-0 ${t.amount > 0 ? "text-success" : "text-muted-foreground/80"}`}
+                      >
                         {t.amount > 0 ? `+${t.amount}` : t.amount}
                       </span>
                     </div>
@@ -897,7 +978,10 @@ function Account() {
               ) : (
                 <div className="space-y-2 max-h-[150px] overflow-y-auto pr-1 text-xs">
                   {prs.map((r) => (
-                    <div key={r.id} className="p-2 rounded-lg bg-surface-elevated/40 border border-border/30 flex justify-between items-center">
+                    <div
+                      key={r.id}
+                      className="p-2 rounded-lg bg-surface-elevated/40 border border-border/30 flex justify-between items-center"
+                    >
                       <div className="min-w-0">
                         <div className="font-medium truncate uppercase">{r.pack_id}</div>
                         <div className="text-muted-foreground text-[10px]">
@@ -922,7 +1006,8 @@ function Account() {
           <section className="rounded-2xl border border-border/50 bg-surface/10 p-6 space-y-4">
             <h2 className="text-lg font-bold">Session Security</h2>
             <p className="text-sm text-muted-foreground leading-relaxed">
-              If you are logging in from a shared system, make sure to terminate the session context when you are finished.
+              If you are logging in from a shared system, make sure to terminate the session context
+              when you are finished.
             </p>
             <button
               onClick={signOut}
@@ -937,12 +1022,17 @@ function Account() {
               <AlertTriangle className="h-5 w-5" /> Danger Zone
             </h2>
             <p className="text-sm text-muted-foreground leading-relaxed">
-              Deleting your account is permanent. This removes credits, payments, and generated project workspaces.
+              Deleting your account is permanent. This removes credits, payments, and generated
+              project workspaces.
             </p>
-            
+
             <div className="space-y-2">
               <label className="block text-xs font-semibold text-muted-foreground">
-                Type <code className="bg-surface-elevated border border-border px-1.5 py-0.5 rounded font-mono text-destructive">DELETE</code> to confirm
+                Type{" "}
+                <code className="bg-surface-elevated border border-border px-1.5 py-0.5 rounded font-mono text-destructive">
+                  DELETE
+                </code>{" "}
+                to confirm
               </label>
               <input
                 value={confirmText}

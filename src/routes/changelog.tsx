@@ -231,7 +231,10 @@ export const Route = createFileRoute("/changelog")({
           "Stay updated with the latest BloxSmith releases, AI upgrades, plugin changes, security fixes, mobile improvements, and Roblox builder updates.",
       },
       { property: "og:title", content: "Changelog — BloxSmith" },
-      { property: "og:description", content: "Latest BloxSmith releases, features, security updates, and fixes." },
+      {
+        property: "og:description",
+        content: "Latest BloxSmith releases, features, security updates, and fixes.",
+      },
       { property: "og:url", content: "https://bloxsmith.pro/changelog" },
     ],
     links: [{ rel: "canonical", href: "https://bloxsmith.pro/changelog" }],
@@ -271,20 +274,27 @@ function ChangelogPage() {
             What's <span className="gradient-text">New</span>
           </h1>
           <p className="mt-4 text-muted-foreground text-base sm:text-lg">
-            Follow the latest website upgrades, AI improvements, Roblox Studio plugin changes, mobile fixes, security updates, and platform changelogs.
+            Follow the latest website upgrades, AI improvements, Roblox Studio plugin changes,
+            mobile fixes, security updates, and platform changelogs.
           </p>
         </div>
 
         <h2 className="sr-only">Release timeline</h2>
         <div className="space-y-16 relative before:absolute before:inset-0 before:left-4 sm:before:left-1/2 before:w-px before:-translate-x-1/2 before:bg-border/60 before:h-full">
           {changelogItems.map((item) => (
-            <div id={item.version.replace(/\./g, "-")} key={item.version} className="relative flex flex-col sm:flex-row items-start sm:gap-12 group scroll-mt-24">
+            <div
+              id={item.version.replace(/\./g, "-")}
+              key={item.version}
+              className="relative flex flex-col sm:flex-row items-start sm:gap-12 group scroll-mt-24"
+            >
               <div className="absolute left-4 sm:left-1/2 -translate-x-1/2 w-8 h-8 rounded-full bg-surface border-2 border-primary grid place-items-center z-10 shadow-lg group-hover:scale-110 transition-transform">
                 <CheckCircle className="h-4 w-4 text-primary" />
               </div>
 
               <div className="pl-12 sm:pl-0 sm:w-1/2 sm:text-right pt-1.5 flex sm:flex-col items-baseline sm:items-end gap-2 justify-start">
-                <span className="text-xl sm:text-2xl font-black text-foreground">{item.version}</span>
+                <span className="text-xl sm:text-2xl font-black text-foreground">
+                  {item.version}
+                </span>
                 <span className="text-xs font-semibold text-muted-foreground/80 bg-surface px-2.5 py-1 rounded-full border border-border">
                   {item.date}
                 </span>
@@ -292,8 +302,12 @@ function ChangelogPage() {
 
               <div className="pl-12 sm:pl-0 sm:w-1/2 mt-4 sm:mt-0">
                 <div className="glass rounded-2xl p-6 sm:p-8 hover:border-primary/30 transition-all duration-300">
-                  <h3 className="text-lg sm:text-xl font-bold tracking-tight mb-2 text-foreground/90">{item.title}</h3>
-                  <p className="text-sm text-muted-foreground leading-relaxed mb-6">{item.description}</p>
+                  <h3 className="text-lg sm:text-xl font-bold tracking-tight mb-2 text-foreground/90">
+                    {item.title}
+                  </h3>
+                  <p className="text-sm text-muted-foreground leading-relaxed mb-6">
+                    {item.description}
+                  </p>
 
                   <div className="space-y-6">
                     {item.updates.map((upd, uIdx) => {
@@ -305,12 +319,18 @@ function ChangelogPage() {
                           </div>
                           <div className="space-y-1">
                             <div className="flex items-center gap-2 flex-wrap">
-                              <span className="text-sm font-semibold text-foreground">{upd.title}</span>
-                              <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full border uppercase tracking-wider ${upd.tagColor}`}>
+                              <span className="text-sm font-semibold text-foreground">
+                                {upd.title}
+                              </span>
+                              <span
+                                className={`text-[10px] font-bold px-2 py-0.5 rounded-full border uppercase tracking-wider ${upd.tagColor}`}
+                              >
                                 {upd.category}
                               </span>
                             </div>
-                            <p className="text-xs text-muted-foreground leading-relaxed">{upd.detail}</p>
+                            <p className="text-xs text-muted-foreground leading-relaxed">
+                              {upd.detail}
+                            </p>
                           </div>
                         </div>
                       );
@@ -328,14 +348,21 @@ function ChangelogPage() {
           </div>
           <h4 className="text-lg font-bold">Have suggestions or issues?</h4>
           <p className="text-xs text-muted-foreground mt-2 leading-relaxed">
-            BloxSmith is updated often to improve Roblox development workflows, plugin reliability, AI generation quality, mobile UX, and security.
+            BloxSmith is updated often to improve Roblox development workflows, plugin reliability,
+            AI generation quality, mobile UX, and security.
           </p>
           <div className="mt-6 flex justify-center gap-4">
-            <Link to="/plugin" className="text-xs font-semibold text-primary hover:text-primary-glow underline">
+            <Link
+              to="/plugin"
+              className="text-xs font-semibold text-primary hover:text-primary-glow underline"
+            >
               Download Latest Plugin
             </Link>
             <span className="text-muted-foreground">·</span>
-            <Link to="/docs" className="text-xs font-semibold text-primary hover:text-primary-glow underline">
+            <Link
+              to="/docs"
+              className="text-xs font-semibold text-primary hover:text-primary-glow underline"
+            >
               Read the Docs
             </Link>
           </div>

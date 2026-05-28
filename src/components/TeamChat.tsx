@@ -38,7 +38,9 @@ export function TeamChat({ projectId }: { projectId: string }) {
           .select("id,display_name,email")
           .in("id", ids);
         const map = new Map((profs ?? []).map((p: any) => [p.id, p]));
-        rows.forEach((r) => { r.author = map.get(r.user_id); });
+        rows.forEach((r) => {
+          r.author = map.get(r.user_id);
+        });
       }
       setMessages(rows);
     })();
@@ -51,7 +53,12 @@ export function TeamChat({ projectId }: { projectId: string }) {
       .channel(`project_chat:${projectId}`)
       .on(
         "postgres_changes",
-        { event: "INSERT", schema: "public", table: "project_chat_messages", filter: `project_id=eq.${projectId}` },
+        {
+          event: "INSERT",
+          schema: "public",
+          table: "project_chat_messages",
+          filter: `project_id=eq.${projectId}`,
+        },
         async (payload) => {
           const m = payload.new as ChatMessage;
           if (m.user_id !== user.id) {
@@ -67,7 +74,9 @@ export function TeamChat({ projectId }: { projectId: string }) {
         },
       )
       .subscribe();
-    return () => { supabase.removeChannel(ch); };
+    return () => {
+      supabase.removeChannel(ch);
+    };
   }, [projectId, user, open]);
 
   useEffect(() => {
@@ -113,14 +122,20 @@ export function TeamChat({ projectId }: { projectId: string }) {
               <Users className="h-4 w-4 text-primary-glow" />
               <h3 className="font-semibold text-sm">Team Chat</h3>
             </div>
-            <button onClick={() => setOpen(false)} aria-label="Close" className="text-muted-foreground hover:text-foreground">
+            <button
+              onClick={() => setOpen(false)}
+              aria-label="Close"
+              className="text-muted-foreground hover:text-foreground"
+            >
               <X className="h-4 w-4" />
             </button>
           </div>
 
           <div className="flex-1 overflow-y-auto p-3 space-y-2">
             {messages.length === 0 ? (
-              <p className="text-center text-xs text-muted-foreground py-8">No messages yet. Say hi to your team 👋</p>
+              <p className="text-center text-xs text-muted-foreground py-8">
+                No messages yet. Say hi to your team 👋
+              </p>
             ) : (
               messages.map((m) => {
                 const mine = m.user_id === user?.id;
@@ -128,9 +143,15 @@ export function TeamChat({ projectId }: { projectId: string }) {
                 return (
                   <div key={m.id} className={`flex flex-col ${mine ? "items-end" : "items-start"}`}>
                     <div className="text-[10px] text-muted-foreground mb-0.5 px-1">
-                      {mine ? "You" : name} · {new Date(m.created_at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
+                      {mine ? "You" : name} ·{" "}
+                      {new Date(m.created_at).toLocaleTimeString([], {
+                        hour: "2-digit",
+                        minute: "2-digit",
+                      })}
                     </div>
-                    <div className={`rounded-2xl px-3 py-2 text-sm max-w-[85%] break-words ${mine ? "bg-primary text-primary-foreground rounded-br-sm" : "bg-surface-elevated rounded-bl-sm"}`}>
+                    <div
+                      className={`rounded-2xl px-3 py-2 text-sm max-w-[85%] break-words ${mine ? "bg-primary text-primary-foreground rounded-br-sm" : "bg-surface-elevated rounded-bl-sm"}`}
+                    >
                       {m.content}
                     </div>
                   </div>
@@ -141,7 +162,10 @@ export function TeamChat({ projectId }: { projectId: string }) {
           </div>
 
           <form
-            onSubmit={(e) => { e.preventDefault(); send(); }}
+            onSubmit={(e) => {
+              e.preventDefault();
+              send();
+            }}
             className="border-t border-border p-2 flex gap-2"
           >
             <input

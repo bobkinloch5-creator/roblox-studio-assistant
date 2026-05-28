@@ -5,12 +5,14 @@ import { z } from "zod";
 export const publishToShowcase = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((input: unknown) =>
-    z.object({
-      projectId: z.string().uuid(),
-      title: z.string().min(2).max(120),
-      description: z.string().min(10).max(500),
-      thumbnailUrl: z.string().url().optional().nullable(),
-    }).parse(input)
+    z
+      .object({
+        projectId: z.string().uuid(),
+        title: z.string().min(2).max(120),
+        description: z.string().min(10).max(500),
+        thumbnailUrl: z.string().url().optional().nullable(),
+      })
+      .parse(input),
   )
   .handler(async ({ data, context }) => {
     const { supabase, userId } = context;
@@ -31,9 +33,7 @@ export const publishToShowcase = createServerFn({ method: "POST" })
 
 export const unpublishFromShowcase = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((input: unknown) =>
-    z.object({ projectId: z.string().uuid() }).parse(input)
-  )
+  .inputValidator((input: unknown) => z.object({ projectId: z.string().uuid() }).parse(input))
   .handler(async ({ data, context }) => {
     const { supabase, userId } = context;
     const { error } = await supabase
@@ -47,9 +47,7 @@ export const unpublishFromShowcase = createServerFn({ method: "POST" })
 
 export const toggleShowcaseLike = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((input: unknown) =>
-    z.object({ projectId: z.string().uuid() }).parse(input)
-  )
+  .inputValidator((input: unknown) => z.object({ projectId: z.string().uuid() }).parse(input))
   .handler(async ({ data, context }) => {
     const { supabase, userId } = context;
     const { data: existing } = await supabase
@@ -72,10 +70,12 @@ export const toggleShowcaseLike = createServerFn({ method: "POST" })
 export const remixShowcaseProject = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((input: unknown) =>
-    z.object({
-      sourceId: z.string().uuid(),
-      newName: z.string().min(1).max(120).optional(),
-    }).parse(input)
+    z
+      .object({
+        sourceId: z.string().uuid(),
+        newName: z.string().min(1).max(120).optional(),
+      })
+      .parse(input),
   )
   .handler(async ({ data, context }) => {
     const { supabase } = context;
@@ -107,8 +107,8 @@ export type FeaturedCreator = {
   window: "weekly" | "all-time";
 } | null;
 
-export const getFeaturedCreator = createServerFn({ method: "GET" })
-  .handler(async (): Promise<{ featured: FeaturedCreator }> => {
+export const getFeaturedCreator = createServerFn({ method: "GET" }).handler(
+  async (): Promise<{ featured: FeaturedCreator }> => {
     const url = process.env.SUPABASE_URL!;
     const key = process.env.SUPABASE_PUBLISHABLE_KEY!;
     const sb = createClient(url, key);
@@ -118,7 +118,9 @@ export const getFeaturedCreator = createServerFn({ method: "GET" })
 
     let { data: rows } = await sb
       .from("projects")
-      .select("id,showcase_title,showcase_description,showcase_thumbnail_url,showcase_likes_count,showcase_remix_count,showcase_published_at,user_id,name")
+      .select(
+        "id,showcase_title,showcase_description,showcase_thumbnail_url,showcase_likes_count,showcase_remix_count,showcase_published_at,user_id,name",
+      )
       .eq("showcase_published", true)
       .gte("showcase_published_at", weekAgo)
       .order("showcase_likes_count", { ascending: false })
@@ -129,7 +131,9 @@ export const getFeaturedCreator = createServerFn({ method: "GET" })
       window = "all-time";
       const fallback = await sb
         .from("projects")
-        .select("id,showcase_title,showcase_description,showcase_thumbnail_url,showcase_likes_count,showcase_remix_count,showcase_published_at,user_id,name")
+        .select(
+          "id,showcase_title,showcase_description,showcase_thumbnail_url,showcase_likes_count,showcase_remix_count,showcase_published_at,user_id,name",
+        )
         .eq("showcase_published", true)
         .order("showcase_likes_count", { ascending: false })
         .order("showcase_published_at", { ascending: false })
@@ -161,7 +165,8 @@ export const getFeaturedCreator = createServerFn({ method: "GET" })
         window,
       },
     };
-  });
+  },
+);
 
 // ---------------------------------------------------------------------------
 // Trending Showcase — time-decayed ranking that surfaces fresh hits over old
@@ -181,8 +186,8 @@ export type TrendingShowcaseItem = {
   score: number;
 };
 
-export const getTrendingShowcase = createServerFn({ method: "GET" })
-  .handler(async (): Promise<{ items: TrendingShowcaseItem[] }> => {
+export const getTrendingShowcase = createServerFn({ method: "GET" }).handler(
+  async (): Promise<{ items: TrendingShowcaseItem[] }> => {
     const url = process.env.SUPABASE_URL!;
     const key = process.env.SUPABASE_PUBLISHABLE_KEY!;
     const sb = createClient(url, key);
@@ -191,14 +196,18 @@ export const getTrendingShowcase = createServerFn({ method: "GET" })
     // has effectively zero time-decay score anyway.
     const { data } = await sb
       .from("projects")
-      .select("id,name,game_type,showcase_title,showcase_description,showcase_thumbnail_url,showcase_likes_count,showcase_remix_count,showcase_published_at")
+      .select(
+        "id,name,game_type,showcase_title,showcase_description,showcase_thumbnail_url,showcase_likes_count,showcase_remix_count,showcase_published_at",
+      )
       .eq("showcase_published", true)
       .order("showcase_published_at", { ascending: false })
       .limit(200);
 
     const now = Date.now();
     const items: TrendingShowcaseItem[] = (data ?? []).map((p) => {
-      const publishedMs = p.showcase_published_at ? new Date(p.showcase_published_at).getTime() : now;
+      const publishedMs = p.showcase_published_at
+        ? new Date(p.showcase_published_at).getTime()
+        : now;
       const hours = Math.max(0, (now - publishedMs) / (1000 * 60 * 60));
       const likes = p.showcase_likes_count ?? 0;
       const remixes = p.showcase_remix_count ?? 0;
@@ -218,4 +227,5 @@ export const getTrendingShowcase = createServerFn({ method: "GET" })
 
     items.sort((a, b) => b.score - a.score);
     return { items: items.slice(0, 60) };
-  });
+  },
+);

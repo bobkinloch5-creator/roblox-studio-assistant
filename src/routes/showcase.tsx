@@ -20,8 +20,7 @@ export const Route = createFileRoute("/showcase")({
       { property: "og:title", content: "BloxSmith Showcase — Community Roblox Builds" },
       {
         property: "og:description",
-        content:
-          "Like and remix Roblox projects built by other BloxSmith creators.",
+        content: "Like and remix Roblox projects built by other BloxSmith creators.",
       },
       { property: "og:url", content: "https://bloxsmith.pro/showcase" },
     ],
@@ -66,12 +65,12 @@ function ShowcasePage() {
         sort === "likes"
           ? "showcase_likes_count"
           : sort === "remixes"
-          ? "showcase_remix_count"
-          : "showcase_published_at";
+            ? "showcase_remix_count"
+            : "showcase_published_at";
       const { data, error } = await supabase
         .from("projects")
         .select(
-          "id, showcase_title, showcase_description, showcase_thumbnail_url, showcase_likes_count, showcase_remix_count, showcase_published_at, name, game_type"
+          "id, showcase_title, showcase_description, showcase_thumbnail_url, showcase_likes_count, showcase_remix_count, showcase_published_at, name, game_type",
         )
         .eq("showcase_published", true)
         .order(orderCol, { ascending: false })
@@ -91,8 +90,8 @@ function ShowcasePage() {
             Community <span className="gradient-text">Showcase</span>
           </h1>
           <p className="mt-2 text-muted-foreground max-w-2xl">
-            Real Roblox projects built by BloxSmith creators. Like what you see — or
-            remix any project into your own workspace and ship your spin on it.
+            Real Roblox projects built by BloxSmith creators. Like what you see — or remix any
+            project into your own workspace and ship your spin on it.
           </p>
         </header>
 
@@ -111,10 +110,10 @@ function ShowcasePage() {
               {s === "trending"
                 ? "Trending"
                 : s === "recent"
-                ? "Most Recent"
-                : s === "likes"
-                ? "Most Liked"
-                : "Most Remixed"}
+                  ? "Most Recent"
+                  : s === "likes"
+                    ? "Most Liked"
+                    : "Most Remixed"}
             </button>
           ))}
         </div>
@@ -153,9 +152,7 @@ function ShowcasePage() {
                   )}
                 </div>
                 <div className="p-4">
-                  <h3 className="font-semibold truncate">
-                    {p.showcase_title ?? p.name}
-                  </h3>
+                  <h3 className="font-semibold truncate">{p.showcase_title ?? p.name}</h3>
                   <p className="text-sm text-muted-foreground line-clamp-2 mt-1 min-h-[2.5rem]">
                     {p.showcase_description ?? "—"}
                   </p>

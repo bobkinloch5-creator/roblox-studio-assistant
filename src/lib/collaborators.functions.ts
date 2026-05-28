@@ -28,11 +28,13 @@ export const listCollaborators = createServerFn({ method: "POST" })
 export const inviteCollaborator = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((i: unknown) =>
-    z.object({
-      projectId: z.string().uuid(),
-      email: z.string().email().max(255),
-      role: z.enum(["viewer", "editor"]).default("editor"),
-    }).parse(i)
+    z
+      .object({
+        projectId: z.string().uuid(),
+        email: z.string().email().max(255),
+        role: z.enum(["viewer", "editor"]).default("editor"),
+      })
+      .parse(i),
   )
   .handler(async ({ data, context }) => {
     void data;
@@ -43,11 +45,13 @@ export const inviteCollaborator = createServerFn({ method: "POST" })
 export const updateCollaboratorRole = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((i: unknown) =>
-    z.object({
-      projectId: z.string().uuid(),
-      collaboratorId: z.string().uuid(),
-      role: z.enum(["viewer", "editor"]),
-    }).parse(i)
+    z
+      .object({
+        projectId: z.string().uuid(),
+        collaboratorId: z.string().uuid(),
+        role: z.enum(["viewer", "editor"]),
+      })
+      .parse(i),
   )
   .handler(async ({ data, context }) => {
     void data;
@@ -58,10 +62,12 @@ export const updateCollaboratorRole = createServerFn({ method: "POST" })
 export const removeCollaborator = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((i: unknown) =>
-    z.object({
-      projectId: z.string().uuid(),
-      collaboratorId: z.string().uuid(),
-    }).parse(i)
+    z
+      .object({
+        projectId: z.string().uuid(),
+        collaboratorId: z.string().uuid(),
+      })
+      .parse(i),
   )
   .handler(async ({ data, context }) => {
     void data;

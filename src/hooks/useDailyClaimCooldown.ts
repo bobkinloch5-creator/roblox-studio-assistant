@@ -4,7 +4,9 @@ const key = (userId?: string) => `bs_daily_claim_next_${userId ?? "anon"}`;
 
 function nextUtcMidnight(): number {
   const now = new Date();
-  const next = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate() + 1, 0, 0, 0, 0));
+  const next = new Date(
+    Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate() + 1, 0, 0, 0, 0),
+  );
   return next.getTime();
 }
 

@@ -13,27 +13,57 @@ const checks = [
   {
     name: "Chat can use docs, web, and Roblox asset tools",
     file: "src/lib/ai.functions.ts",
-    must: [/roblox_docs_search/, /roblox_asset_search/, /recordProviderHealth/, /compactChatHistory/, /pickChatTools/, /maxRetries:\s*0/],
+    must: [
+      /roblox_docs_search/,
+      /roblox_asset_search/,
+      /recordProviderHealth/,
+      /compactChatHistory/,
+      /pickChatTools/,
+      /maxRetries:\s*0/,
+    ],
   },
   {
     name: "Build path records provider health and uses model profiles",
     file: "src/routes/api/assistant/execute.ts",
-    must: [/recordProviderHealth/, /getModelProfile/, /classifyProviderError/, /roblox_docs_search/, /Promise\.all/, /maxRetries:\s*0/],
+    must: [
+      /recordProviderHealth/,
+      /getModelProfile/,
+      /classifyProviderError/,
+      /roblox_docs_search/,
+      /Promise\.all/,
+      /maxRetries:\s*0/,
+    ],
   },
   {
     name: "Generate path keeps tools and retries fast",
     file: "src/lib/ai.functions.ts",
-    must: [/pickGenerationTools/, /shouldLoadUserMcpTools/, /maxRetries:\s*0/, /Promise\.all/, /timeout:\s*\{/],
+    must: [
+      /pickGenerationTools/,
+      /shouldLoadUserMcpTools/,
+      /maxRetries:\s*0/,
+      /Promise\.all/,
+      /timeout:\s*\{/,
+    ],
   },
   {
     name: "Project memory is persisted and injected into AI prompts",
     file: "src/lib/ai-memory.server.ts",
-    must: [/project_ai_memories/, /rememberProjectInteraction/, /buildProjectMemoryBlock/, /extractProjectMemories/],
+    must: [
+      /project_ai_memories/,
+      /rememberProjectInteraction/,
+      /buildProjectMemoryBlock/,
+      /extractProjectMemories/,
+    ],
   },
   {
     name: "Build API uses persistent project memory",
     file: "src/routes/api/assistant/execute.ts",
-    must: [/buildProjectMemoryBlock/, /rememberProjectInteraction/, /memoryBlock/, /PROJECT MEMORY/],
+    must: [
+      /buildProjectMemoryBlock/,
+      /rememberProjectInteraction/,
+      /memoryBlock/,
+      /PROJECT MEMORY/,
+    ],
   },
   {
     name: "Roblox safety validation blocks common backdoors",
@@ -93,15 +123,7 @@ const checks = [
   {
     name: "Smartest builder docs explain workflow and product standard",
     file: "docs/SMART_AI_BUILDER_UPGRADE.md",
-    must: [
-      /Understand/,
-      /Scan/,
-      /Classify/,
-      /Generate/,
-      /Validate/,
-      /Queue/,
-      /Remember/,
-    ],
+    must: [/Understand/, /Scan/, /Classify/, /Generate/, /Validate/, /Queue/, /Remember/],
   },
   {
     name: "Smartest builder docs include mobile and image requirements",

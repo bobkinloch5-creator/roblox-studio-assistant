@@ -1,13 +1,20 @@
 import { useEffect, useState } from "react";
 import { useServerFn } from "@tanstack/react-start";
 import { useAuth } from "@/lib/auth-context";
-import {
-  generateMcpToken,
-  revokeMcpToken,
-  getMcpTokenStatus,
-} from "@/lib/mcp-tokens.functions";
+import { generateMcpToken, revokeMcpToken, getMcpTokenStatus } from "@/lib/mcp-tokens.functions";
 import { toast } from "sonner";
-import { Copy, KeyRound, RefreshCw, Trash2, AlertTriangle, Eye, EyeOff, CheckCircle2, XCircle, Activity } from "lucide-react";
+import {
+  Copy,
+  KeyRound,
+  RefreshCw,
+  Trash2,
+  AlertTriangle,
+  Eye,
+  EyeOff,
+  CheckCircle2,
+  XCircle,
+  Activity,
+} from "lucide-react";
 import { Link } from "@tanstack/react-router";
 
 type Status = {
@@ -90,8 +97,10 @@ export function McpTokenManager() {
           <KeyRound className="h-5 w-5 text-primary" /> Your MCP API Key
         </h2>
         <p className="text-sm text-muted-foreground">
-          <Link to="/login" className="underline text-primary-glow">Log in</Link> to
-          generate, view, and revoke your personal MCP API key.
+          <Link to="/login" className="underline text-primary-glow">
+            Log in
+          </Link>{" "}
+          to generate, view, and revoke your personal MCP API key.
         </p>
       </section>
     );
@@ -105,8 +114,8 @@ export function McpTokenManager() {
             <KeyRound className="h-5 w-5 text-primary" /> Your MCP API Key
           </h2>
           <p className="text-sm text-muted-foreground mt-1">
-            Tokens are unique to your account. If a key leaks, revoke it here — old keys
-            stop working instantly.
+            Tokens are unique to your account. If a key leaks, revoke it here — old keys stop
+            working instantly.
           </p>
         </div>
       </div>
@@ -115,13 +124,22 @@ export function McpTokenManager() {
         <div className="rounded-lg border border-success/40 bg-success/10 p-4 space-y-2">
           <div className="flex items-center justify-between gap-2 text-xs font-semibold text-success">
             <span className="inline-flex items-center gap-1.5">
-              <AlertTriangle className="h-3.5 w-3.5" /> Copy this token now — it won't be shown again.
+              <AlertTriangle className="h-3.5 w-3.5" /> Copy this token now — it won't be shown
+              again.
             </span>
             <button
               onClick={() => setShow((s) => !s)}
               className="inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground"
             >
-              {show ? <><EyeOff className="h-3 w-3" /> Hide</> : <><Eye className="h-3 w-3" /> Show</>}
+              {show ? (
+                <>
+                  <EyeOff className="h-3 w-3" /> Hide
+                </>
+              ) : (
+                <>
+                  <Eye className="h-3 w-3" /> Show
+                </>
+              )}
             </button>
           </div>
           <div className="flex gap-2">
@@ -154,9 +172,7 @@ export function McpTokenManager() {
               const recentMs = 10 * 60 * 1000; // 10 min
               const connectedRecently = usedAt && now - usedAt.getTime() < recentMs;
               const failedRecently =
-                attemptAt &&
-                status.lastAttemptOk === false &&
-                now - attemptAt.getTime() < recentMs;
+                attemptAt && status.lastAttemptOk === false && now - attemptAt.getTime() < recentMs;
               if (connectedRecently) {
                 return (
                   <div className="flex items-start gap-2 rounded-lg border border-success/40 bg-success/10 p-3">
@@ -166,8 +182,11 @@ export function McpTokenManager() {
                         {status.lastClient ?? "MCP client"} connected
                       </div>
                       <div className="text-muted-foreground">
-                        <span className="font-medium text-foreground">{status.lastClient ?? "An MCP client"}</span>{" "}
-                        successfully called your server at {usedAt?.toLocaleTimeString()}. Status updates every 15 seconds.
+                        <span className="font-medium text-foreground">
+                          {status.lastClient ?? "An MCP client"}
+                        </span>{" "}
+                        successfully called your server at {usedAt?.toLocaleTimeString()}. Status
+                        updates every 15 seconds.
                       </div>
                     </div>
                   </div>
@@ -182,9 +201,9 @@ export function McpTokenManager() {
                         Connection attempt failed at {attemptAt?.toLocaleTimeString()}
                       </div>
                       <div className="text-muted-foreground">
-                        {status.lastAttemptError ?? "Invalid token"} — your client sent the
-                        wrong (or no) Bearer token. Regenerate the key below and paste the
-                        new value into your client's MCP config as{" "}
+                        {status.lastAttemptError ?? "Invalid token"} — your client sent the wrong
+                        (or no) Bearer token. Regenerate the key below and paste the new value into
+                        your client's MCP config as{" "}
                         <code className="font-mono">Authorization: Bearer &lt;token&gt;</code>.
                       </div>
                     </div>
@@ -215,8 +234,8 @@ export function McpTokenManager() {
                     <div className="text-muted-foreground">
                       Paste the token into Codex / Claude / Antigravity as the{" "}
                       <code className="font-mono">Authorization: Bearer</code> header for{" "}
-                      <code className="font-mono">https://bloxsmith.pro/api/public/mcp</code>.
-                      Once a client makes its first call, this banner will turn green.
+                      <code className="font-mono">https://bloxsmith.pro/api/public/mcp</code>. Once
+                      a client makes its first call, this banner will turn green.
                     </div>
                   </div>
                 </div>
@@ -256,7 +275,6 @@ export function McpTokenManager() {
               </div>
             </div>
 
-
             <div className="flex flex-wrap gap-2 pt-2 border-t border-border/40">
               <button
                 onClick={generate}
@@ -295,8 +313,8 @@ export function McpTokenManager() {
         ) : (
           <div className="space-y-3">
             <p className="text-sm text-muted-foreground">
-              You don't have an MCP API key yet. Generate one to connect Claude Code,
-              ChatGPT Codex, Antigravity, or any other MCP-compatible client.
+              You don't have an MCP API key yet. Generate one to connect Claude Code, ChatGPT Codex,
+              Antigravity, or any other MCP-compatible client.
             </p>
             <button
               onClick={generate}

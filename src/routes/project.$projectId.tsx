@@ -221,11 +221,14 @@ function ProjectEditor() {
       console.warn("[speech]", err);
     }
   };
-  useEffect(() => () => {
-    try {
-      recogRef.current?.stop();
-    } catch {}
-  }, []);
+  useEffect(
+    () => () => {
+      try {
+        recogRef.current?.stop();
+      } catch {}
+    },
+    [],
+  );
 
   // Action status polling state
   const [actionStatuses, setActionStatuses] = useState<
@@ -262,9 +265,7 @@ function ProjectEditor() {
       if (data && data.length > 0) {
         const statuses = data.map((a) => a.status);
         const hasFailed = statuses.includes("failed");
-        const hasPendingOrDelivered = statuses.some(
-          (s) => s === "pending" || s === "delivered",
-        );
+        const hasPendingOrDelivered = statuses.some((s) => s === "pending" || s === "delivered");
 
         if (hasFailed) {
           clearInterval(interval);
@@ -300,8 +301,7 @@ function ProjectEditor() {
             ...prev,
             [msgId]: {
               status: "executing",
-              hint:
-                "Still waiting for Roblox Studio. Open the BloxSmith plugin and press Sync Project to apply queued actions.",
+              hint: "Still waiting for Roblox Studio. Open the BloxSmith plugin and press Sync Project to apply queued actions.",
             },
           };
         });
@@ -316,8 +316,7 @@ function ProjectEditor() {
             ...prev,
             [msgId]: {
               status: "queued",
-              hint:
-                "Actions are queued and safe — they'll apply automatically the next time the BloxSmith plugin syncs in Studio.",
+              hint: "Actions are queued and safe — they'll apply automatically the next time the BloxSmith plugin syncs in Studio.",
             },
           };
         });
@@ -328,7 +327,9 @@ function ProjectEditor() {
   const [draft, setDraft] = useState("");
   const [messages, setMessages] = useState<Msg[]>([]);
   const [convoId, setConvoId] = useState<string | null>(null);
-  const [conversations, setConversations] = useState<Array<{ id: string; title: string | null; updated_at: string }>>([]);
+  const [conversations, setConversations] = useState<
+    Array<{ id: string; title: string | null; updated_at: string }>
+  >([]);
   const [showHistory, setShowHistory] = useState(false);
   const [prompt, setPrompt] = useState("");
   // Image attachments for chat mode (vision). data: URLs, max 4, ~6MB each
@@ -405,7 +406,12 @@ function ProjectEditor() {
   const revertMessage = async (m: Msg) => {
     const snap: any[] = m.actions?.snapshot ?? [];
     if (!snap.length) return;
-    if (!confirm(`Revert ${snap.length} file change${snap.length === 1 ? "" : "s"} from this AI response?\n\nThis restores old file contents, deletes anything new, and queues Studio to remove the new instances on next sync.`)) return;
+    if (
+      !confirm(
+        `Revert ${snap.length} file change${snap.length === 1 ? "" : "s"} from this AI response?\n\nThis restores old file contents, deletes anything new, and queues Studio to remove the new instances on next sync.`,
+      )
+    )
+      return;
     setRevertingMsg(m.id);
     try {
       let restored = 0;
@@ -484,15 +490,31 @@ function ProjectEditor() {
   // fetch_url tools to verify facts (Luau APIs, current best practices,
   // game-design patterns) before answering / building.
   const [webSearch, setWebSearch] = useState(false);
-  const [mcpServers, setMcpServers] = useState<Array<{ name: string; enabled: boolean; ok: boolean | null }>>([]);
-  const [mcpClient, setMcpClient] = useState<{ client: string | null; lastUsedAt: string | null } | null>(null);
-  const [aiSettings, setAiSettings] = useState<{ mode: "mcp" | "api_key"; provider: string | null; model: string | null }>({
+  const [mcpServers, setMcpServers] = useState<
+    Array<{ name: string; enabled: boolean; ok: boolean | null }>
+  >([]);
+  const [mcpClient, setMcpClient] = useState<{
+    client: string | null;
+    lastUsedAt: string | null;
+  } | null>(null);
+  const [aiSettings, setAiSettings] = useState<{
+    mode: "mcp" | "api_key";
+    provider: string | null;
+    model: string | null;
+  }>({
     mode: "mcp",
     provider: null,
     model: null,
   });
   const [showAiSourceModal, setShowAiSourceModal] = useState(false);
-  const [aiUsage, setAiUsage] = useState<{ used_5h: number; limit_5h: number; used_7d: number; limit_7d: number; owner?: boolean; reset_5h?: string | null } | null>(null);
+  const [aiUsage, setAiUsage] = useState<{
+    used_5h: number;
+    limit_5h: number;
+    used_7d: number;
+    limit_7d: number;
+    owner?: boolean;
+    reset_5h?: string | null;
+  } | null>(null);
   useEffect(() => {
     let cancelled = false;
     const load = async () => {
@@ -507,11 +529,22 @@ function ProjectEditor() {
         supabase.rpc("get_ai_usage"),
       ]);
       if (cancelled) return;
-      setMcpServers(((serversRes.data ?? []) as Array<{ name: string; enabled: boolean; last_test_ok: boolean | null }>)
-        .map((s) => ({ name: s.name, enabled: s.enabled, ok: s.last_test_ok })));
+      setMcpServers(
+        (
+          (serversRes.data ?? []) as Array<{
+            name: string;
+            enabled: boolean;
+            last_test_ok: boolean | null;
+          }>
+        ).map((s) => ({ name: s.name, enabled: s.enabled, ok: s.last_test_ok })),
+      );
       const t = tokenRes.data as { last_client: string | null; last_used_at: string | null } | null;
       setMcpClient(t ? { client: t.last_client, lastUsedAt: t.last_used_at } : null);
-      const a = aiRes.data as { mode: "mcp" | "api_key"; provider: string | null; model: string | null } | null;
+      const a = aiRes.data as {
+        mode: "mcp" | "api_key";
+        provider: string | null;
+        model: string | null;
+      } | null;
       setAiSettings(a ?? { mode: "mcp", provider: null, model: null });
       if (usageRes.data) setAiUsage(usageRes.data as any);
     };
@@ -530,7 +563,6 @@ function ProjectEditor() {
       supabase.removeChannel(ch);
     };
   }, [projectId]);
-
 
   const [plansByMsg, setPlansByMsg] = useState<Record<string, { prompt: string; plan: string }>>(
     {},
@@ -631,7 +663,14 @@ function ProjectEditor() {
           .select("id,role,content,actions")
           .eq("conversation_id", cid)
           .order("created_at", { ascending: true });
-        setMessages((msgs ?? []).map((m: any) => ({ id: m.id, role: m.role, content: m.content, actions: m.actions })));
+        setMessages(
+          (msgs ?? []).map((m: any) => ({
+            id: m.id,
+            role: m.role,
+            content: m.content,
+            actions: m.actions,
+          })),
+        );
       }
     })();
   }, [user, projectId]);
@@ -644,7 +683,14 @@ function ProjectEditor() {
       .select("id,role,content,actions")
       .eq("conversation_id", cid)
       .order("created_at", { ascending: true });
-    setMessages((msgs ?? []).map((m: any) => ({ id: m.id, role: m.role, content: m.content, actions: m.actions })));
+    setMessages(
+      (msgs ?? []).map((m: any) => ({
+        id: m.id,
+        role: m.role,
+        content: m.content,
+        actions: m.actions,
+      })),
+    );
   };
 
   const newChat = async () => {
@@ -685,7 +731,11 @@ function ProjectEditor() {
     // Auto-title from first user message if still "New chat"
     const cur = conversations.find((c) => c.id === convoId);
     const patch: any = { updated_at: new Date().toISOString() };
-    if (role === "user" && cur && (!cur.title || cur.title === "New chat" || cur.title === "Team Chat" || cur.title === "Chat")) {
+    if (
+      role === "user" &&
+      cur &&
+      (!cur.title || cur.title === "New chat" || cur.title === "Team Chat" || cur.title === "Chat")
+    ) {
       patch.title = content.slice(0, 60).replace(/\s+/g, " ").trim() || "New chat";
     }
     await supabase.from("agent_conversations").update(patch).eq("id", convoId);
@@ -746,7 +796,12 @@ function ProjectEditor() {
       .channel(`agent_messages:${convoId}`)
       .on(
         "postgres_changes",
-        { event: "*", schema: "public", table: "agent_messages", filter: `conversation_id=eq.${convoId}` },
+        {
+          event: "*",
+          schema: "public",
+          table: "agent_messages",
+          filter: `conversation_id=eq.${convoId}`,
+        },
         (payload) => {
           setMessages((prev) => {
             if (payload.eventType === "INSERT") {
@@ -762,7 +817,9 @@ function ProjectEditor() {
         },
       )
       .subscribe();
-    return () => { supabase.removeChannel(ch); };
+    return () => {
+      supabase.removeChannel(ch);
+    };
   }, [convoId]);
 
   const active = files.find((f) => f.id === activeId) ?? null;
@@ -915,7 +972,9 @@ function ProjectEditor() {
   const cancelScanWait = () => {
     setScanRequestedAt(null);
     setScanTimedOut(false);
-    toast.info("Stopped waiting here. Use Cancel Scan inside the Studio plugin if Roblox is still scanning.");
+    toast.info(
+      "Stopped waiting here. Use Cancel Scan inside the Studio plugin if Roblox is still scanning.",
+    );
   };
 
   // Subscribe to realtime plugin context updates
@@ -968,7 +1027,8 @@ function ProjectEditor() {
   const scannerState = scanTimedOut
     ? {
         label: "Error",
-        detail: "Project scan timed out. Retry, reconnect, or cancel the scan in the Studio plugin.",
+        detail:
+          "Project scan timed out. Retry, reconnect, or cancel the scan in the Studio plugin.",
         tone: "border-rose-500/35 bg-rose-500/10 text-rose-300",
       }
     : scanRequestedAt && !isStudioConnected
@@ -1021,7 +1081,10 @@ function ProjectEditor() {
     }
   };
 
-  const runGenerate = async (userPrompt: string, opts?: { skipUserBubble?: boolean; images?: string[] }) => {
+  const runGenerate = async (
+    userPrompt: string,
+    opts?: { skipUserBubble?: boolean; images?: string[] },
+  ) => {
     if (aiBusy) return;
     if (outOfCredits) {
       toast.error("Out of credits. Buy more or wait for the daily refill.");
@@ -1120,9 +1183,15 @@ function ProjectEditor() {
         dangers: out.dangers ?? [],
         snapshot,
       };
-      const realId = await persistMsg("assistant", out.message + vLine + dangerLine + askLine, actionsMeta);
+      const realId = await persistMsg(
+        "assistant",
+        out.message + vLine + dangerLine + askLine,
+        actionsMeta,
+      );
       const finalId = realId ?? tempId;
-      setMessages((m) => m.map((x) => (x.id === tempId ? { ...x, id: finalId, actions: actionsMeta } : x)));
+      setMessages((m) =>
+        m.map((x) => (x.id === tempId ? { ...x, id: finalId, actions: actionsMeta } : x)),
+      );
 
       // Always surface what the AI built so the user can see files + actions,
       // even when Auto Execute is on.
@@ -1234,7 +1303,10 @@ function ProjectEditor() {
       : userPrompt;
     await pushMsg("user", bubble);
     const tempAssistantId = crypto.randomUUID();
-    setMessages((m) => [...m, { id: tempAssistantId, role: "assistant", content: "_Thinking..._" }]);
+    setMessages((m) => [
+      ...m,
+      { id: tempAssistantId, role: "assistant", content: "_Thinking..._" },
+    ]);
     try {
       const history = messages.slice(-10).map((m) => ({ role: m.role, content: m.content }));
       const out: any = await runChat({
@@ -1268,7 +1340,12 @@ function ProjectEditor() {
       setMessages((m) =>
         m.map((x) =>
           x.id === tempAssistantId
-            ? { ...x, id: realId ?? tempAssistantId, content: friendly, actions: { kind: "chat_error" } }
+            ? {
+                ...x,
+                id: realId ?? tempAssistantId,
+                content: friendly,
+                actions: { kind: "chat_error" },
+              }
             : x,
         ),
       );
@@ -1294,7 +1371,6 @@ function ProjectEditor() {
     else if (planMode) await runPlanRequest(composedPrompt);
     else await runGenerate(composedPrompt, { images: imgs });
   };
-
 
   const buildFromPlan = async (msgId: string) => {
     const entry = plansByMsg[msgId];
@@ -1673,7 +1749,11 @@ function ProjectEditor() {
                 onClick={scanRequestedAt && !scanTimedOut ? cancelScanWait : refreshFilesFromStudio}
                 className="rounded-md border border-border bg-background/40 px-2 py-1.5 text-xs font-medium hover:bg-surface-elevated"
               >
-                {scanRequestedAt && !scanTimedOut ? "Cancel Wait" : scanTimedOut ? "Retry" : "Rescan"}
+                {scanRequestedAt && !scanTimedOut
+                  ? "Cancel Wait"
+                  : scanTimedOut
+                    ? "Retry"
+                    : "Rescan"}
               </button>
             </div>
           </div>
@@ -1710,14 +1790,17 @@ function ProjectEditor() {
               <div className="px-4 py-8 flex flex-col items-center justify-center text-center gap-2">
                 <Loader2 className="h-5 w-5 animate-spin text-primary" />
                 <span className="text-xs text-muted-foreground">
-                  {scanTimedOut ? "Project scan timed out. Press Retry." : "Scanning Roblox Studio project..."}
+                  {scanTimedOut
+                    ? "Project scan timed out. Press Retry."
+                    : "Scanning Roblox Studio project..."}
                 </span>
               </div>
             ) : (
               <div className="px-4 py-8 flex flex-col items-center justify-center text-center gap-2">
                 <Plug className="h-5 w-5 text-muted-foreground/60" />
                 <span className="text-xs text-muted-foreground leading-relaxed">
-                  Roblox Studio is not connected. Open the Bloxsmith AI plugin in Studio and press Sync Project.
+                  Roblox Studio is not connected. Open the Bloxsmith AI plugin in Studio and press
+                  Sync Project.
                 </span>
                 <Link
                   to="/plugin"
@@ -1764,7 +1847,9 @@ function ProjectEditor() {
 
               <div className="grid gap-2 border-b border-border/50 bg-background/35 px-4 py-2 text-[11px] text-muted-foreground sm:grid-cols-3">
                 <div className="min-w-0">
-                  <div className="uppercase tracking-wide text-muted-foreground/60">Full Object Path</div>
+                  <div className="uppercase tracking-wide text-muted-foreground/60">
+                    Full Object Path
+                  </div>
                   <div className="truncate font-mono text-foreground/80">{activeStudioPath}</div>
                 </div>
                 <div className="min-w-0">
@@ -1772,7 +1857,9 @@ function ProjectEditor() {
                   <div className="truncate font-mono text-foreground/80">{active.file_type}</div>
                 </div>
                 <div className="min-w-0">
-                  <div className="uppercase tracking-wide text-muted-foreground/60">Roblox Service</div>
+                  <div className="uppercase tracking-wide text-muted-foreground/60">
+                    Roblox Service
+                  </div>
                   <div className="truncate font-mono text-foreground/80">
                     {active.service_location || active.path.split("/")[0]}
                   </div>
@@ -1958,12 +2045,16 @@ function ProjectEditor() {
                           onClick={newChat}
                           className="w-full flex items-center gap-2 px-2 py-2 text-xs font-medium rounded-md hover:bg-surface-elevated text-foreground"
                         >
-                          <span className="grid h-4 w-4 place-items-center rounded bg-primary/20 text-primary">+</span>
+                          <span className="grid h-4 w-4 place-items-center rounded bg-primary/20 text-primary">
+                            +
+                          </span>
                           New chat
                         </button>
                         <div className="my-1 border-t border-border" />
                         {conversations.length === 0 ? (
-                          <p className="px-2 py-3 text-[11px] text-muted-foreground text-center">No history yet</p>
+                          <p className="px-2 py-3 text-[11px] text-muted-foreground text-center">
+                            No history yet
+                          </p>
                         ) : (
                           conversations.map((c) => {
                             const active = c.id === convoId;
@@ -1980,7 +2071,10 @@ function ProjectEditor() {
                                   {c.title || "New chat"}
                                 </button>
                                 <span className="text-[9px] text-muted-foreground/60 tabular-nums shrink-0">
-                                  {new Date(c.updated_at).toLocaleDateString([], { month: "short", day: "numeric" })}
+                                  {new Date(c.updated_at).toLocaleDateString([], {
+                                    month: "short",
+                                    day: "numeric",
+                                  })}
                                 </span>
                                 <button
                                   onClick={() => deleteConversation(c.id)}
@@ -2058,7 +2152,10 @@ function ProjectEditor() {
                 </span>
               </button>
               <button
-                onClick={() => { setPlanMode((v) => !v); if (chatMode) toggleChatMode(false); }}
+                onClick={() => {
+                  setPlanMode((v) => !v);
+                  if (chatMode) toggleChatMode(false);
+                }}
                 className={`rounded-lg border px-2 py-2 text-left transition ${planMode ? "border-primary/50 bg-primary/10" : "border-border bg-background/35 hover:bg-surface-elevated"}`}
                 title="Draft a plan before building"
               >
@@ -2154,7 +2251,10 @@ function ProjectEditor() {
             {messages.map((m) => {
               const isUser = m.role === "user";
               return (
-                <div key={m.id} className={`flex gap-2.5 animate-fade-in ${isUser ? "justify-end" : "justify-start"}`}>
+                <div
+                  key={m.id}
+                  className={`flex gap-2.5 animate-fade-in ${isUser ? "justify-end" : "justify-start"}`}
+                >
                   {!isUser && (
                     <div className="shrink-0 mt-1 h-8 w-8 rounded-full bg-gradient-to-br from-primary to-primary-glow flex items-center justify-center shadow-lg shadow-primary/30 ring-1 ring-primary/40 overflow-hidden">
                       <img
@@ -2165,7 +2265,9 @@ function ProjectEditor() {
                       />
                     </div>
                   )}
-                  <div className={`flex flex-col gap-2 max-w-[88%] ${isUser ? "items-end" : "items-start"}`}>
+                  <div
+                    className={`flex flex-col gap-2 max-w-[88%] ${isUser ? "items-end" : "items-start"}`}
+                  >
                     <span className="text-[10px] uppercase tracking-wider font-semibold text-muted-foreground/70 px-1">
                       {isUser ? "You" : "BloxSmith AI"}
                     </span>
@@ -2182,13 +2284,21 @@ function ProjectEditor() {
                       {!isUser && activityByMsg[m.id]?.length > 0 && (
                         <div className="rounded-lg border border-border/60 bg-surface/40 p-2 space-y-1">
                           <div className="text-[10px] uppercase tracking-wider font-semibold text-muted-foreground/80 px-0.5">
-                            AI activity · {activityByMsg[m.id].length} tool call{activityByMsg[m.id].length === 1 ? "" : "s"}
+                            AI activity · {activityByMsg[m.id].length} tool call
+                            {activityByMsg[m.id].length === 1 ? "" : "s"}
                           </div>
                           <ul className="space-y-0.5">
                             {activityByMsg[m.id].slice(0, 12).map((ev, i) => (
-                              <li key={i} className="flex items-center gap-1.5 text-[11px] text-foreground/80">
-                                <span className={`h-1.5 w-1.5 rounded-full shrink-0 ${ev.ok ? "bg-emerald-400" : "bg-amber-400"}`} />
-                                <span className="font-mono text-muted-foreground text-[10px]">{ev.tool}</span>
+                              <li
+                                key={i}
+                                className="flex items-center gap-1.5 text-[11px] text-foreground/80"
+                              >
+                                <span
+                                  className={`h-1.5 w-1.5 rounded-full shrink-0 ${ev.ok ? "bg-emerald-400" : "bg-amber-400"}`}
+                                />
+                                <span className="font-mono text-muted-foreground text-[10px]">
+                                  {ev.tool}
+                                </span>
                                 <span className="truncate">{ev.summary}</span>
                               </li>
                             ))}
@@ -2203,7 +2313,10 @@ function ProjectEditor() {
                       {!isUser && previewsByMsg[m.id] && (
                         <PushPreview
                           preview={previewsByMsg[m.id]}
-                          readOnly={actionStatuses[m.id]?.status === "executing" || actionStatuses[m.id]?.status === "complete"}
+                          readOnly={
+                            actionStatuses[m.id]?.status === "executing" ||
+                            actionStatuses[m.id]?.status === "complete"
+                          }
                           onApplied={() =>
                             setPreviewsByMsg((p) => {
                               const n = { ...p };
@@ -2279,11 +2392,13 @@ function ProjectEditor() {
                           ) : (
                             <Bug className="h-3.5 w-3.5" />
                           )}
-                          Auto-fix {validationByMsg[m.id].errors.length} blocked ({GENERATE_COST} cr)
+                          Auto-fix {validationByMsg[m.id].errors.length} blocked ({GENERATE_COST}{" "}
+                          cr)
                         </button>
                       )}
-                      {!isUser && m.actions?.snapshot?.length > 0 && (
-                        revertedByMsg[m.id] ? (
+                      {!isUser &&
+                        m.actions?.snapshot?.length > 0 &&
+                        (revertedByMsg[m.id] ? (
                           <div className="inline-flex items-center gap-1.5 rounded-md border border-emerald-500/30 bg-emerald-500/10 px-3 py-1.5 text-xs font-medium text-emerald-300">
                             <CheckCircle2 className="h-3.5 w-3.5" />
                             Reverted
@@ -2302,8 +2417,7 @@ function ProjectEditor() {
                             )}
                             Revert this change
                           </button>
-                        )
-                      )}
+                        ))}
                     </div>
                   </div>
                   {isUser && (
@@ -2314,94 +2428,117 @@ function ProjectEditor() {
                 </div>
               );
             })}
-            {aiBusy && (() => {
-              const phase = chatMode ? "chat" : planMode ? "plan" : "build";
-              const phaseLabel = phase === "chat" ? "Thinking…" : phase === "plan" ? "Planning your build…" : "Crafting your Roblox magic…";
-              const steps = phase === "chat"
-                ? [
-                    "Reading your message",
-                    "Reviewing project context",
-                    "Composing a reply",
-                  ]
-                : phase === "plan"
-                ? [
-                    "Analyzing your request",
-                    "Inspecting current project tree",
-                    "Outlining the build steps",
-                    "Finalizing the plan",
-                  ]
-                : [
-                    "Reading your request",
-                    "Loading current project state",
-                    "Designing scripts & instances",
-                    "Generating files and actions",
-                    "Validating against Roblox",
-                    "Finalizing the build",
-                  ];
-              // step roughly every 3.5s for a livelier feel, clamp to last
-              const stepIdx = Math.min(steps.length - 1, Math.floor(aiBusyElapsed / 3.5));
-              const mm = String(Math.floor(aiBusyElapsed / 60)).padStart(1, "0");
-              const ss = String(aiBusyElapsed % 60).padStart(2, "0");
-              return (
-                <div className="flex gap-2.5 animate-fade-in">
-                  <div className="shrink-0 mt-1 h-7 w-7 rounded-full bg-gradient-to-br from-primary to-primary-glow flex items-center justify-center shadow-lg shadow-primary/30 ring-1 ring-primary/40 animate-pulse">
-                    <Sparkles className="h-3.5 w-3.5 text-primary-foreground" />
-                  </div>
-                  <div className="flex flex-col gap-2">
-                    <span className="text-[10px] uppercase tracking-wider font-semibold text-muted-foreground/70 px-1">
-                      BloxSmith AI
-                    </span>
-                    <button
-                      type="button"
-                      onClick={() => setAiBusyExpanded((v) => !v)}
-                      className="text-left rounded-2xl rounded-tl-sm bg-surface-elevated/80 backdrop-blur-sm border border-primary/20 px-3.5 py-2.5 shadow-md hover:border-primary/40 transition cursor-pointer"
-                      title={aiBusyExpanded ? "Hide details" : "Tap to see what the AI is doing"}
-                    >
-                      <div className="inline-flex items-center gap-2.5">
-                        <span className="flex gap-1">
-                          <span className="h-1.5 w-1.5 rounded-full bg-primary animate-bounce" style={{ animationDelay: "0ms" }} />
-                          <span className="h-1.5 w-1.5 rounded-full bg-primary animate-bounce" style={{ animationDelay: "150ms" }} />
-                          <span className="h-1.5 w-1.5 rounded-full bg-primary animate-bounce" style={{ animationDelay: "300ms" }} />
-                        </span>
-                        <span className="text-xs text-foreground/80 font-medium">{phaseLabel}</span>
-                        <span className="text-[10px] text-muted-foreground tabular-nums">{mm}:{ss}</span>
-                        <span className="text-[10px] text-muted-foreground/70 ml-1">
-                          {aiBusyExpanded ? "▾" : "▸"}
-                        </span>
-                      </div>
-                      {aiBusyExpanded && (
-                        <div className="mt-3 pt-3 border-t border-border/60 space-y-1.5">
-                          {steps.map((s, i) => {
-                            const done = i < stepIdx;
-                            const active = i === stepIdx;
-                            return (
-                              <div key={i} className="flex items-center gap-2 text-xs">
-                                {done ? (
-                                  <CheckCircle2 className="h-3.5 w-3.5 text-primary shrink-0" />
-                                ) : active ? (
-                                  <Loader2 className="h-3.5 w-3.5 text-primary animate-spin shrink-0" />
-                                ) : (
-                                  <span className="h-3.5 w-3.5 rounded-full border border-border shrink-0" />
-                                )}
-                                <span className={active ? "text-foreground" : done ? "text-muted-foreground line-through" : "text-muted-foreground/70"}>
-                                  {s}
-                                </span>
-                              </div>
-                            );
-                          })}
-                          <p className="text-[10px] text-muted-foreground/60 pt-1">
-                            Estimated progress — the AI works on these in order.
-                          </p>
+            {aiBusy &&
+              (() => {
+                const phase = chatMode ? "chat" : planMode ? "plan" : "build";
+                const phaseLabel =
+                  phase === "chat"
+                    ? "Thinking…"
+                    : phase === "plan"
+                      ? "Planning your build…"
+                      : "Crafting your Roblox magic…";
+                const steps =
+                  phase === "chat"
+                    ? ["Reading your message", "Reviewing project context", "Composing a reply"]
+                    : phase === "plan"
+                      ? [
+                          "Analyzing your request",
+                          "Inspecting current project tree",
+                          "Outlining the build steps",
+                          "Finalizing the plan",
+                        ]
+                      : [
+                          "Reading your request",
+                          "Loading current project state",
+                          "Designing scripts & instances",
+                          "Generating files and actions",
+                          "Validating against Roblox",
+                          "Finalizing the build",
+                        ];
+                // step roughly every 3.5s for a livelier feel, clamp to last
+                const stepIdx = Math.min(steps.length - 1, Math.floor(aiBusyElapsed / 3.5));
+                const mm = String(Math.floor(aiBusyElapsed / 60)).padStart(1, "0");
+                const ss = String(aiBusyElapsed % 60).padStart(2, "0");
+                return (
+                  <div className="flex gap-2.5 animate-fade-in">
+                    <div className="shrink-0 mt-1 h-7 w-7 rounded-full bg-gradient-to-br from-primary to-primary-glow flex items-center justify-center shadow-lg shadow-primary/30 ring-1 ring-primary/40 animate-pulse">
+                      <Sparkles className="h-3.5 w-3.5 text-primary-foreground" />
+                    </div>
+                    <div className="flex flex-col gap-2">
+                      <span className="text-[10px] uppercase tracking-wider font-semibold text-muted-foreground/70 px-1">
+                        BloxSmith AI
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => setAiBusyExpanded((v) => !v)}
+                        className="text-left rounded-2xl rounded-tl-sm bg-surface-elevated/80 backdrop-blur-sm border border-primary/20 px-3.5 py-2.5 shadow-md hover:border-primary/40 transition cursor-pointer"
+                        title={aiBusyExpanded ? "Hide details" : "Tap to see what the AI is doing"}
+                      >
+                        <div className="inline-flex items-center gap-2.5">
+                          <span className="flex gap-1">
+                            <span
+                              className="h-1.5 w-1.5 rounded-full bg-primary animate-bounce"
+                              style={{ animationDelay: "0ms" }}
+                            />
+                            <span
+                              className="h-1.5 w-1.5 rounded-full bg-primary animate-bounce"
+                              style={{ animationDelay: "150ms" }}
+                            />
+                            <span
+                              className="h-1.5 w-1.5 rounded-full bg-primary animate-bounce"
+                              style={{ animationDelay: "300ms" }}
+                            />
+                          </span>
+                          <span className="text-xs text-foreground/80 font-medium">
+                            {phaseLabel}
+                          </span>
+                          <span className="text-[10px] text-muted-foreground tabular-nums">
+                            {mm}:{ss}
+                          </span>
+                          <span className="text-[10px] text-muted-foreground/70 ml-1">
+                            {aiBusyExpanded ? "▾" : "▸"}
+                          </span>
                         </div>
-                      )}
-                    </button>
+                        {aiBusyExpanded && (
+                          <div className="mt-3 pt-3 border-t border-border/60 space-y-1.5">
+                            {steps.map((s, i) => {
+                              const done = i < stepIdx;
+                              const active = i === stepIdx;
+                              return (
+                                <div key={i} className="flex items-center gap-2 text-xs">
+                                  {done ? (
+                                    <CheckCircle2 className="h-3.5 w-3.5 text-primary shrink-0" />
+                                  ) : active ? (
+                                    <Loader2 className="h-3.5 w-3.5 text-primary animate-spin shrink-0" />
+                                  ) : (
+                                    <span className="h-3.5 w-3.5 rounded-full border border-border shrink-0" />
+                                  )}
+                                  <span
+                                    className={
+                                      active
+                                        ? "text-foreground"
+                                        : done
+                                          ? "text-muted-foreground line-through"
+                                          : "text-muted-foreground/70"
+                                    }
+                                  >
+                                    {s}
+                                  </span>
+                                </div>
+                              );
+                            })}
+                            <p className="text-[10px] text-muted-foreground/60 pt-1">
+                              Estimated progress — the AI works on these in order.
+                            </p>
+                          </div>
+                        )}
+                      </button>
+                    </div>
                   </div>
-                </div>
-              );
-            })()}
+                );
+              })()}
             <div ref={chatEnd} />
           </div>
-
 
           {outOfCredits && !(chatMode && credits !== null && credits >= CHAT_COST) ? (
             <div className="shrink-0 border-t border-border p-3 space-y-2 bg-destructive/5">
@@ -2576,7 +2713,11 @@ function ProjectEditor() {
                     <button
                       type="button"
                       onClick={() => setWebSearch((v) => !v)}
-                      title={webSearch ? "Web search ON — AI will research before answering" : "Enable web search (AI will look things up)"}
+                      title={
+                        webSearch
+                          ? "Web search ON — AI will research before answering"
+                          : "Enable web search (AI will look things up)"
+                      }
                       className={`h-8 w-8 grid place-items-center rounded-lg transition ${webSearch ? "text-sky-300 bg-sky-500/15" : "text-muted-foreground hover:text-foreground hover:bg-surface"}`}
                     >
                       <Globe className="h-4 w-4" />
@@ -2659,7 +2800,12 @@ function ProjectEditor() {
                       const mcpPart =
                         mcpServers.length === 0
                           ? "MCP: off"
-                          : `MCP: ${mcpServers.slice(0, 2).map((s) => s.name).join(", ")}${mcpServers.length > 2 ? ` +${mcpServers.length - 2}` : ""}`;
+                          : `MCP: ${mcpServers
+                              .slice(0, 2)
+                              .map((s) => s.name)
+                              .join(
+                                ", ",
+                              )}${mcpServers.length > 2 ? ` +${mcpServers.length - 2}` : ""}`;
                       const label = client
                         ? `${client}${modelLabel ? ` · ${modelLabel}` : ""} · ${mcpPart}`
                         : `Waiting for AI client · ${mcpPart}`;
@@ -2676,32 +2822,43 @@ function ProjectEditor() {
 
                   <ModelPicker
                     projectId={projectId}
-                    provider={(aiSettings.provider === "groq" || aiSettings.provider === "neokens") ? aiSettings.provider : null}
+                    provider={aiSettings.provider === "neokens" ? aiSettings.provider : null}
                     model={aiSettings.model}
                     onChange={(p, m) => setAiSettings({ mode: "api_key", provider: p, model: m })}
                   />
 
-                  {aiUsage && !aiUsage.owner && (() => {
-                    const pct5 = Math.min(100, Math.round((aiUsage.used_5h / aiUsage.limit_5h) * 100));
-                    const near = pct5 >= 80;
-                    const full = pct5 >= 100;
-                    return (
-                      <div
-                        className={`inline-flex items-center gap-1.5 rounded-full bg-surface-elevated/60 border px-2.5 py-0.5 text-[10px] tabular-nums ${full ? "border-destructive/60" : near ? "border-amber-400/60" : "border-border/40"}`}
-                        title={`AI usage: ${aiUsage.used_5h}/${aiUsage.limit_5h} in last 5h · ${aiUsage.used_7d}/${aiUsage.limit_7d} in last 7d${aiUsage.reset_5h ? ` · resets ${new Date(aiUsage.reset_5h).toLocaleTimeString()}` : ""}`}
-                      >
-                        <span className={`h-1.5 w-1.5 rounded-full ${full ? "bg-destructive" : near ? "bg-amber-400" : "bg-emerald-500/70"}`} />
-                        <span className="text-muted-foreground">
-                          Usage {aiUsage.used_5h}/{aiUsage.limit_5h} · {aiUsage.used_7d}/{aiUsage.limit_7d}
-                        </span>
-                      </div>
-                    );
-                  })()}
+                  {aiUsage &&
+                    !aiUsage.owner &&
+                    (() => {
+                      const pct5 = Math.min(
+                        100,
+                        Math.round((aiUsage.used_5h / aiUsage.limit_5h) * 100),
+                      );
+                      const near = pct5 >= 80;
+                      const full = pct5 >= 100;
+                      return (
+                        <div
+                          className={`inline-flex items-center gap-1.5 rounded-full bg-surface-elevated/60 border px-2.5 py-0.5 text-[10px] tabular-nums ${full ? "border-destructive/60" : near ? "border-amber-400/60" : "border-border/40"}`}
+                          title={`AI usage: ${aiUsage.used_5h}/${aiUsage.limit_5h} in last 5h · ${aiUsage.used_7d}/${aiUsage.limit_7d} in last 7d${aiUsage.reset_5h ? ` · resets ${new Date(aiUsage.reset_5h).toLocaleTimeString()}` : ""}`}
+                        >
+                          <span
+                            className={`h-1.5 w-1.5 rounded-full ${full ? "bg-destructive" : near ? "bg-amber-400" : "bg-emerald-500/70"}`}
+                          />
+                          <span className="text-muted-foreground">
+                            Usage {aiUsage.used_5h}/{aiUsage.limit_5h} · {aiUsage.used_7d}/
+                            {aiUsage.limit_7d}
+                          </span>
+                        </div>
+                      );
+                    })()}
 
                   <div
-
                     className="inline-flex items-center gap-1.5 rounded-full bg-surface-elevated/60 border border-border/40 px-2.5 py-0.5 text-[10px]"
-                    title={isStudioConnected ? "Roblox Studio plugin connected" : "Roblox Studio plugin not connected"}
+                    title={
+                      isStudioConnected
+                        ? "Roblox Studio plugin connected"
+                        : "Roblox Studio plugin not connected"
+                    }
                   >
                     <span
                       className={`h-1.5 w-1.5 rounded-full ${isStudioConnected ? "bg-success animate-pulse" : "bg-amber-400"}`}
@@ -2711,7 +2868,6 @@ function ProjectEditor() {
                     </span>
                   </div>
                 </div>
-
 
                 <span className="text-[10px] text-muted-foreground whitespace-nowrap">
                   {chatMode
@@ -2727,13 +2883,11 @@ function ProjectEditor() {
         </aside>
       </main>
 
-
       {showAiSourceModal && (
         <AiSourceSettings projectId={projectId} onClose={() => setShowAiSourceModal(false)} />
       )}
 
       {showFix && (
-
         <div
           className="fixed inset-0 z-50 grid place-items-center bg-background/80 backdrop-blur-sm p-4"
           onClick={() => !fixBusy && setShowFix(false)}

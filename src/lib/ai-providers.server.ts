@@ -72,7 +72,15 @@ export const PROVIDER_LABELS: Record<ProviderId, string> = {
 // Curated model lists per provider. Keep the lists short — only models that
 // reliably handle Lua/Luau and tool calling.
 export const PROVIDER_MODELS: Record<ProviderId, string[]> = {
-  openai: ["gpt-5.5", "gpt-5", "gpt-5-mini", "gpt-5-nano", "gpt-5-codex", "gpt-4.1", "gpt-4.1-mini"],
+  openai: [
+    "gpt-5.5",
+    "gpt-5",
+    "gpt-5-mini",
+    "gpt-5-nano",
+    "gpt-5-codex",
+    "gpt-4.1",
+    "gpt-4.1-mini",
+  ],
   anthropic: [
     "claude-sonnet-4-6",
     "claude-sonnet-4-5",
@@ -80,23 +88,12 @@ export const PROVIDER_MODELS: Record<ProviderId, string[]> = {
     "claude-3-5-sonnet-latest",
     "claude-3-5-haiku-latest",
   ],
-  google: [
-    "gemini-2.5-pro",
-    "gemini-2.5-flash",
-    "gemini-2.5-flash-lite",
-    "gemini-3-flash-preview",
-  ],
-  groq: [
-    "llama-3.3-70b-versatile",
-    "llama-3.1-8b-instant",
-  ],
+  google: ["gemini-2.5-pro", "gemini-2.5-flash", "gemini-2.5-flash-lite", "gemini-3-flash-preview"],
+  groq: ["llama-3.3-70b-versatile", "llama-3.1-8b-instant"],
   // Neokens proxies many models behind a single key — see neokens.com/docs.
   // We list whichever Neokens has working on their side at the moment;
   // Claude Sonnet 4.6/4.7 were tried and removed (Bad Gateway from Neokens).
-  neokens: [
-    ...SITE_PROVIDER_MODELS.neokens,
-  ],
-
+  neokens: [...SITE_PROVIDER_MODELS.neokens],
 };
 
 export const PROVIDER_DEFAULT_MODEL: Record<ProviderId, string> = {
@@ -155,12 +152,20 @@ export function getModelProfile(
 
   const inputTokenBudget = isHuge ? 100_000 : isSmall ? 12_000 : 32_000;
   const maxOutputTokens = opts.thinking
-    ? isHuge ? 16_000 : 9_000
+    ? isHuge
+      ? 16_000
+      : 9_000
     : opts.retry
-      ? isHuge ? 8_000 : 5_500
+      ? isHuge
+        ? 8_000
+        : 5_500
       : opts.heavyBuild
-        ? isHuge ? 10_000 : 6_500
-        : isHuge ? 6_500 : 4_500;
+        ? isHuge
+          ? 10_000
+          : 6_500
+        : isHuge
+          ? 6_500
+          : 4_500;
 
   return {
     inputTokenBudget,
@@ -180,7 +185,8 @@ export function getModelProfile(
       isGemini ||
       isClaude ||
       (isOpenAI && !id.includes("nano")) ||
-      (provider === "neokens" && (id.includes("gemini") || id.includes("gpt-5") || id.includes("claude"))),
+      (provider === "neokens" &&
+        (id.includes("gemini") || id.includes("gpt-5") || id.includes("claude"))),
     historyTurns: opts.thinking ? (isHuge ? 8 : 5) : isSmall ? 3 : 5,
     historyChars: opts.thinking ? (isHuge ? 1_800 : 1_200) : isSmall ? 700 : 1_000,
   };
@@ -250,7 +256,10 @@ export type ResolvedGateway = {
   model: any;
 };
 
-export function resolveBuiltInGateway(opts: { kind: ModelKind; thinking?: boolean }): ResolvedGateway {
+export function resolveBuiltInGateway(opts: {
+  kind: ModelKind;
+  thinking?: boolean;
+}): ResolvedGateway {
   const neokensKey = process.env.NEOKENS_API_KEY || process.env.NEOKENS_KEY;
   if (neokensKey) {
     const modelName = NEOKENS_MODEL_BY_KIND[opts.kind] ?? SITE_PROVIDER_DEFAULT_MODEL.neokens;
@@ -259,7 +268,8 @@ export function resolveBuiltInGateway(opts: { kind: ModelKind; thinking?: boolea
   }
 
   const groqKey = process.env.GROQ_API_KEY;
-  if (!groqKey) throw new Error("AI gateway not configured — NEOKENS_API_KEY or GROQ_API_KEY missing.");
+  if (!groqKey)
+    throw new Error("AI gateway not configured — NEOKENS_API_KEY or GROQ_API_KEY missing.");
   const gw = createGroqProvider(groqKey);
   const modelName =
     opts.kind === "large"

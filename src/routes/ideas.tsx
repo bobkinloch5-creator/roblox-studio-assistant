@@ -129,8 +129,8 @@ function IdeasPage() {
             Game Idea <span className="gradient-text">Generator</span>
           </h1>
           <p className="mt-2 text-muted-foreground max-w-2xl mx-auto">
-            Generate fresh, buildable Roblox concepts. Each idea ships with a one-click Build
-            button that creates a project with a ready-to-execute plan.
+            Generate fresh, buildable Roblox concepts. Each idea ships with a one-click Build button
+            that creates a project with a ready-to-execute plan.
           </p>
         </div>
 

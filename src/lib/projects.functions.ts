@@ -6,12 +6,14 @@ import { templateFiles } from "./templates";
 export const createProject = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((input: unknown) =>
-    z.object({
-      name: z.string().min(1).max(120),
-      game_type: z.string().min(1).max(60),
-      template: z.string().min(1).max(60),
-      description: z.string().max(500).optional(),
-    }).parse(input)
+    z
+      .object({
+        name: z.string().min(1).max(120),
+        game_type: z.string().min(1).max(60),
+        template: z.string().min(1).max(60),
+        description: z.string().max(500).optional(),
+      })
+      .parse(input),
   )
   .handler(async ({ data, context }) => {
     const { supabase, userId } = context;
@@ -37,7 +39,7 @@ export const createProject = createServerFn({ method: "POST" })
           file_type: f.file_type,
           service_location: f.service_location,
           content: f.content,
-        }))
+        })),
       );
     }
     return { id: project.id };
@@ -46,13 +48,17 @@ export const createProject = createServerFn({ method: "POST" })
 function randomToken(len = 40) {
   const bytes = new Uint8Array(len);
   crypto.getRandomValues(bytes);
-  return Array.from(bytes).map((b) => b.toString(16).padStart(2, "0")).join("");
+  return Array.from(bytes)
+    .map((b) => b.toString(16).padStart(2, "0"))
+    .join("");
 }
 
 async function sha256(text: string) {
   const buf = new TextEncoder().encode(text);
   const hash = await crypto.subtle.digest("SHA-256", buf);
-  return Array.from(new Uint8Array(hash)).map((b) => b.toString(16).padStart(2, "0")).join("");
+  return Array.from(new Uint8Array(hash))
+    .map((b) => b.toString(16).padStart(2, "0"))
+    .join("");
 }
 
 export const generatePluginToken = createServerFn({ method: "POST" })
@@ -61,7 +67,12 @@ export const generatePluginToken = createServerFn({ method: "POST" })
     const { supabase, userId } = context;
     const token = "bs_" + randomToken(32);
     const hash = await sha256(token);
-    const { error } = await supabase.from("plugin_tokens").upsert({ user_id: userId, token_hash: hash, updated_at: new Date().toISOString() }, { onConflict: "user_id" });
+    const { error } = await supabase
+      .from("plugin_tokens")
+      .upsert(
+        { user_id: userId, token_hash: hash, updated_at: new Date().toISOString() },
+        { onConflict: "user_id" },
+      );
     if (error) throw new Error(error.message);
     return { token };
   });
@@ -69,11 +80,13 @@ export const generatePluginToken = createServerFn({ method: "POST" })
 export const inviteCollaborator = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((input: unknown) =>
-    z.object({
-      projectId: z.string().uuid(),
-      email: z.string().email(),
-      role: z.enum(["editor", "viewer"]).default("editor"),
-    }).parse(input)
+    z
+      .object({
+        projectId: z.string().uuid(),
+        email: z.string().email(),
+        role: z.enum(["editor", "viewer"]).default("editor"),
+      })
+      .parse(input),
   )
   .handler(async ({ data, context }) => {
     void data;

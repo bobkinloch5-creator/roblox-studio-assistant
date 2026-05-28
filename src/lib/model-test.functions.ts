@@ -9,7 +9,14 @@ export type ModelTestResult = {
   ok: boolean;
   durationMs: number;
   sample?: string;
-  errorKind?: "not_configured" | "model_not_found" | "auth" | "rate_limit" | "timeout" | "provider" | "unknown";
+  errorKind?:
+    | "not_configured"
+    | "model_not_found"
+    | "auth"
+    | "rate_limit"
+    | "timeout"
+    | "provider"
+    | "unknown";
   errorMessage?: string;
 };
 
@@ -24,16 +31,28 @@ function classifyError(err: any): { kind: ModelTestResult["errorKind"]; message:
   if (err?.name === "AbortError" || /abort|timeout|timed out/i.test(message)) {
     return { kind: "timeout", message };
   }
-  if (status === 404 || /not found|does not exist|unknown model|invalid model|no such model/i.test(lower)) {
+  if (
+    status === 404 ||
+    /not found|does not exist|unknown model|invalid model|no such model/i.test(lower)
+  ) {
     return { kind: "model_not_found", message };
   }
-  if (status === 401 || status === 403 || /unauthorized|forbidden|invalid.*api.*key|authentication/i.test(lower)) {
+  if (
+    status === 401 ||
+    status === 403 ||
+    /unauthorized|forbidden|invalid.*api.*key|authentication/i.test(lower)
+  ) {
     return { kind: "auth", message };
   }
   if (status === 429 || /rate.?limit|too many requests/i.test(lower)) {
     return { kind: "rate_limit", message };
   }
-  if (status === 502 || status === 503 || status === 504 || /bad gateway|service unavailable|provider/i.test(lower)) {
+  if (
+    status === 502 ||
+    status === 503 ||
+    status === 504 ||
+    /bad gateway|service unavailable|provider/i.test(lower)
+  ) {
     return { kind: "provider", message };
   }
   return { kind: "unknown", message };
@@ -52,8 +71,11 @@ async function testOneModel(provider: SiteProviderId, modelId: string): Promise<
       const key = process.env.NEOKENS_API_KEY || process.env.NEOKENS_KEY;
       if (!key) {
         return {
-          provider, modelId, realModel: aliased.realModel,
-          ok: false, durationMs: 0,
+          provider,
+          modelId,
+          realModel: aliased.realModel,
+          ok: false,
+          durationMs: 0,
           errorKind: "not_configured",
           errorMessage: "NEOKENS_API_KEY env var not set on the server.",
         };
@@ -64,8 +86,11 @@ async function testOneModel(provider: SiteProviderId, modelId: string): Promise<
       const key = process.env.GROQ_API_KEY;
       if (!key) {
         return {
-          provider, modelId, realModel: aliased.realModel,
-          ok: false, durationMs: 0,
+          provider,
+          modelId,
+          realModel: aliased.realModel,
+          ok: false,
+          durationMs: 0,
           errorKind: "not_configured",
           errorMessage: "GROQ_API_KEY env var not set on the server.",
         };
@@ -74,8 +99,11 @@ async function testOneModel(provider: SiteProviderId, modelId: string): Promise<
       model = gw(aliased.realModel);
     } else {
       return {
-        provider, modelId, realModel: aliased.realModel,
-        ok: false, durationMs: 0,
+        provider,
+        modelId,
+        realModel: aliased.realModel,
+        ok: false,
+        durationMs: 0,
         errorKind: "unknown",
         errorMessage: `Unsupported provider for site test: ${provider}`,
       };
@@ -83,9 +111,13 @@ async function testOneModel(provider: SiteProviderId, modelId: string): Promise<
   } catch (err) {
     const { kind, message } = classifyError(err);
     return {
-      provider, modelId, realModel: aliased.realModel,
-      ok: false, durationMs: Date.now() - started,
-      errorKind: kind, errorMessage: message,
+      provider,
+      modelId,
+      realModel: aliased.realModel,
+      ok: false,
+      durationMs: Date.now() - started,
+      errorKind: kind,
+      errorMessage: message,
     };
   }
 
@@ -100,23 +132,33 @@ async function testOneModel(provider: SiteProviderId, modelId: string): Promise<
     const sample = (out.text ?? "").trim().slice(0, 200);
     if (!sample) {
       return {
-        provider, modelId, realModel: aliased.realModel,
-        ok: false, durationMs: Date.now() - started,
+        provider,
+        modelId,
+        realModel: aliased.realModel,
+        ok: false,
+        durationMs: Date.now() - started,
         errorKind: "unknown",
         errorMessage: "Model returned no visible text. Likely a request-shape issue.",
       };
     }
     return {
-      provider, modelId, realModel: aliased.realModel,
-      ok: true, durationMs: Date.now() - started,
+      provider,
+      modelId,
+      realModel: aliased.realModel,
+      ok: true,
+      durationMs: Date.now() - started,
       sample,
     };
   } catch (err) {
     const { kind, message } = classifyError(err);
     return {
-      provider, modelId, realModel: aliased.realModel,
-      ok: false, durationMs: Date.now() - started,
-      errorKind: kind, errorMessage: message.slice(0, 500),
+      provider,
+      modelId,
+      realModel: aliased.realModel,
+      ok: false,
+      durationMs: Date.now() - started,
+      errorKind: kind,
+      errorMessage: message.slice(0, 500),
     };
   }
 }
@@ -125,10 +167,7 @@ export const testAllSiteModels = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .handler(async ({ context }) => {
     const { supabase, userId } = context;
-    const { data: roles } = await supabase
-      .from("user_roles")
-      .select("role")
-      .eq("user_id", userId);
+    const { data: roles } = await supabase.from("user_roles").select("role").eq("user_id", userId);
     const isAdmin = (roles ?? []).some(
       (r: { role: string }) => r.role === "admin" || r.role === "owner",
     );

@@ -23,7 +23,10 @@ export const Route = createFileRoute("/api/public/plugin/credits")({
       POST: async ({ request }) => {
         const token = request.headers.get("x-plugin-token");
         if (!token)
-          return new Response(JSON.stringify({ error: "missing token" }), { status: 401, headers: cors });
+          return new Response(JSON.stringify({ error: "missing token" }), {
+            status: 401,
+            headers: cors,
+          });
         const hash = await sha256(token);
         const { data: tokenRow } = await supabaseAdmin
           .from("plugin_tokens")
@@ -31,14 +34,20 @@ export const Route = createFileRoute("/api/public/plugin/credits")({
           .eq("token_hash", hash)
           .maybeSingle();
         if (!tokenRow)
-          return new Response(JSON.stringify({ error: "invalid token" }), { status: 401, headers: cors });
+          return new Response(JSON.stringify({ error: "invalid token" }), {
+            status: 401,
+            headers: cors,
+          });
         const { data: profile } = await supabaseAdmin
           .from("profiles")
           .select("credits,display_name,email")
           .eq("id", tokenRow.user_id)
           .maybeSingle();
         if (!profile)
-          return new Response(JSON.stringify({ error: "invalid token" }), { status: 401, headers: cors });
+          return new Response(JSON.stringify({ error: "invalid token" }), {
+            status: 401,
+            headers: cors,
+          });
         return new Response(
           JSON.stringify({
             credits: profile.credits,

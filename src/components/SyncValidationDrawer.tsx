@@ -1,5 +1,17 @@
 import { useMemo, useState } from "react";
-import { X, AlertOctagon, AlertTriangle, ChevronDown, ChevronRight, Wand2, Loader2, ShieldCheck, FileCode, Radio, Folder } from "lucide-react";
+import {
+  X,
+  AlertOctagon,
+  AlertTriangle,
+  ChevronDown,
+  ChevronRight,
+  Wand2,
+  Loader2,
+  ShieldCheck,
+  FileCode,
+  Radio,
+  Folder,
+} from "lucide-react";
 
 export type ValidationIssue = {
   level: "error" | "warning";
@@ -20,12 +32,17 @@ function suggestFix(issue: ValidationIssue): string {
   const m = issue.message.toLowerCase();
   if (m.includes("localscript") && m.includes("never run")) return "Move to StarterPlayerScripts";
   if (m.includes("server script") && m.includes("unusual")) return "Move to ServerScriptService";
-  if (m.includes("unknown service") || m.includes("unknown parent service")) return "Replace with a valid Roblox service";
-  if (m.includes("unbalanced") || m.includes("luau syntax")) return "Regenerate with valid Luau syntax";
+  if (m.includes("unknown service") || m.includes("unknown parent service"))
+    return "Replace with a valid Roblox service";
+  if (m.includes("unbalanced") || m.includes("luau syntax"))
+    return "Regenerate with valid Luau syntax";
   if (m.includes("duplicate path")) return "Rename or merge duplicate file";
-  if (m.includes("waitforchild") && m.includes("no matching")) return "Create the missing instance or fix the name";
-  if (m.includes("missing 'parent'") || m.includes("missing 'name'")) return "Add the missing field";
-  if (m.includes("unknown remote classname")) return "Use RemoteEvent / RemoteFunction / BindableEvent";
+  if (m.includes("waitforchild") && m.includes("no matching"))
+    return "Create the missing instance or fix the name";
+  if (m.includes("missing 'parent'") || m.includes("missing 'name'"))
+    return "Add the missing field";
+  if (m.includes("unknown remote classname"))
+    return "Use RemoteEvent / RemoteFunction / BindableEvent";
   if (m.includes("invalid path")) return "Rewrite path without leading slash or backslashes";
   if (m.includes("missing path")) return "Provide a valid file path";
   return "Regenerate to fix this";
@@ -33,10 +50,14 @@ function suggestFix(issue: ValidationIssue): string {
 
 function scopeIcon(scope?: string) {
   switch (scope) {
-    case "file": return FileCode;
-    case "remote": return Radio;
-    case "service": return Folder;
-    default: return AlertOctagon;
+    case "file":
+      return FileCode;
+    case "remote":
+      return Radio;
+    case "service":
+      return Folder;
+    default:
+      return AlertOctagon;
   }
 }
 
@@ -64,7 +85,7 @@ export function SyncValidationDrawer({
   validationByMsg: Record<string, ValidationEntry>;
   onFix: (
     msgId: string,
-    opts?: { issues?: ValidationIssue[]; label?: string }
+    opts?: { issues?: ValidationIssue[]; label?: string },
   ) => void | Promise<void>;
   autoFixingMsg: string | null;
   busy: boolean;
@@ -78,7 +99,12 @@ export function SyncValidationDrawer({
     return ids
       .map((id) => {
         const idx = messages.findIndex((m) => m.id === id);
-        return { id, idx: idx === -1 ? Number.MAX_SAFE_INTEGER : idx, msg: messages[idx], entry: validationByMsg[id] };
+        return {
+          id,
+          idx: idx === -1 ? Number.MAX_SAFE_INTEGER : idx,
+          msg: messages[idx],
+          entry: validationByMsg[id],
+        };
       })
       .sort((a, b) => a.idx - b.idx);
   }, [messages, validationByMsg]);
@@ -114,7 +140,8 @@ export function SyncValidationDrawer({
             <AlertOctagon className="h-3.5 w-3.5" /> {totalErrors} blocked
           </span>
           <span className="inline-flex items-center gap-1 text-amber-400">
-            <AlertTriangle className="h-3.5 w-3.5" /> {totalWarnings} warning{totalWarnings === 1 ? "" : "s"}
+            <AlertTriangle className="h-3.5 w-3.5" /> {totalWarnings} warning
+            {totalWarnings === 1 ? "" : "s"}
           </span>
           <span className="ml-auto text-muted-foreground">
             {steps.length} step{steps.length === 1 ? "" : "s"}
@@ -134,14 +161,23 @@ export function SyncValidationDrawer({
             const allIssues: ValidationIssue[] = [...s.entry.errors, ...s.entry.warnings];
             const fixingThis = autoFixingMsg === s.id;
             return (
-              <div key={s.id} className="rounded-lg border border-border bg-surface/40 overflow-hidden">
+              <div
+                key={s.id}
+                className="rounded-lg border border-border bg-surface/40 overflow-hidden"
+              >
                 <button
                   onClick={() => setOpenStep(isOpen ? null : s.id)}
                   className="w-full flex items-start gap-2 px-3 py-2 text-left hover:bg-surface"
                 >
-                  {isOpen ? <ChevronDown className="h-3.5 w-3.5 mt-0.5 text-muted-foreground" /> : <ChevronRight className="h-3.5 w-3.5 mt-0.5 text-muted-foreground" />}
+                  {isOpen ? (
+                    <ChevronDown className="h-3.5 w-3.5 mt-0.5 text-muted-foreground" />
+                  ) : (
+                    <ChevronRight className="h-3.5 w-3.5 mt-0.5 text-muted-foreground" />
+                  )}
                   <div className="flex-1 min-w-0">
-                    <div className="text-xs font-medium text-foreground truncate">Step {i + 1} · {title}</div>
+                    <div className="text-xs font-medium text-foreground truncate">
+                      Step {i + 1} · {title}
+                    </div>
                     <div className="flex items-center gap-2 mt-0.5 text-[10px]">
                       {s.entry.errors.length > 0 && (
                         <span className="inline-flex items-center gap-1 text-destructive">
@@ -164,11 +200,19 @@ export function SyncValidationDrawer({
                         {allIssues.length} issue{allIssues.length === 1 ? "" : "s"}
                       </span>
                       <button
-                        onClick={() => onFix(s.id, { label: `${s.entry.errors.length} blocked + ${s.entry.warnings.length} warning(s) in step ${i + 1}` })}
+                        onClick={() =>
+                          onFix(s.id, {
+                            label: `${s.entry.errors.length} blocked + ${s.entry.warnings.length} warning(s) in step ${i + 1}`,
+                          })
+                        }
                         disabled={busy || outOfCredits || fixingThis}
                         className="inline-flex items-center gap-1 rounded-md bg-primary px-2 py-1 text-[10px] font-semibold text-primary-foreground hover:bg-primary/90 disabled:opacity-50"
                       >
-                        {fixingThis ? <Loader2 className="h-3 w-3 animate-spin" /> : <Wand2 className="h-3 w-3" />}
+                        {fixingThis ? (
+                          <Loader2 className="h-3 w-3 animate-spin" />
+                        ) : (
+                          <Wand2 className="h-3 w-3" />
+                        )}
                         Fix all ({fixCost} cr)
                       </button>
                     </div>
@@ -178,9 +222,13 @@ export function SyncValidationDrawer({
                       return (
                         <div key={j} className="p-2.5 space-y-1.5">
                           <div className="flex items-start gap-2">
-                            <Icon className={`h-3.5 w-3.5 mt-0.5 shrink-0 ${isErr ? "text-destructive" : "text-amber-400"}`} />
+                            <Icon
+                              className={`h-3.5 w-3.5 mt-0.5 shrink-0 ${isErr ? "text-destructive" : "text-amber-400"}`}
+                            />
                             <div className="flex-1 min-w-0">
-                              <div className="text-[11px] font-mono text-foreground truncate">{iss.target}</div>
+                              <div className="text-[11px] font-mono text-foreground truncate">
+                                {iss.target}
+                              </div>
                               <div className="text-[11px] text-muted-foreground">{iss.message}</div>
                             </div>
                           </div>
@@ -189,7 +237,12 @@ export function SyncValidationDrawer({
                               Suggested: {suggestFix(iss)}
                             </span>
                             <button
-                              onClick={() => onFix(s.id, { issues: [iss], label: `${isErr ? "blocked" : "warning"}: ${iss.target}` })}
+                              onClick={() =>
+                                onFix(s.id, {
+                                  issues: [iss],
+                                  label: `${isErr ? "blocked" : "warning"}: ${iss.target}`,
+                                })
+                              }
                               disabled={busy || outOfCredits || fixingThis}
                               className="inline-flex items-center gap-1 rounded border border-border bg-surface px-1.5 py-0.5 text-[10px] font-medium hover:bg-surface-elevated disabled:opacity-50 shrink-0"
                             >

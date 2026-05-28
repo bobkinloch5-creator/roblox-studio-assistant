@@ -24,9 +24,7 @@ export type WorkflowTask = {
 
 export const listTasks = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((i: unknown) =>
-    z.object({ projectId: z.string().uuid() }).parse(i),
-  )
+  .inputValidator((i: unknown) => z.object({ projectId: z.string().uuid() }).parse(i))
   .handler(async ({ data, context }): Promise<{ tasks: WorkflowTask[] }> => {
     const { supabase } = context;
     const { data: rows, error } = await supabase
@@ -69,9 +67,7 @@ export const setTaskStatus = createServerFn({ method: "POST" })
 
 export const deleteTask = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((i: unknown) =>
-    z.object({ taskId: z.string().uuid() }).parse(i),
-  )
+  .inputValidator((i: unknown) => z.object({ taskId: z.string().uuid() }).parse(i))
   .handler(async ({ data, context }) => {
     const { supabase } = context;
     const { error } = await supabase.from("project_tasks").delete().eq("id", data.taskId);
@@ -135,10 +131,7 @@ export const planFromPrompt = createServerFn({ method: "POST" })
     const { supabase, userId } = context;
     const COST = 1;
 
-    const { data: roles } = await supabase
-      .from("user_roles")
-      .select("role")
-      .eq("user_id", userId);
+    const { data: roles } = await supabase.from("user_roles").select("role").eq("user_id", userId);
     const isOwner = (roles ?? []).some((r) => r.role === "owner" || r.role === "admin");
     if (!isOwner) {
       const { error } = await supabase.rpc("spend_credits_atomic", { _amount: COST });
@@ -213,10 +206,7 @@ Keep titles under 60 chars, verb-led. Do NOT include the original request as a t
       payload: { source: "ai_plan", prompt: data.prompt },
     }));
 
-    const { data: created, error } = await supabase
-      .from("project_tasks")
-      .insert(rows)
-      .select("*");
+    const { data: created, error } = await supabase.from("project_tasks").insert(rows).select("*");
     if (error) throw new Error(error.message);
     return { tasks: created as WorkflowTask[], created: created?.length ?? 0 };
   });
@@ -227,9 +217,7 @@ Keep titles under 60 chars, verb-led. Do NOT include the original request as a t
 // ---------------------------------------------------------------------------
 export const nextBestTask = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((i: unknown) =>
-    z.object({ projectId: z.string().uuid() }).parse(i),
-  )
+  .inputValidator((i: unknown) => z.object({ projectId: z.string().uuid() }).parse(i))
   .handler(async ({ data, context }) => {
     const { supabase } = context;
 
@@ -291,18 +279,28 @@ export const nextBestTask = createServerFn({ method: "POST" })
 // ---------------------------------------------------------------------------
 const REQUIRED_SYSTEMS = [
   { key: "leaderstats", label: "Leaderstats / currency", match: /leaderstat|currency|coin/i },
-  { key: "datastore", label: "DataStore saving", match: /datastore|saveprofile|profilestore|persist/i },
-  { key: "remotes", label: "RemoteEvents / server validation", match: /remoteevent|remotefunction|firserver|onserverevent/i },
+  {
+    key: "datastore",
+    label: "DataStore saving",
+    match: /datastore|saveprofile|profilestore|persist/i,
+  },
+  {
+    key: "remotes",
+    label: "RemoteEvents / server validation",
+    match: /remoteevent|remotefunction|firserver|onserverevent/i,
+  },
   { key: "ui", label: "Mobile-friendly UI", match: /screengui|udim2|frame/i },
-  { key: "shop", label: "Shop or monetization", match: /shop|marketplaceservice|gamepass|developerproduct/i },
+  {
+    key: "shop",
+    label: "Shop or monetization",
+    match: /shop|marketplaceservice|gamepass|developerproduct/i,
+  },
   { key: "spawn", label: "Spawn / round system", match: /spawnlocation|teleport|round/i },
 ];
 
 export const finishThisGame = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((i: unknown) =>
-    z.object({ projectId: z.string().uuid() }).parse(i),
-  )
+  .inputValidator((i: unknown) => z.object({ projectId: z.string().uuid() }).parse(i))
   .handler(async ({ data, context }) => {
     const { supabase } = context;
 
@@ -312,10 +310,7 @@ export const finishThisGame = createServerFn({ method: "POST" })
         .select("path,content,service_location,file_type")
         .eq("project_id", data.projectId)
         .limit(200),
-      supabase
-        .from("project_tasks")
-        .select("title,status")
-        .eq("project_id", data.projectId),
+      supabase.from("project_tasks").select("title,status").eq("project_id", data.projectId),
       supabase
         .from("studio_errors")
         .select("id,error_message,file_path,created_at")
@@ -337,14 +332,12 @@ export const finishThisGame = createServerFn({ method: "POST" })
     const taskList = tasks ?? [];
     const totalTasks = taskList.length;
     const doneTasks = taskList.filter((t) => t.status === "done").length;
-    const openTasks = taskList.filter(
-      (t) => t.status !== "done" && t.status !== "skipped",
-    );
+    const openTasks = taskList.filter((t) => t.status !== "done" && t.status !== "skipped");
 
     const presentCount = systems.filter((s) => s.present).length;
     const systemScore = systems.length > 0 ? presentCount / systems.length : 0;
     const taskScore = totalTasks > 0 ? doneTasks / totalTasks : systemScore;
-    const completion = Math.round(((systemScore * 0.6) + (taskScore * 0.4)) * 100);
+    const completion = Math.round((systemScore * 0.6 + taskScore * 0.4) * 100);
 
     const missing = systems.filter((s) => !s.present).map((s) => s.label);
     const suggestions: string[] = [];
@@ -352,12 +345,17 @@ export const finishThisGame = createServerFn({ method: "POST" })
       suggestions.push(`Build the missing systems: ${missing.slice(0, 3).join(", ")}.`);
     }
     if ((errs ?? []).length > 0) {
-      suggestions.push(`Fix ${errs!.length} recent Studio error${errs!.length === 1 ? "" : "s"} before adding new features.`);
+      suggestions.push(
+        `Fix ${errs!.length} recent Studio error${errs!.length === 1 ? "" : "s"} before adding new features.`,
+      );
     }
     if (openTasks.length > 0) {
-      suggestions.push(`${openTasks.length} task${openTasks.length === 1 ? "" : "s"} still open on the board.`);
+      suggestions.push(
+        `${openTasks.length} task${openTasks.length === 1 ? "" : "s"} still open on the board.`,
+      );
     }
-    if (suggestions.length === 0) suggestions.push("Project looks complete. Polish, playtest, and publish.");
+    if (suggestions.length === 0)
+      suggestions.push("Project looks complete. Polish, playtest, and publish.");
 
     return {
       completion,
@@ -377,9 +375,7 @@ export const finishThisGame = createServerFn({ method: "POST" })
 // ---------------------------------------------------------------------------
 export const buildTaskBrief = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((i: unknown) =>
-    z.object({ taskId: z.string().uuid() }).parse(i),
-  )
+  .inputValidator((i: unknown) => z.object({ taskId: z.string().uuid() }).parse(i))
   .handler(async ({ data, context }) => {
     const { supabase, userId } = context;
     const { data: task, error: tErr } = await supabase
@@ -390,10 +386,7 @@ export const buildTaskBrief = createServerFn({ method: "POST" })
     if (tErr || !task) throw new Error("Task not found.");
 
     const COST = 1;
-    const { data: roles } = await supabase
-      .from("user_roles")
-      .select("role")
-      .eq("user_id", userId);
+    const { data: roles } = await supabase.from("user_roles").select("role").eq("user_id", userId);
     const isOwner = (roles ?? []).some((r) => r.role === "owner" || r.role === "admin");
     if (!isOwner) {
       const { error } = await supabase.rpc("spend_credits_atomic", { _amount: COST });
@@ -423,7 +416,8 @@ Plain prose, no markdown headers, no code fences. Output text only.`;
       });
       brief = out.text.trim();
     } catch (err) {
-      if (!isOwner) await supabase.rpc("refund_credits", { _amount: COST, _reason: "brief failed" });
+      if (!isOwner)
+        await supabase.rpc("refund_credits", { _amount: COST, _reason: "brief failed" });
       throw new Error("Brief generation failed: " + String((err as Error).message));
     }
 
@@ -444,7 +438,9 @@ Plain prose, no markdown headers, no code fences. Output text only.`;
 export const importStudioErrors = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((i: unknown) =>
-    z.object({ projectId: z.string().uuid(), limit: z.number().min(1).max(50).default(20) }).parse(i),
+    z
+      .object({ projectId: z.string().uuid(), limit: z.number().min(1).max(50).default(20) })
+      .parse(i),
   )
   .handler(async ({ data, context }) => {
     const { supabase, userId } = context;
@@ -456,10 +452,7 @@ export const importStudioErrors = createServerFn({ method: "POST" })
         .eq("project_id", data.projectId)
         .order("created_at", { ascending: false })
         .limit(data.limit),
-      supabase
-        .from("project_tasks")
-        .select("title,status")
-        .eq("project_id", data.projectId),
+      supabase.from("project_tasks").select("title,status").eq("project_id", data.projectId),
       supabase
         .from("project_tasks")
         .select("position")

@@ -153,22 +153,26 @@ export const ROBLOX_IMAGE_PRESETS = {
   thumbnail: {
     aspectRatio: "16:9",
     use: "Roblox game thumbnail / promo banner",
-    promptHint: "high-energy Roblox game thumbnail, bold readable title area, colorful 3D scene, dramatic lighting, clean composition",
+    promptHint:
+      "high-energy Roblox game thumbnail, bold readable title area, colorful 3D scene, dramatic lighting, clean composition",
   },
   icon: {
     aspectRatio: "1:1",
     use: "Roblox game icon",
-    promptHint: "square Roblox game icon, centered subject, bold silhouette, bright background, readable at small size",
+    promptHint:
+      "square Roblox game icon, centered subject, bold silhouette, bright background, readable at small size",
   },
   decal: {
     aspectRatio: "1:1",
     use: "Roblox decal / UI image / badge / gamepass icon",
-    promptHint: "clean square decal art, transparent-style simple subject, strong outline, game-ready UI asset",
+    promptHint:
+      "clean square decal art, transparent-style simple subject, strong outline, game-ready UI asset",
   },
   verticalPromo: {
     aspectRatio: "9:16",
     use: "TikTok, Reels, Shorts, mobile promo image",
-    promptHint: "vertical Roblox promo poster, exciting scene, large subject, space for caption text",
+    promptHint:
+      "vertical Roblox promo poster, exciting scene, large subject, space for caption text",
   },
 } as const;
 

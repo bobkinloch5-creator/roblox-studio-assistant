@@ -27,7 +27,9 @@ export type BuildHistoryItem = {
 export const getBuildHistory = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((i: unknown) =>
-    z.object({ projectId: z.string().uuid(), limit: z.number().int().min(1).max(200).default(50) }).parse(i),
+    z
+      .object({ projectId: z.string().uuid(), limit: z.number().int().min(1).max(200).default(50) })
+      .parse(i),
   )
   .handler(async ({ data, context }): Promise<{ items: BuildHistoryItem[] }> => {
     const { supabase, userId } = context;
@@ -317,7 +319,11 @@ export const getBuildDiff = createServerFn({ method: "POST" })
     const files: BuildDiffFile[] = snap
       .filter((s) => s && typeof s.path === "string")
       .map((s) => {
-        const before: string | null = s.existed ? (typeof s.content === "string" ? s.content : "") : null;
+        const before: string | null = s.existed
+          ? typeof s.content === "string"
+            ? s.content
+            : ""
+          : null;
         const after: string | null = afterMap.has(s.path) ? afterMap.get(s.path)! : null;
         const beforeLines = before == null ? 0 : before.split("\n").length;
         const afterLines = after == null ? 0 : after.split("\n").length;
@@ -326,9 +332,22 @@ export const getBuildDiff = createServerFn({ method: "POST" })
         const afterSet = new Set((after ?? "").split("\n"));
         let added = 0;
         let removed = 0;
-        afterSet.forEach((l) => { if (!beforeSet.has(l)) added++; });
-        beforeSet.forEach((l) => { if (!afterSet.has(l)) removed++; });
-        return { path: s.path, existed: s.existed === true, before, after, beforeLines, afterLines, added, removed };
+        afterSet.forEach((l) => {
+          if (!beforeSet.has(l)) added++;
+        });
+        beforeSet.forEach((l) => {
+          if (!afterSet.has(l)) removed++;
+        });
+        return {
+          path: s.path,
+          existed: s.existed === true,
+          before,
+          after,
+          beforeLines,
+          afterLines,
+          added,
+          removed,
+        };
       });
 
     return { files };

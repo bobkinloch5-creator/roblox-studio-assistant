@@ -15,7 +15,11 @@ const IDLE_MS = 10 * 60_000; // seen in last 10 min
 
 export function usePluginConnection(pollMs = 8000): PluginConn {
   const { user } = useAuth();
-  const [conn, setConn] = useState<PluginConn>({ state: "loading", lastConnectedAt: null, placeName: null });
+  const [conn, setConn] = useState<PluginConn>({
+    state: "loading",
+    lastConnectedAt: null,
+    placeName: null,
+  });
 
   useEffect(() => {
     if (!user) {
@@ -45,7 +49,10 @@ export function usePluginConnection(pollMs = 8000): PluginConn {
 
     tick();
     const id = window.setInterval(tick, pollMs);
-    return () => { cancelled = true; window.clearInterval(id); };
+    return () => {
+      cancelled = true;
+      window.clearInterval(id);
+    };
   }, [user, pollMs]);
 
   return conn;

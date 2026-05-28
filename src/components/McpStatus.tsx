@@ -66,7 +66,12 @@ export function McpStatus({ compact = false }: { compact?: boolean }) {
       .channel("mcp-status-" + user.id)
       .on(
         "postgres_changes",
-        { event: "*", schema: "public", table: "user_mcp_servers", filter: `user_id=eq.${user.id}` },
+        {
+          event: "*",
+          schema: "public",
+          table: "user_mcp_servers",
+          filter: `user_id=eq.${user.id}`,
+        },
         () => load(),
       )
       .subscribe();
@@ -86,16 +91,15 @@ export function McpStatus({ compact = false }: { compact?: boolean }) {
   const failed = enabled.filter((r) => r.last_test_ok === false);
   const totalTools = connected.reduce((n, r) => n + (r.tool_count ?? 0), 0);
 
-  const state: "loading" | "none" | "ok" | "partial" | "fail" =
-    loading
-      ? "loading"
-      : enabled.length === 0
-        ? "none"
-        : failed.length > 0 && connected.length === 0
-          ? "fail"
-          : failed.length > 0
-            ? "partial"
-            : "ok";
+  const state: "loading" | "none" | "ok" | "partial" | "fail" = loading
+    ? "loading"
+    : enabled.length === 0
+      ? "none"
+      : failed.length > 0 && connected.length === 0
+        ? "fail"
+        : failed.length > 0
+          ? "partial"
+          : "ok";
 
   const color =
     state === "ok"
@@ -169,10 +173,7 @@ export function McpStatus({ compact = false }: { compact?: boolean }) {
                 Recheck
               </button>
             )}
-            <Link
-              to="/mcp-servers"
-              className="text-xs text-primary hover:underline"
-            >
+            <Link to="/mcp-servers" className="text-xs text-primary hover:underline">
               Manage
             </Link>
           </div>
@@ -205,9 +206,7 @@ export function McpStatus({ compact = false }: { compact?: boolean }) {
                                 : "bg-muted-foreground/60"
                         }`}
                       />
-                      <span className="font-medium text-foreground truncate flex-1">
-                        {r.name}
-                      </span>
+                      <span className="font-medium text-foreground truncate flex-1">{r.name}</span>
                       {ok && (
                         <span className="inline-flex items-center gap-1 text-success">
                           <CheckCircle2 className="h-3 w-3" />
@@ -219,13 +218,9 @@ export function McpStatus({ compact = false }: { compact?: boolean }) {
                           <XCircle className="h-3 w-3" /> error
                         </span>
                       )}
-                      {!r.enabled && (
-                        <span className="text-muted-foreground">off</span>
-                      )}
+                      {!r.enabled && <span className="text-muted-foreground">off</span>}
                     </div>
-                    <div className="text-muted-foreground truncate mt-0.5 pl-4">
-                      {r.url}
-                    </div>
+                    <div className="text-muted-foreground truncate mt-0.5 pl-4">{r.url}</div>
                     {ok && r.tools_cache && r.tools_cache.length > 0 && (
                       <div className="text-muted-foreground mt-1 pl-4 break-words">
                         <span className="text-foreground/80">Tools:</span>{" "}

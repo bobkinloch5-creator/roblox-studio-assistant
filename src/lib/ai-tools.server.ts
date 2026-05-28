@@ -135,8 +135,7 @@ export async function searchRobloxAssets(
       if (verifiedOnly) items = items.filter((i) => i.verified === true);
       items.sort(
         (a, b) =>
-          (b.upVotePercent ?? 0) * (b.voteCount ?? 0) -
-          (a.upVotePercent ?? 0) * (a.voteCount ?? 0),
+          (b.upVotePercent ?? 0) * (b.voteCount ?? 0) - (a.upVotePercent ?? 0) * (a.voteCount ?? 0),
       );
       return items.slice(0, limit);
     } catch {
@@ -170,7 +169,6 @@ export async function searchRobloxAssets(
   }
 }
 
-
 export const buildBloxSmithTools = (ctx: BloxSmithToolCtx = {}) => ({
   web_search: tool({
     description:
@@ -181,7 +179,7 @@ export const buildBloxSmithTools = (ctx: BloxSmithToolCtx = {}) => ({
     execute: async ({ query }) => {
       try {
         const url = `https://api.duckduckgo.com/?q=${encodeURIComponent(
-          query
+          query,
         )}&format=json&no_html=1&no_redirect=1&t=bloxsmith`;
         const r = await fetch(url, { headers: { "User-Agent": "BloxSmith/1.0" } });
         if (!r.ok) return { error: `HTTP ${r.status}`, results: [] };
@@ -338,7 +336,9 @@ export const buildBloxSmithTools = (ctx: BloxSmithToolCtx = {}) => ({
       verifiedOnly: z
         .boolean()
         .default(false)
-        .describe("If true, only return assets from Roblox or verified-badge creators. Default false — most free toolbox models are made by ordinary users."),
+        .describe(
+          "If true, only return assets from Roblox or verified-badge creators. Default false — most free toolbox models are made by ordinary users.",
+        ),
     }),
     execute: async ({ query, category, limit, verifiedOnly }) => {
       const items = await searchRobloxAssets(query, category, limit, { verifiedOnly });
@@ -356,7 +356,7 @@ export const buildBloxSmithTools = (ctx: BloxSmithToolCtx = {}) => ({
     execute: async ({ assetId, size }) => {
       try {
         const r = await fetch(
-          `https://thumbnails.roblox.com/v1/assets?assetIds=${assetId}&size=${size}&format=Png&isCircular=false`
+          `https://thumbnails.roblox.com/v1/assets?assetIds=${assetId}&size=${size}&format=Png&isCircular=false`,
         );
         const j: any = await r.json();
         const item = (j.data ?? [])[0];
@@ -470,14 +470,31 @@ export const buildBloxSmithTools = (ctx: BloxSmithToolCtx = {}) => ({
     description:
       "Add a new MCP (Model Context Protocol) server to the user's BloxSmith account. Use this when the user asks you to 'add an MCP server', pastes an MCP server URL, or pastes a BloxSmith MCP token (starts with 'bsmcp_'). If the user gives ONLY a 'bsmcp_...' token with no URL, default to BloxSmith's own MCP server (name: 'BloxSmith', url: 'https://bloxsmith.pro/api/public/mcp'). auth_header is optional — pass either the raw token or the full 'Bearer xxx' value; this tool will prepend 'Bearer ' automatically when missing. After adding, tell the user it's configured and they can manage it at /mcp-servers.",
     inputSchema: z.object({
-      name: z.string().min(1).max(80).optional().describe("Short friendly name. Defaults to 'BloxSmith' for bsmcp_ tokens."),
-      url: z.string().url().optional().describe("Full MCP endpoint URL. Defaults to https://bloxsmith.pro/api/public/mcp for bsmcp_ tokens."),
+      name: z
+        .string()
+        .min(1)
+        .max(80)
+        .optional()
+        .describe("Short friendly name. Defaults to 'BloxSmith' for bsmcp_ tokens."),
+      url: z
+        .string()
+        .url()
+        .optional()
+        .describe(
+          "Full MCP endpoint URL. Defaults to https://bloxsmith.pro/api/public/mcp for bsmcp_ tokens.",
+        ),
       auth_header: z
         .string()
         .max(2000)
         .optional()
-        .describe("Optional token or Authorization header. 'Bearer ' is added automatically if missing."),
-      token: z.string().max(2000).optional().describe("Alias for auth_header — accepts a bare token like 'bsmcp_...'."),
+        .describe(
+          "Optional token or Authorization header. 'Bearer ' is added automatically if missing.",
+        ),
+      token: z
+        .string()
+        .max(2000)
+        .optional()
+        .describe("Alias for auth_header — accepts a bare token like 'bsmcp_...'."),
     }),
     execute: async ({ name, url, auth_header, token }) => {
       if (!ctx.userId) return { error: "not authenticated" };
@@ -485,7 +502,8 @@ export const buildBloxSmithTools = (ctx: BloxSmithToolCtx = {}) => ({
       const isBsmcp = rawAuth.replace(/^Bearer\s+/i, "").startsWith("bsmcp_");
       if (!url && isBsmcp) url = "https://bloxsmith.pro/api/public/mcp";
       if (!name && isBsmcp) name = "BloxSmith";
-      if (!url) return { error: "Missing MCP server URL. Ask the user for the full https:// endpoint." };
+      if (!url)
+        return { error: "Missing MCP server URL. Ask the user for the full https:// endpoint." };
       if (!name) return { error: "Missing name. Ask the user for a short label for this server." };
       if (!/^https:\/\//i.test(url)) return { error: "URL must start with https://" };
       if (rawAuth && !/^Bearer\s+/i.test(rawAuth) && !rawAuth.includes(" ")) {
@@ -504,7 +522,12 @@ export const buildBloxSmithTools = (ctx: BloxSmithToolCtx = {}) => ({
             .update({ auth_header: rawAuth, enabled: true })
             .eq("id", existing.id)
             .eq("user_id", ctx.userId);
-          return { success: true, updated: true, id: existing.id, message: "Token updated on existing server." };
+          return {
+            success: true,
+            updated: true,
+            id: existing.id,
+            message: "Token updated on existing server.",
+          };
         }
         return { error: "An MCP server with that URL is already added", id: existing.id };
       }
@@ -534,7 +557,10 @@ export const buildBloxSmithTools = (ctx: BloxSmithToolCtx = {}) => ({
     inputSchema: z.object({
       id: z.string().uuid().optional(),
       match_url: z.string().url().optional().describe("Find the server by URL if id not provided."),
-      match_name: z.string().optional().describe("Find the server by name (case-insensitive) if id and match_url not provided."),
+      match_name: z
+        .string()
+        .optional()
+        .describe("Find the server by name (case-insensitive) if id and match_url not provided."),
       name: z.string().min(1).max(80).optional(),
       url: z.string().url().optional(),
       auth_header: z.string().max(2000).optional(),
@@ -545,7 +571,10 @@ export const buildBloxSmithTools = (ctx: BloxSmithToolCtx = {}) => ({
       if (!ctx.userId) return { error: "not authenticated" };
       let targetId = id;
       if (!targetId) {
-        let q = supabaseAdmin.from("user_mcp_servers").select("id,name,url").eq("user_id", ctx.userId);
+        let q = supabaseAdmin
+          .from("user_mcp_servers")
+          .select("id,name,url")
+          .eq("user_id", ctx.userId);
         if (match_url) q = q.eq("url", match_url);
         const { data: rows } = await q;
         let row = rows?.[0];
@@ -553,7 +582,10 @@ export const buildBloxSmithTools = (ctx: BloxSmithToolCtx = {}) => ({
           row = rows.find((r: any) => r.name?.toLowerCase() === match_name.toLowerCase());
         }
         if (!row && rows && rows.length === 1) row = rows[0];
-        if (!row) return { error: "Could not find a matching MCP server. Call list_mcp_servers and pass an id." };
+        if (!row)
+          return {
+            error: "Could not find a matching MCP server. Call list_mcp_servers and pass an id.",
+          };
         targetId = row.id;
       }
       let rawAuth = (auth_header ?? token ?? "").trim();
@@ -722,7 +754,9 @@ export const buildBloxSmithTools = (ctx: BloxSmithToolCtx = {}) => ({
           if (!r.ok) {
             const txt = await r.text().catch(() => "");
             if (r.status === 429)
-              return { error: "Gemini image generation is rate-limited right now. Try again in a moment." };
+              return {
+                error: "Gemini image generation is rate-limited right now. Try again in a moment.",
+              };
             if (r.status === 400 && /billing|quota|FAILED_PRECONDITION/i.test(txt))
               return {
                 error:
@@ -730,7 +764,9 @@ export const buildBloxSmithTools = (ctx: BloxSmithToolCtx = {}) => ({
               };
             if (r.status === 401 || r.status === 403)
               return { error: "Gemini rejected the API key (check GEMINI_API_KEY on the server)." };
-            return { error: `Gemini image generation failed (HTTP ${r.status}): ${txt.slice(0, 200)}` };
+            return {
+              error: `Gemini image generation failed (HTTP ${r.status}): ${txt.slice(0, 200)}`,
+            };
           }
           const j: any = await r.json();
           const parts: any[] = j?.candidates?.[0]?.content?.parts ?? [];
@@ -773,7 +809,8 @@ export const buildBloxSmithTools = (ctx: BloxSmithToolCtx = {}) => ({
         });
         if (!r.ok) {
           const txt = await r.text().catch(() => "");
-          if (r.status === 429) return { error: "Image generation rate-limited. Try again in a moment." };
+          if (r.status === 429)
+            return { error: "Image generation rate-limited. Try again in a moment." };
           if (r.status === 402) return { error: "Image generation credits exhausted." };
           return { error: `Image generation failed (HTTP ${r.status}): ${txt.slice(0, 200)}` };
         }
@@ -787,4 +824,3 @@ export const buildBloxSmithTools = (ctx: BloxSmithToolCtx = {}) => ({
     },
   }),
 });
-

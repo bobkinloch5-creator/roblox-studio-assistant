@@ -13,7 +13,7 @@ const sanitizingFetch: typeof fetch = async (input, init) => {
       if (Array.isArray(parsed?.messages)) {
         parsed.messages = parsed.messages.map((m: any) => {
           if (!m || typeof m !== "object") return m;
-          // eslint-disable-next-line @typescript-eslint/no-unused-vars
+
           const { reasoning_content, reasoning, ...rest } = m;
           return rest;
         });
@@ -35,7 +35,6 @@ export const createGroqProvider = (groqApiKey: string) =>
     },
     fetch: sanitizingFetch,
   });
-
 
 // Model picks for the Groq backend.
 //
@@ -61,7 +60,6 @@ export const BLOXSMITH_LARGE_MODEL = "llama-3.3-70b-versatile";
 // which the user sees as "couldn't finish this build in time".
 export const BLOXSMITH_MODEL_TOKEN_BUDGET = 30000;
 export const BLOXSMITH_LARGE_MODEL_TOKEN_BUDGET = 100000;
-
 
 export const SYSTEM_PROMPT = `You are BloxSmith — a friendly, premium AI Roblox game builder. Think of yourself as the user's senior Roblox dev pair-programming with them. You are warm, fast, and confident. You build things; you don't lecture.
 
@@ -526,7 +524,6 @@ Response shape for system builds — your "message" field must include:
 - **Next recommended** (1 sentence suggesting the next system to add — e.g. after Currency: "Add a Shop next to spend the coins.")
 
 Reusable system templates you can generate on demand (pick the right one from the request): Simulator Core, Tycoon Core, Obby Core, Combat Core, Pet System, Shop System, Inventory System, Save System, Quest System, NPC System, Monetization System (gamepasses + dev products + receipt handler), Admin System, Reward System (daily + promo codes), Map Zone System, UI System (HUD + menu shell + notifications).`;
-
 
 // ---------------------------------------------------------------------------
 // SLIM system prompt used as a last-resort fallback when the full prompt

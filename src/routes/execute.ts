@@ -25,10 +25,57 @@ function estimateTokens(s: string): number {
 }
 
 const STOP_WORDS = new Set([
-  "the","a","an","and","or","but","for","to","of","in","on","at","is","it","be","i",
-  "my","me","you","your","we","our","please","add","make","create","build","fix",
-  "place","put","spawn","insert","new","with","this","that","game","roblox","studio",
-  "can","do","need","want","into","from","just","like","some","more","really","very",
+  "the",
+  "a",
+  "an",
+  "and",
+  "or",
+  "but",
+  "for",
+  "to",
+  "of",
+  "in",
+  "on",
+  "at",
+  "is",
+  "it",
+  "be",
+  "i",
+  "my",
+  "me",
+  "you",
+  "your",
+  "we",
+  "our",
+  "please",
+  "add",
+  "make",
+  "create",
+  "build",
+  "fix",
+  "place",
+  "put",
+  "spawn",
+  "insert",
+  "new",
+  "with",
+  "this",
+  "that",
+  "game",
+  "roblox",
+  "studio",
+  "can",
+  "do",
+  "need",
+  "want",
+  "into",
+  "from",
+  "just",
+  "like",
+  "some",
+  "more",
+  "really",
+  "very",
 ]);
 
 function extractKeywords(prompt: string): string[] {
@@ -53,12 +100,18 @@ function scoreFile(f: DbFile, keywords: string[]): number {
   return score;
 }
 
-function pickRelevantFiles(files: DbFile[], keywords: string[], maxFiles: number, perFileChars: number): DbFile[] {
+function pickRelevantFiles(
+  files: DbFile[],
+  keywords: string[],
+  maxFiles: number,
+  perFileChars: number,
+): DbFile[] {
   if (files.length === 0) return [];
-  const scored = files
-    .map((f) => ({ f, s: scoreFile(f, keywords) }))
-    .sort((a, b) => b.s - a.s);
-  const relevant = scored.filter((x) => x.s > 0).slice(0, maxFiles).map((x) => x.f);
+  const scored = files.map((f) => ({ f, s: scoreFile(f, keywords) })).sort((a, b) => b.s - a.s);
+  const relevant = scored
+    .filter((x) => x.s > 0)
+    .slice(0, maxFiles)
+    .map((x) => x.f);
   // Always include at least a short manifest of paths so the model knows what's there.
   return relevant.map((f) => ({ ...f, content: (f.content ?? "").slice(0, perFileChars) }));
 }
@@ -74,11 +127,13 @@ function summarizeLive(live: any, charBudget: number): string {
       const slim: Record<string, unknown> = {};
       for (const [service, value] of Object.entries(live)) {
         if (Array.isArray(value)) {
-          slim[service] = value.slice(0, 30).map((c: any) =>
-            typeof c === "object" && c
-              ? { name: c.Name ?? c.name, class: c.ClassName ?? c.className }
-              : c,
-          );
+          slim[service] = value
+            .slice(0, 30)
+            .map((c: any) =>
+              typeof c === "object" && c
+                ? { name: c.Name ?? c.name, class: c.ClassName ?? c.className }
+                : c,
+            );
         } else if (value && typeof value === "object") {
           const v = value as any;
           slim[service] = { name: v.Name ?? v.name, class: v.ClassName ?? v.className };
@@ -107,7 +162,10 @@ type ContextInputs = {
   memoryBlock?: string;
 };
 
-function buildContextBlock(level: 0 | 1 | 2 | 3, inp: ContextInputs): {
+function buildContextBlock(
+  level: 0 | 1 | 2 | 3,
+  inp: ContextInputs,
+): {
   contextBlock: string;
   trimmedHistory: { role: "user" | "assistant"; content: string }[];
   filesIncluded: number;
@@ -127,11 +185,12 @@ function buildContextBlock(level: 0 | 1 | 2 | 3, inp: ContextInputs): {
     return { contextBlock, trimmedHistory: [], filesIncluded: 0 };
   }
 
-
-  const relevant = maxFiles > 0
-    ? pickRelevantFiles(inp.files, inp.keywords, maxFiles, perFileChars)
-    : [];
-  const manifestPaths = inp.files.slice(0, 40).map((f) => f.path).join(", ");
+  const relevant =
+    maxFiles > 0 ? pickRelevantFiles(inp.files, inp.keywords, maxFiles, perFileChars) : [];
+  const manifestPaths = inp.files
+    .slice(0, 40)
+    .map((f) => f.path)
+    .join(", ");
   const filesBlock = relevant.length
     ? relevant
         .map((f) => `--- ${f.path} (${f.file_type} in ${f.service_location}) ---\n${f.content}`)
@@ -161,7 +220,6 @@ function buildContextBlock(level: 0 | 1 | 2 | 3, inp: ContextInputs): {
   return { contextBlock, trimmedHistory, filesIncluded: relevant.length };
 }
 
-
 const ALLOWED_ORIGIN_EXACT = new Set([
   "https://bloxsmith.pro",
   "https://www.bloxsmith.pro",
@@ -175,7 +233,11 @@ const ALLOWED_ORIGIN_SUFFIX = [".lovable.app", ".lovable.dev", ".lovable.project
 function getCorsHeaders(request: Request) {
   const origin = request.headers.get("origin") || "";
   let host = "";
-  try { host = new URL(origin).hostname; } catch { /* ignore */ }
+  try {
+    host = new URL(origin).hostname;
+  } catch {
+    /* ignore */
+  }
   const allowed =
     ALLOWED_ORIGIN_EXACT.has(origin) ||
     (host && ALLOWED_ORIGIN_SUFFIX.some((s) => host.endsWith(s)));
@@ -183,7 +245,7 @@ function getCorsHeaders(request: Request) {
 
   return {
     "Access-Control-Allow-Origin": allowedOrigin,
-    "Vary": "Origin",
+    Vary: "Origin",
     "Access-Control-Allow-Methods": "POST, OPTIONS",
     "Access-Control-Allow-Headers": "Content-Type, Authorization",
     "Content-Type": "application/json",
@@ -214,7 +276,7 @@ function normalizeResult(raw: any): ExecuteResult {
       ? raw.message.trim()
       : typeof raw.summary === "string" && raw.summary.trim()
         ? raw.summary.trim()
-          : files.length || actions.length
+        : files.length || actions.length
           ? "I prepared the build and queued the Studio operations."
           : "The model ran out of room before it could finalize the build. Try again — usually the second attempt succeeds, or split the request into smaller steps.";
 
@@ -235,7 +297,10 @@ function studioSafeMessage(message: string, queuedCount: number, autoExecute: bo
   if (queuedCount <= 0) return message;
   const cleaned = message
     .replace(/^done\s*[—-]?\s*/i, "")
-    .replace(/\bI(?:'ve| have)?\s+(created|inserted|updated|fixed|built|pushed|applied|added)\b/gi, "I queued")
+    .replace(
+      /\bI(?:'ve| have)?\s+(created|inserted|updated|fixed|built|pushed|applied|added)\b/gi,
+      "I queued",
+    )
     .replace(/\b(Created|Inserted|Updated|Fixed|Built|Pushed|Applied|Added)\b/g, "Queued");
   const suffix = autoExecute
     ? "Sent to Studio — it auto-applies in edit mode."
@@ -313,8 +378,7 @@ function getGrassTemplate() {
 
 function getTreesTemplate() {
   return {
-    message:
-      "A safe free tree model is queued for the Studio plugin with script scanning enabled.",
+    message: "A safe free tree model is queued for the Studio plugin with script scanning enabled.",
     files: [],
     actions: [
       {
@@ -363,7 +427,7 @@ local function setupCoin(coin)
 		local player = Players:GetPlayerFromCharacter(character)
 		if player and not db then
 			db = true
-			
+
 			-- Award coins
 			local leaderstats = player:FindFirstChild("leaderstats")
 			if leaderstats then
@@ -372,11 +436,11 @@ local function setupCoin(coin)
 					coinStat.Value = coinStat.Value + 10
 				end
 			end
-			
+
 			-- Make translucent / disabled during cooldown
 			coin.Transparency = 1
 			coin.CanCollide = false
-			
+
 			task.wait(5) -- Respawn delay
 			coin.Transparency = 0
 			db = false
@@ -815,7 +879,13 @@ end)
 }
 
 function getMapStarterTemplate(prompt: string): ExecuteResult {
-  const title = prompt.replace(/[^a-zA-Z0-9 ]/g, " ").trim().split(/\s+/).slice(0, 4).join(" ") || "BloxSmith map";
+  const title =
+    prompt
+      .replace(/[^a-zA-Z0-9 ]/g, " ")
+      .trim()
+      .split(/\s+/)
+      .slice(0, 4)
+      .join(" ") || "BloxSmith map";
   return {
     message: `The AI timed out, so I queued a focused starter version of ${title} in Workspace/Map with a Play-mode spawn. Run a smaller follow-up to add the next piece.`,
     files: [],
@@ -824,7 +894,12 @@ function getMapStarterTemplate(prompt: string): ExecuteResult {
       { type: "create", className: "Folder", name: "Buildings", parent: "Workspace/Map" },
       { type: "create", className: "Folder", name: "Roads", parent: "Workspace/Map" },
       { type: "create", className: "Folder", name: "Props", parent: "Workspace/Map" },
-      { type: "spawn", name: "BloxsmithSpawn", parent: "Workspace/Map", position: { __t: "Vector3", x: 0, y: 6, z: 0 } },
+      {
+        type: "spawn",
+        name: "BloxsmithSpawn",
+        parent: "Workspace/Map",
+        position: { __t: "Vector3", x: 0, y: 6, z: 0 },
+      },
       {
         type: "create_part",
         parent: "Workspace/Map",
@@ -850,7 +925,10 @@ function getMapStarterTemplate(prompt: string): ExecuteResult {
 }
 
 function getGunTemplate(prompt: string): ExecuteResult {
-  const name = /\b(pistol|rifle|shotgun|sniper|smg|ak|m4|gun|weapon|blaster)\b/i.exec(prompt)?.[0]?.replace(/^./, (c) => c.toUpperCase()) || "Pistol";
+  const name =
+    /\b(pistol|rifle|shotgun|sniper|smg|ak|m4|gun|weapon|blaster)\b/i
+      .exec(prompt)?.[0]
+      ?.replace(/^./, (c) => c.toUpperCase()) || "Pistol";
   return {
     message: `The AI timed out, so I queued a working starter ${name} Tool in StarterPack. Equip it in Play mode — left click to fire a raycast shot with a tracer and damage.`,
     files: [
@@ -930,7 +1008,17 @@ end)
       { type: "create", className: "Folder", name: "Tools", parent: "StarterPack" },
       { type: "create", className: "Folder", name: "Systems", parent: "ServerScriptService" },
       { type: "create", className: "Folder", name: "Remotes", parent: "ReplicatedStorage" },
-      { type: "create", className: "Tool", name, parent: "StarterPack/Tools", props: { RequiresHandle: true, CanBeDropped: true, ToolTip: `${name} — left click to fire` } },
+      {
+        type: "create",
+        className: "Tool",
+        name,
+        parent: "StarterPack/Tools",
+        props: {
+          RequiresHandle: true,
+          CanBeDropped: true,
+          ToolTip: `${name} — left click to fire`,
+        },
+      },
       {
         type: "create_part",
         parent: `StarterPack/Tools/${name}`,
@@ -997,12 +1085,77 @@ gui:Destroy()
       },
     ],
     actions: [
-      { type: "create", className: "ScreenGui", name: "LoadingScreen", parent: "StarterGui", props: { IgnoreGuiInset: true, ResetOnSpawn: false, DisplayOrder: 9999 } },
-      { type: "create", className: "Frame", name: "Backdrop", parent: "StarterGui/LoadingScreen", props: { Size: { __t: "UDim2", xs: 1, xo: 0, ys: 1, yo: 0 }, BackgroundColor3: { __t: "Color3", r: 10/255, g: 12/255, b: 18/255 }, BorderSizePixel: 0 } },
-      { type: "create", className: "TextLabel", name: "TitleLabel", parent: "StarterGui/LoadingScreen/Backdrop", props: { Size: { __t: "UDim2", xs: 0.8, xo: 0, ys: 0, yo: 80 }, Position: { __t: "UDim2", xs: 0.1, xo: 0, ys: 0.32, yo: 0 }, BackgroundTransparency: 1, Text: title, TextColor3: { __t: "Color3", r: 1, g: 1, b: 1 }, TextScaled: true, Font: "GothamBold" } },
-      { type: "create", className: "Frame", name: "BarBg", parent: "StarterGui/LoadingScreen/Backdrop", props: { Size: { __t: "UDim2", xs: 0.5, xo: 0, ys: 0, yo: 18 }, Position: { __t: "UDim2", xs: 0.25, xo: 0, ys: 0.55, yo: 0 }, BackgroundColor3: { __t: "Color3", r: 0.12, g: 0.14, b: 0.2 }, BorderSizePixel: 0 } },
-      { type: "create", className: "Frame", name: "Fill", parent: "StarterGui/LoadingScreen/Backdrop/BarBg", props: { Size: { __t: "UDim2", xs: 0, xo: 0, ys: 1, yo: 0 }, BackgroundColor3: { __t: "Color3", r: 0.35, g: 0.7, b: 1 }, BorderSizePixel: 0 } },
-      { type: "create", className: "TextLabel", name: "StatusLabel", parent: "StarterGui/LoadingScreen/Backdrop", props: { Size: { __t: "UDim2", xs: 0.5, xo: 0, ys: 0, yo: 28 }, Position: { __t: "UDim2", xs: 0.25, xo: 0, ys: 0.6, yo: 16 }, BackgroundTransparency: 1, Text: "Loading 0%", TextColor3: { __t: "Color3", r: 0.8, g: 0.85, b: 0.95 }, TextScaled: true, Font: "Gotham" } },
+      {
+        type: "create",
+        className: "ScreenGui",
+        name: "LoadingScreen",
+        parent: "StarterGui",
+        props: { IgnoreGuiInset: true, ResetOnSpawn: false, DisplayOrder: 9999 },
+      },
+      {
+        type: "create",
+        className: "Frame",
+        name: "Backdrop",
+        parent: "StarterGui/LoadingScreen",
+        props: {
+          Size: { __t: "UDim2", xs: 1, xo: 0, ys: 1, yo: 0 },
+          BackgroundColor3: { __t: "Color3", r: 10 / 255, g: 12 / 255, b: 18 / 255 },
+          BorderSizePixel: 0,
+        },
+      },
+      {
+        type: "create",
+        className: "TextLabel",
+        name: "TitleLabel",
+        parent: "StarterGui/LoadingScreen/Backdrop",
+        props: {
+          Size: { __t: "UDim2", xs: 0.8, xo: 0, ys: 0, yo: 80 },
+          Position: { __t: "UDim2", xs: 0.1, xo: 0, ys: 0.32, yo: 0 },
+          BackgroundTransparency: 1,
+          Text: title,
+          TextColor3: { __t: "Color3", r: 1, g: 1, b: 1 },
+          TextScaled: true,
+          Font: "GothamBold",
+        },
+      },
+      {
+        type: "create",
+        className: "Frame",
+        name: "BarBg",
+        parent: "StarterGui/LoadingScreen/Backdrop",
+        props: {
+          Size: { __t: "UDim2", xs: 0.5, xo: 0, ys: 0, yo: 18 },
+          Position: { __t: "UDim2", xs: 0.25, xo: 0, ys: 0.55, yo: 0 },
+          BackgroundColor3: { __t: "Color3", r: 0.12, g: 0.14, b: 0.2 },
+          BorderSizePixel: 0,
+        },
+      },
+      {
+        type: "create",
+        className: "Frame",
+        name: "Fill",
+        parent: "StarterGui/LoadingScreen/Backdrop/BarBg",
+        props: {
+          Size: { __t: "UDim2", xs: 0, xo: 0, ys: 1, yo: 0 },
+          BackgroundColor3: { __t: "Color3", r: 0.35, g: 0.7, b: 1 },
+          BorderSizePixel: 0,
+        },
+      },
+      {
+        type: "create",
+        className: "TextLabel",
+        name: "StatusLabel",
+        parent: "StarterGui/LoadingScreen/Backdrop",
+        props: {
+          Size: { __t: "UDim2", xs: 0.5, xo: 0, ys: 0, yo: 28 },
+          Position: { __t: "UDim2", xs: 0.25, xo: 0, ys: 0.6, yo: 16 },
+          BackgroundTransparency: 1,
+          Text: "Loading 0%",
+          TextColor3: { __t: "Color3", r: 0.8, g: 0.85, b: 0.95 },
+          TextScaled: true,
+          Font: "Gotham",
+        },
+      },
     ],
   };
 }
@@ -1010,29 +1163,116 @@ gui:Destroy()
 function getSoundTemplate(prompt: string): ExecuteResult {
   const lower = prompt.toLowerCase();
   // Curated free Roblox library sound asset IDs by category.
-  const library: Array<{ test: RegExp; id: string; label: string; volume?: number; looped?: boolean }> = [
-    { test: /\b(gun|pistol|shoot|shot|fire|blast)\b/, id: "rbxassetid://131961136", label: "Gunshot" },
-    { test: /\b(explos|boom|bomb|grenade|tnt)\b/, id: "rbxassetid://138186576", label: "Explosion" },
-    { test: /\b(coin|pickup|collect|ding|reward)\b/, id: "rbxassetid://131323304", label: "Coin pickup" },
+  const library: Array<{
+    test: RegExp;
+    id: string;
+    label: string;
+    volume?: number;
+    looped?: boolean;
+  }> = [
+    {
+      test: /\b(gun|pistol|shoot|shot|fire|blast)\b/,
+      id: "rbxassetid://131961136",
+      label: "Gunshot",
+    },
+    {
+      test: /\b(explos|boom|bomb|grenade|tnt)\b/,
+      id: "rbxassetid://138186576",
+      label: "Explosion",
+    },
+    {
+      test: /\b(coin|pickup|collect|ding|reward)\b/,
+      id: "rbxassetid://131323304",
+      label: "Coin pickup",
+    },
     { test: /\b(click|button|tap|ui|press)\b/, id: "rbxassetid://6895079853", label: "UI click" },
     { test: /\b(jump|hop)\b/, id: "rbxassetid://9125402735", label: "Jump" },
-    { test: /\b(footstep|walk|step|run)\b/, id: "rbxassetid://9125604850", label: "Footsteps", looped: true },
+    {
+      test: /\b(footstep|walk|step|run)\b/,
+      id: "rbxassetid://9125604850",
+      label: "Footsteps",
+      looped: true,
+    },
     { test: /\b(hit|punch|hurt|damage|impact)\b/, id: "rbxassetid://5810753638", label: "Hit" },
-    { test: /\b(death|die|dead|defeat|lose)\b/, id: "rbxassetid://5982740659", label: "Death sting" },
-    { test: /\b(win|victory|level\s*up|complete|success)\b/, id: "rbxassetid://9125483735", label: "Victory" },
-    { test: /\b(swing|sword|slash|blade|katana)\b/, id: "rbxassetid://12222216", label: "Sword swing" },
+    {
+      test: /\b(death|die|dead|defeat|lose)\b/,
+      id: "rbxassetid://5982740659",
+      label: "Death sting",
+    },
+    {
+      test: /\b(win|victory|level\s*up|complete|success)\b/,
+      id: "rbxassetid://9125483735",
+      label: "Victory",
+    },
+    {
+      test: /\b(swing|sword|slash|blade|katana)\b/,
+      id: "rbxassetid://12222216",
+      label: "Sword swing",
+    },
     { test: /\b(reload)\b/, id: "rbxassetid://5755085759", label: "Gun reload" },
     { test: /\b(door|open|close)\b/, id: "rbxassetid://9114126435", label: "Door open" },
-    { test: /\b(notif|message|popup|alert)\b/, id: "rbxassetid://6042053626", label: "Notification" },
+    {
+      test: /\b(notif|message|popup|alert)\b/,
+      id: "rbxassetid://6042053626",
+      label: "Notification",
+    },
     { test: /\b(thunder|lightning|storm)\b/, id: "rbxassetid://133997824", label: "Thunder" },
-    { test: /\b(rain|water|drip)\b/, id: "rbxassetid://131961134", label: "Rain", looped: true, volume: 0.5 },
-    { test: /\b(wind|breeze|whoosh)\b/, id: "rbxassetid://9114223905", label: "Wind", looped: true, volume: 0.4 },
-    { test: /\b(fire|flame|burn|torch)\b/, id: "rbxassetid://9112854440", label: "Fire crackle", looped: true, volume: 0.5 },
-    { test: /\b(horror|scary|spooky|creepy|ambient.*dark)\b/, id: "rbxassetid://9046657432", label: "Horror ambience", looped: true, volume: 0.6 },
-    { test: /\b(epic|battle|boss|combat).*music\b|\bbattle\s*music\b/, id: "rbxassetid://1837854082", label: "Epic battle music", looped: true, volume: 0.5 },
-    { test: /\b(lobby|menu|chill|calm).*music\b|\blobby\s*music\b/, id: "rbxassetid://1837799774", label: "Lobby music", looped: true, volume: 0.5 },
-    { test: /\b(music|song|bgm|background\s*music|soundtrack)\b/, id: "rbxassetid://1837854082", label: "Background music", looped: true, volume: 0.5 },
-    { test: /\b(beep|alarm|siren)\b/, id: "rbxassetid://3744371091", label: "Alarm beep", looped: true, volume: 0.6 },
+    {
+      test: /\b(rain|water|drip)\b/,
+      id: "rbxassetid://131961134",
+      label: "Rain",
+      looped: true,
+      volume: 0.5,
+    },
+    {
+      test: /\b(wind|breeze|whoosh)\b/,
+      id: "rbxassetid://9114223905",
+      label: "Wind",
+      looped: true,
+      volume: 0.4,
+    },
+    {
+      test: /\b(fire|flame|burn|torch)\b/,
+      id: "rbxassetid://9112854440",
+      label: "Fire crackle",
+      looped: true,
+      volume: 0.5,
+    },
+    {
+      test: /\b(horror|scary|spooky|creepy|ambient.*dark)\b/,
+      id: "rbxassetid://9046657432",
+      label: "Horror ambience",
+      looped: true,
+      volume: 0.6,
+    },
+    {
+      test: /\b(epic|battle|boss|combat).*music\b|\bbattle\s*music\b/,
+      id: "rbxassetid://1837854082",
+      label: "Epic battle music",
+      looped: true,
+      volume: 0.5,
+    },
+    {
+      test: /\b(lobby|menu|chill|calm).*music\b|\blobby\s*music\b/,
+      id: "rbxassetid://1837799774",
+      label: "Lobby music",
+      looped: true,
+      volume: 0.5,
+    },
+    {
+      test: /\b(music|song|bgm|background\s*music|soundtrack)\b/,
+      id: "rbxassetid://1837854082",
+      label: "Background music",
+      looped: true,
+      volume: 0.5,
+    },
+    {
+      test: /\b(beep|alarm|siren)\b/,
+      id: "rbxassetid://3744371091",
+      label: "Alarm beep",
+      looped: true,
+      volume: 0.6,
+    },
     { test: /\b(teleport|warp|portal|magic)\b/, id: "rbxassetid://9113878839", label: "Teleport" },
     { test: /\b(heal|potion|drink)\b/, id: "rbxassetid://9120154083", label: "Heal" },
     { test: /\b(laser|beam|sci-?fi|sci\s*fi)\b/, id: "rbxassetid://9059409580", label: "Laser" },
@@ -1076,9 +1316,12 @@ function getFocusedFallbackTemplate(prompt: string): ExecuteResult {
   const lower = prompt.toLowerCase();
   // Only return a template when the prompt clearly asks for that specific thing.
   // Otherwise return an honest error — never dump random grass/trees/maps the user did NOT ask for.
-  if (/\b(gun|pistol|rifle|shotgun|sniper|smg|ak|m4|weapon|blaster|firearm)\b/.test(lower)) return getGunTemplate(prompt);
-  if (/\bloading\s*screen|splash\s*screen|intro\s*screen|title\s*screen\b/.test(lower)) return getLoadingScreenTemplate(prompt);
-  if (/\b(sound|sfx|audio|music|bgm|soundtrack|noise)\b/.test(lower)) return getSoundTemplate(prompt);
+  if (/\b(gun|pistol|rifle|shotgun|sniper|smg|ak|m4|weapon|blaster|firearm)\b/.test(lower))
+    return getGunTemplate(prompt);
+  if (/\bloading\s*screen|splash\s*screen|intro\s*screen|title\s*screen\b/.test(lower))
+    return getLoadingScreenTemplate(prompt);
+  if (/\b(sound|sfx|audio|music|bgm|soundtrack|noise)\b/.test(lower))
+    return getSoundTemplate(prompt);
   if (/\bshop|store\b/.test(lower)) return getShopTemplate() as ExecuteResult;
   if (/\bobby|parkour\b/.test(lower)) return getObbyTemplate() as ExecuteResult;
   if (/\btycoon\b/.test(lower)) return getTycoonTemplate() as ExecuteResult;
@@ -1086,7 +1329,8 @@ function getFocusedFallbackTemplate(prompt: string): ExecuteResult {
   if (/\bnpc|dummy\b/.test(lower)) return getNpcTemplate() as ExecuteResult;
   if (/\btree|forest\b/.test(lower)) return getTreesTemplate() as ExecuteResult;
   if (/\bgrass\b/.test(lower)) return getGrassTemplate() as ExecuteResult;
-  if (/\b(map|baseplate|starter\s*map|terrain|world)\b/.test(lower)) return getMapStarterTemplate(prompt);
+  if (/\b(map|baseplate|starter\s*map|terrain|world)\b/.test(lower))
+    return getMapStarterTemplate(prompt);
   // No reliable match — refuse to invent random content. Tell the user honestly.
   return {
     message:
@@ -1097,31 +1341,63 @@ function getFocusedFallbackTemplate(prompt: string): ExecuteResult {
 }
 
 function getInstantTemplateForPrompt(cleanedPrompt: string): ExecuteResult | null {
-  const simple = cleanedPrompt.length <= 80 && !/\b(custom|advanced|complex|complete|full game|entire game)\b/.test(cleanedPrompt);
+  const simple =
+    cleanedPrompt.length <= 80 &&
+    !/\b(custom|advanced|complex|complete|full game|entire game)\b/.test(cleanedPrompt);
   if (!simple) return null;
 
-  if (/^(add|make|create|build|give me)\s+(a\s+|an\s+)?(basic\s+|simple\s+)?grass\b/.test(cleanedPrompt)) {
+  if (
+    /^(add|make|create|build|give me)\s+(a\s+|an\s+)?(basic\s+|simple\s+)?grass\b/.test(
+      cleanedPrompt,
+    )
+  ) {
     return getGrassTemplate() as ExecuteResult;
   }
-  if (/^(add|make|create|build|give me)\s+(a\s+|an\s+)?(basic\s+|simple\s+)?trees?\b/.test(cleanedPrompt)) {
+  if (
+    /^(add|make|create|build|give me)\s+(a\s+|an\s+)?(basic\s+|simple\s+)?trees?\b/.test(
+      cleanedPrompt,
+    )
+  ) {
     return getTreesTemplate() as ExecuteResult;
   }
-  if (/^(add|make|create|build|give me)\s+(a\s+|an\s+)?(basic\s+|simple\s+)?coins?\b/.test(cleanedPrompt)) {
+  if (
+    /^(add|make|create|build|give me)\s+(a\s+|an\s+)?(basic\s+|simple\s+)?coins?\b/.test(
+      cleanedPrompt,
+    )
+  ) {
     return getCoinsTemplate() as ExecuteResult;
   }
-  if (/^(add|make|create|build|give me)\s+(a\s+|an\s+)?(basic\s+|simple\s+)?(shop|store|shop gui|store gui)\b/.test(cleanedPrompt)) {
+  if (
+    /^(add|make|create|build|give me)\s+(a\s+|an\s+)?(basic\s+|simple\s+)?(shop|store|shop gui|store gui)\b/.test(
+      cleanedPrompt,
+    )
+  ) {
     return getShopTemplate() as ExecuteResult;
   }
-  if (/^(add|make|create|build|give me)\s+(a\s+|an\s+)?(basic\s+|simple\s+)?npc\b/.test(cleanedPrompt)) {
+  if (
+    /^(add|make|create|build|give me)\s+(a\s+|an\s+)?(basic\s+|simple\s+)?npc\b/.test(cleanedPrompt)
+  ) {
     return getNpcTemplate() as ExecuteResult;
   }
-  if (/^(add|make|create|build|give me)\s+(a\s+|an\s+)?(basic\s+|simple\s+)?obby\b/.test(cleanedPrompt)) {
+  if (
+    /^(add|make|create|build|give me)\s+(a\s+|an\s+)?(basic\s+|simple\s+)?obby\b/.test(
+      cleanedPrompt,
+    )
+  ) {
     return getObbyTemplate() as ExecuteResult;
   }
-  if (/^(add|make|create|build|give me)\s+(a\s+|an\s+)?(basic\s+|simple\s+)?tycoon\b/.test(cleanedPrompt)) {
+  if (
+    /^(add|make|create|build|give me)\s+(a\s+|an\s+)?(basic\s+|simple\s+)?tycoon\b/.test(
+      cleanedPrompt,
+    )
+  ) {
     return getTycoonTemplate() as ExecuteResult;
   }
-  if (/^(add|make|create|build|give me)\s+(a\s+|an\s+)?(basic\s+|simple\s+)?leaderstats\b/.test(cleanedPrompt)) {
+  if (
+    /^(add|make|create|build|give me)\s+(a\s+|an\s+)?(basic\s+|simple\s+)?leaderstats\b/.test(
+      cleanedPrompt,
+    )
+  ) {
     return getLeaderstatsTemplate() as ExecuteResult;
   }
   return null;
@@ -1134,21 +1410,35 @@ function pickFastTools(prompt: string, ctx: { projectId: string; userId: string 
   const add = (name: string) => {
     if (allTools[name]) picked[name] = allTools[name];
   };
-  if (/\[web search enabled\]|search the web|look up|current|docs|documentation|api/i.test(prompt)) {
+  if (
+    /\[web search enabled\]|search the web|look up|current|docs|documentation|api/i.test(prompt)
+  ) {
     add("roblox_docs_search");
     add("web_search");
     add("fetch_url");
   }
-  if (/\b(datastore|remoteevent|remotefunction|marketplaceservice|pathfindingservice|tweenservice|runservice|animation|animator|humanoid|screen.?gui|luau|creator hub|api reference)\b/i.test(prompt)) {
+  if (
+    /\b(datastore|remoteevent|remotefunction|marketplaceservice|pathfindingservice|tweenservice|runservice|animation|animator|humanoid|screen.?gui|luau|creator hub|api reference)\b/i.test(
+      prompt,
+    )
+  ) {
     add("roblox_docs_search");
   }
   if (/thumbnail|icon|logo|decal|artwork|poster|banner|loading screen/i.test(prompt)) {
     add("generate_image");
   }
-  if (/\b(toolbox|creator store|free model|asset|model id|insert model|use a model|marketplace|map asset|lobby asset|prop|skybox|music|sound)\b/i.test(lower)) {
+  if (
+    /\b(toolbox|creator store|free model|asset|model id|insert model|use a model|marketplace|map asset|lobby asset|prop|skybox|music|sound)\b/i.test(
+      lower,
+    )
+  ) {
     add("roblox_asset_search");
   }
-  if (/\b(asset info|asset details|verify asset|thumbnail|preview|safe model|scan scripts?)\b/i.test(lower)) {
+  if (
+    /\b(asset info|asset details|verify asset|thumbnail|preview|safe model|scan scripts?)\b/i.test(
+      lower,
+    )
+  ) {
     add("roblox_asset_info");
     add("roblox_asset_thumbnail");
   }
@@ -1183,12 +1473,10 @@ async function resolveSearchQueries(actions: any[]): Promise<any[]> {
   for (const a of actions) {
     if (a && a.type === "insert_toolbox_asset" && a.searchQuery && !a.assetId) {
       try {
-        const items = await searchRobloxAssets(
-          a.searchQuery,
-          a.category || "Models",
-          5,
-          { freeOnly: true, verifiedOnly: false },
-        );
+        const items = await searchRobloxAssets(a.searchQuery, a.category || "Models", 5, {
+          freeOnly: true,
+          verifiedOnly: false,
+        });
         if (items.length > 0) {
           const best = items[0];
           resolved.push({ ...a, assetId: best.assetId, name: a.name || best.name });
@@ -1207,9 +1495,7 @@ async function resolveSearchQueries(actions: any[]): Promise<any[]> {
   }
   // Drop unresolved toolbox actions (no assetId + no searchQuery match) so we
   // don't queue a no-op insertion the plugin will reject.
-  return resolved.filter(
-    (a) => !(a && a.type === "insert_toolbox_asset" && !a.assetId),
-  );
+  return resolved.filter((a) => !(a && a.type === "insert_toolbox_asset" && !a.assetId));
 }
 
 function mapGroqActionsToPlugin(actions: any[]): GenAction[] {
@@ -1433,7 +1719,7 @@ function tryParseJSON(raw: string): any {
   try {
     return JSON.parse(cleaned);
   } catch (e) {
-    let repaired = cleaned.replace(/,\s*([}\]])/g, "$1");
+    const repaired = cleaned.replace(/,\s*([}\]])/g, "$1");
     try {
       return JSON.parse(repaired);
     } catch {
@@ -1473,34 +1759,47 @@ async function withRateLimitRetry<T>(label: string, fn: () => Promise<T>): Promi
       const msg = String(err?.message ?? err);
       const status = err?.status ?? err?.statusCode;
       const is429 = status === 429 || /\b429\b|rate.?limit|too many requests|tpm/i.test(msg);
-      const is5xx = (status >= 500 && status < 600) || /\b50\d\b|service unavailable|bad gateway|timeout/i.test(msg);
-      const isFatal = status === 401 || status === 402 || status === 413 || /too large|context length/i.test(msg);
+      const is5xx =
+        (status >= 500 && status < 600) ||
+        /\b50\d\b|service unavailable|bad gateway|timeout/i.test(msg);
+      const isFatal =
+        status === 401 || status === 402 || status === 413 || /too large|context length/i.test(msg);
       if (isFatal || (!is429 && !is5xx) || attempt === delays.length) throw err;
       const delay = delays[attempt] + Math.floor(Math.random() * 250);
-      console.warn(`[${label}] transient error (attempt ${attempt + 1}), retrying in ${delay}ms: ${msg.slice(0, 200)}`);
+      console.warn(
+        `[${label}] transient error (attempt ${attempt + 1}), retrying in ${delay}ms: ${msg.slice(0, 200)}`,
+      );
       await new Promise((r) => setTimeout(r, delay));
     }
   }
   throw lastErr;
 }
 
-function classifyProviderError(err: any): "timeout" | "context" | "rate_limit" | "tool" | "json" | "provider" | "unknown" {
+function classifyProviderError(
+  err: any,
+): "timeout" | "context" | "rate_limit" | "tool" | "json" | "provider" | "unknown" {
   const msg = String(err?.message ?? err);
   const status = err?.status ?? err?.statusCode;
   if (err?.name === "AbortError" || /aborted|abort|timeout|timed out/i.test(msg)) return "timeout";
-  if (status === 413 || /too large|context length|maximum context|token limit|tpm/i.test(msg)) return "context";
+  if (status === 413 || /too large|context length|maximum context|token limit|tpm/i.test(msg))
+    return "context";
   if (status === 429 || /\b429\b|rate.?limit|too many requests/i.test(msg)) return "rate_limit";
-  if (/tool[_ ]use|tool call|function calling|tools? (are|is) not supported|invalid tool|unsupported.*tool/i.test(msg)) return "tool";
+  if (
+    /tool[_ ]use|tool call|function calling|tools? (are|is) not supported|invalid tool|unsupported.*tool/i.test(
+      msg,
+    )
+  )
+    return "tool";
   if (/json|no json object|unexpected end|unterminated|truncated/i.test(msg)) return "json";
   if (typeof status === "number" && status >= 500) return "provider";
   return "unknown";
 }
 
-
-export const Route = createFileRoute("/api/assistant/execute")({
+export const Route = createFileRoute("/execute")({
   server: {
     handlers: {
-      OPTIONS: async ({ request }) => new Response(null, { status: 204, headers: getCorsHeaders(request) }),
+      OPTIONS: async ({ request }) =>
+        new Response(null, { status: 204, headers: getCorsHeaders(request) }),
       POST: async ({ request }) => {
         const corsHeaders = getCorsHeaders(request);
         const charged = { current: false };
@@ -1556,13 +1855,16 @@ export const Route = createFileRoute("/api/assistant/execute")({
           }
 
           const body = await request.json().catch(() => ({}));
-          const { projectId, prompt, autoExecute, studioConnected, thinking, aiMode, attachments } = body;
+          const { projectId, prompt, autoExecute, studioConnected, thinking, aiMode, attachments } =
+            body;
           // Vision: optional list of data URLs (data:image/...;base64,...) sent
           // from the chat composer's attach-image button. Cap to 4 images so we
           // don't blow the context window.
           const visionImages: string[] = Array.isArray(attachments)
             ? attachments
-                .filter((x: unknown): x is string => typeof x === "string" && x.startsWith("data:image/"))
+                .filter(
+                  (x: unknown): x is string => typeof x === "string" && x.startsWith("data:image/"),
+                )
                 .slice(0, 4)
             : [];
 
@@ -1589,10 +1891,12 @@ export const Route = createFileRoute("/api/assistant/execute")({
               status: 404,
               headers: corsHeaders,
             });
-          const projectRules = typeof (project as any).ai_rules === "string"
-            ? String((project as any).ai_rules).trim().slice(0, 4000)
-            : "";
-
+          const projectRules =
+            typeof (project as any).ai_rules === "string"
+              ? String((project as any).ai_rules)
+                  .trim()
+                  .slice(0, 4000)
+              : "";
 
           // Spend Credits
           const cost = 3;
@@ -1609,13 +1913,19 @@ export const Route = createFileRoute("/api/assistant/execute")({
               const msg = rlErr.message || "";
               if (msg.includes("rate_limited_5h")) {
                 return new Response(
-                  JSON.stringify({ error: "You've hit your 5-hour message limit. It resets soon — check the usage panel for the exact time." }),
+                  JSON.stringify({
+                    error:
+                      "You've hit your 5-hour message limit. It resets soon — check the usage panel for the exact time.",
+                  }),
                   { status: 429, headers: corsHeaders },
                 );
               }
               if (msg.includes("rate_limited_7d")) {
                 return new Response(
-                  JSON.stringify({ error: "You've hit your weekly message limit. It resets in the next few days — check the usage panel." }),
+                  JSON.stringify({
+                    error:
+                      "You've hit your weekly message limit. It resets in the next few days — check the usage panel.",
+                  }),
                   { status: 429, headers: corsHeaders },
                 );
               }
@@ -1693,26 +2003,27 @@ export const Route = createFileRoute("/api/assistant/execute")({
               try {
                 const gateway = apiKey ? createGroqProvider(apiKey) : null;
 
-                const [liveContextResult, existingFilesResult, convoRowResult, memoryBlock] = await Promise.all([
-                  supabaseUser
-                    .from("plugin_context")
-                    .select("context,instance_count,updated_at")
-                    .eq("project_id", projectId)
-                    .maybeSingle(),
-                  supabaseUser
-                    .from("project_files")
-                    .select("path,file_type,service_location,content")
-                    .eq("project_id", projectId)
-                    .limit(60),
-                  supabaseUser
-                    .from("agent_conversations")
-                    .select("id")
-                    .eq("project_id", projectId)
-                    .order("created_at", { ascending: true })
-                    .limit(1)
-                    .maybeSingle(),
-                  buildProjectMemoryBlock(supabaseUser, projectId, { limit: 10, maxChars: 1200 }),
-                ]);
+                const [liveContextResult, existingFilesResult, convoRowResult, memoryBlock] =
+                  await Promise.all([
+                    supabaseUser
+                      .from("plugin_context")
+                      .select("context,instance_count,updated_at")
+                      .eq("project_id", projectId)
+                      .maybeSingle(),
+                    supabaseUser
+                      .from("project_files")
+                      .select("path,file_type,service_location,content")
+                      .eq("project_id", projectId)
+                      .limit(60),
+                    supabaseUser
+                      .from("agent_conversations")
+                      .select("id")
+                      .eq("project_id", projectId)
+                      .order("created_at", { ascending: true })
+                      .limit(1)
+                      .maybeSingle(),
+                    buildProjectMemoryBlock(supabaseUser, projectId, { limit: 10, maxChars: 1200 }),
+                  ]);
                 const liveContext = liveContextResult.data;
                 const existingFiles = existingFilesResult.data;
                 const convoRow = convoRowResult.data;
@@ -1738,21 +2049,26 @@ export const Route = createFileRoute("/api/assistant/execute")({
                       if (m.role === "assistant" && m.actions && typeof m.actions === "object") {
                         const a: any = m.actions;
                         const parts: string[] = [];
-                        if (typeof a.files === "number" && a.files > 0) parts.push(`${a.files} file${a.files === 1 ? "" : "s"}`);
-                        if (typeof a.actions === "number" && a.actions > 0) parts.push(`${a.actions} studio action${a.actions === 1 ? "" : "s"}`);
+                        if (typeof a.files === "number" && a.files > 0)
+                          parts.push(`${a.files} file${a.files === 1 ? "" : "s"}`);
+                        if (typeof a.actions === "number" && a.actions > 0)
+                          parts.push(`${a.actions} studio action${a.actions === 1 ? "" : "s"}`);
                         if (a.reverted === true) parts.push("REVERTED by user");
                         if (parts.length > 0) {
                           const snap: any[] = Array.isArray(a.snapshot) ? a.snapshot : [];
-                          const paths = snap.slice(0, 6).map((s: any) => s?.path).filter((p: any) => typeof p === "string");
-                          const pathHint = paths.length ? ` [${paths.join(", ")}${snap.length > 6 ? `, +${snap.length - 6} more` : ""}]` : "";
+                          const paths = snap
+                            .slice(0, 6)
+                            .map((s: any) => s?.path)
+                            .filter((p: any) => typeof p === "string");
+                          const pathHint = paths.length
+                            ? ` [${paths.join(", ")}${snap.length > 6 ? `, +${snap.length - 6} more` : ""}]`
+                            : "";
                           content = `[Built: ${parts.join(", ")}${pathHint}] ${content}`;
                         }
                       }
                       return { role: m.role as "user" | "assistant", content };
                     });
                 }
-
-
 
                 const keywords = extractKeywords(prompt);
                 const ctxInputs: ContextInputs = {
@@ -1784,16 +2100,22 @@ export const Route = createFileRoute("/api/assistant/execute")({
                 // attempt #0 instead of waiting for the 8B to fail first.
                 const wantsFullPrompt =
                   !!thinking ||
-                  /\b(game|tycoon|simulator|obby|shop|inventory|menu|hud|loading|splash|main\s*menu|settings|cutscene|quest|admin|rpg|combat|weapon|npc|enemy|boss|pet|map|world|city|lobby|tower\s*defense)\b/i.test(prompt);
+                  /\b(game|tycoon|simulator|obby|shop|inventory|menu|hud|loading|splash|main\s*menu|settings|cutscene|quest|admin|rpg|combat|weapon|npc|enemy|boss|pet|map|world|city|lobby|tower\s*defense)\b/i.test(
+                    prompt,
+                  );
 
                 const resolvedBudget = getModelProfile(resolved.provider, resolved.modelName, {
                   thinking: !!thinking,
                 }).inputTokenBudget;
                 const hasGroqFallback = !!apiKey;
-                const largeBudget = getModelProfile(hasGroqFallback ? "groq" : resolved.provider, hasGroqFallback ? BLOXSMITH_LARGE_MODEL : resolved.modelName, {
-                  thinking: !!thinking,
-                  retry: true,
-                }).inputTokenBudget;
+                const largeBudget = getModelProfile(
+                  hasGroqFallback ? "groq" : resolved.provider,
+                  hasGroqFallback ? BLOXSMITH_LARGE_MODEL : resolved.modelName,
+                  {
+                    thinking: !!thinking,
+                    retry: true,
+                  },
+                ).inputTokenBudget;
                 // For built-in (groq) mode, upgrade the first attempt from the
                 // small fast model to the large model when the request is
                 // build-heavy. This skips a wasted 8B attempt that would
@@ -1802,23 +2124,46 @@ export const Route = createFileRoute("/api/assistant/execute")({
                 const builtInLevel0Model =
                   wantsFullPrompt && hasGroqFallback ? BLOXSMITH_LARGE_MODEL : resolved.modelName;
                 const builtInLevel0Budget =
-                  wantsFullPrompt && hasGroqFallback ? largeBudget : (resolvedBudget || BLOXSMITH_MODEL_TOKEN_BUDGET);
-                const attempts: Attempt[] = resolved.source === "api_key"
-                  ? [
-                      // Single attempt for user-key mode — the 2nd attempt nearly
-                      // doubled wall time on every build. If level 1 errors with a
-                      // too-large signal, the loop below escalates to level 3.
-                      { level: 1, modelId: resolved.modelName, budget: resolvedBudget, useResolved: true },
-                      { level: 3, modelId: resolved.modelName, budget: resolvedBudget, useResolved: true },
-                    ]
-                  : [
-                      // Fast path: one attempt with the small model, one with the large
-                      // model as a fallback. Four attempts blew past Cloudflare's
-                      // worker wall-time and caused 502s. Build-heavy requests skip
-                      // straight to the large model on attempt #0.
-                      { level: 0, modelId: builtInLevel0Model, budget: builtInLevel0Budget, useResolved: !wantsFullPrompt || !hasGroqFallback },
-                      { level: 2, modelId: hasGroqFallback ? BLOXSMITH_LARGE_MODEL : resolved.modelName, budget: largeBudget || BLOXSMITH_LARGE_MODEL_TOKEN_BUDGET, useResolved: !hasGroqFallback },
-                    ];
+                  wantsFullPrompt && hasGroqFallback
+                    ? largeBudget
+                    : resolvedBudget || BLOXSMITH_MODEL_TOKEN_BUDGET;
+                const attempts: Attempt[] =
+                  resolved.source === "api_key"
+                    ? [
+                        // Single attempt for user-key mode — the 2nd attempt nearly
+                        // doubled wall time on every build. If level 1 errors with a
+                        // too-large signal, the loop below escalates to level 3.
+                        {
+                          level: 1,
+                          modelId: resolved.modelName,
+                          budget: resolvedBudget,
+                          useResolved: true,
+                        },
+                        {
+                          level: 3,
+                          modelId: resolved.modelName,
+                          budget: resolvedBudget,
+                          useResolved: true,
+                        },
+                      ]
+                    : [
+                        // Fast path: one attempt with the small model, one with the large
+                        // model as a fallback. Four attempts blew past Cloudflare's
+                        // worker wall-time and caused 502s. Build-heavy requests skip
+                        // straight to the large model on attempt #0.
+                        {
+                          level: 0,
+                          modelId: builtInLevel0Model,
+                          budget: builtInLevel0Budget,
+                          useResolved: !wantsFullPrompt || !hasGroqFallback,
+                        },
+                        {
+                          level: 2,
+                          modelId: hasGroqFallback ? BLOXSMITH_LARGE_MODEL : resolved.modelName,
+                          budget: largeBudget || BLOXSMITH_LARGE_MODEL_TOKEN_BUDGET,
+                          useResolved: !hasGroqFallback,
+                        },
+                      ];
 
                 const systemTokens = estimateTokens(SYSTEM_PROMPT);
                 const slimSystemTokens = estimateTokens(SLIM_SYSTEM_PROMPT);
@@ -1844,14 +2189,15 @@ export const Route = createFileRoute("/api/assistant/execute")({
                     estimateTokens(built.contextBlock) +
                     built.trimmedHistory.reduce((sum, m) => sum + estimateTokens(m.content), 0);
 
-
                   console.log(
                     `[ai-execute] attempt=${i} src=${resolved.source} level=${att.level} model=${att.modelId} ` +
                       `est_tokens=${promptTokens} budget=${att.budget} files_included=${built.filesIncluded} slim=${useSlim}`,
                   );
 
                   if (promptTokens > att.budget && i < attempts.length - 1) {
-                    console.log(`[ai-execute] skipping attempt ${i}: over budget, compressing further`);
+                    console.log(
+                      `[ai-execute] skipping attempt ${i}: over budget, compressing further`,
+                    );
                     continue;
                   }
 
@@ -1862,18 +2208,21 @@ export const Route = createFileRoute("/api/assistant/execute")({
                   //   Groq gateway with the larger model.
                   const model = att.useResolved
                     ? resolved.model
-                    : (gateway ? gateway(att.modelId) : resolved.model);
+                    : gateway
+                      ? gateway(att.modelId)
+                      : resolved.model;
                   // Build the user turn. When the user attaches screenshots
                   // (vision), send the message as a multi-part content array
                   // so vision-capable models (Gemini 2.5+/3, GPT-5) can see
                   // them and reason about what's broken / what to build.
                   type Part = { type: "text"; text: string } | { type: "image"; image: string };
-                  const userContent: string | Part[] = visionImages.length > 0
-                    ? [
-                        { type: "text", text: built.contextBlock } as Part,
-                        ...visionImages.map((image): Part => ({ type: "image", image })),
-                      ]
-                    : built.contextBlock;
+                  const userContent: string | Part[] =
+                    visionImages.length > 0
+                      ? [
+                          { type: "text", text: built.contextBlock } as Part,
+                          ...visionImages.map((image): Part => ({ type: "image", image })),
+                        ]
+                      : built.contextBlock;
                   const messages = [
                     ...built.trimmedHistory,
                     { role: "user" as const, content: userContent as any },
@@ -1881,10 +2230,14 @@ export const Route = createFileRoute("/api/assistant/execute")({
 
                   rawText = "";
                   try {
-                    const systemWithRules = (projectRules
-                      ? `${baseSystem}\n\n=== PROJECT-SPECIFIC RULES (override defaults) ===\n${projectRules}`
-                      : baseSystem) + "\n\nUse PROJECT MEMORY for persistent preferences, game name, style, genre, and recent context. If it conflicts with live project files or the latest user request, obey the latest request and live state." + (modeAddendum ? `\n\n${modeAddendum}` : "");
-                    const { generateTextWithToolFallback, extractToolActivity } = await import("@/lib/ai-retry.server");
+                    const systemWithRules =
+                      (projectRules
+                        ? `${baseSystem}\n\n=== PROJECT-SPECIFIC RULES (override defaults) ===\n${projectRules}`
+                        : baseSystem) +
+                      "\n\nUse PROJECT MEMORY for persistent preferences, game name, style, genre, and recent context. If it conflicts with live project files or the latest user request, obey the latest request and live state." +
+                      (modeAddendum ? `\n\n${modeAddendum}` : "");
+                    const { generateTextWithToolFallback, extractToolActivity } =
+                      await import("@/lib/ai-retry.server");
                     // Per-model output-token cap. Each provider/model family has a
                     // hard max_completion_tokens. Asking for more than the cap
                     // either errors (Groq 400) or is silently clamped. Asking for
@@ -1896,7 +2249,10 @@ export const Route = createFileRoute("/api/assistant/execute")({
                     // settings, tycoon, simulator) need more room than simple part edits.
                     // On retry (i>0) we drop tools entirely so the model just emits JSON —
                     // dramatically faster and avoids another timeout.
-                    const heavyBuild = /\b(shop|inventory|menu|settings|tycoon|simulator|gui|ui|system|leaderboard|quest|admin|hud|panel|dashboard)\b/i.test(prompt);
+                    const heavyBuild =
+                      /\b(shop|inventory|menu|settings|tycoon|simulator|gui|ui|system|leaderboard|quest|admin|hud|panel|dashboard)\b/i.test(
+                        prompt,
+                      );
                     const isRetry = i > 0;
                     // Give build JSON enough room to finish. The previous 3.5k cap
                     // was truncating maps/UI/system builds and producing empty results.
@@ -1908,7 +2264,9 @@ export const Route = createFileRoute("/api/assistant/execute")({
                       retry: isRetry,
                     });
                     const maxOut = profile.maxOutputTokens;
-                    const perAttemptMs = isRetry ? Math.min(profile.timeoutMs, 30_000) : profile.timeoutMs;
+                    const perAttemptMs = isRetry
+                      ? Math.min(profile.timeoutMs, 30_000)
+                      : profile.timeoutMs;
                     const attemptCtl = new AbortController();
                     const timeoutId = setTimeout(() => attemptCtl.abort(), perAttemptMs);
                     const combinedSignal: AbortSignal = (AbortSignal as any).any
@@ -1923,18 +2281,26 @@ export const Route = createFileRoute("/api/assistant/execute")({
                     const started = Date.now();
                     try {
                       textRes = await withRateLimitRetry("ai-execute", () =>
-                        generateTextWithToolFallback(generateText, {
-                          model,
-                          system: systemWithRules,
-                          messages,
-                          tools: attemptTools,
-                          // Fewer tool-loop steps = faster builds. Most builds need 2-3 steps.
-                          stopWhen: stepCountIs(profile.stopSteps),
-                          maxOutputTokens: maxOut,
-                          maxRetries: 0,
-                          timeout: { totalMs: perAttemptMs, stepMs: perAttemptMs, chunkMs: 12_000 },
-                          abortSignal: combinedSignal,
-                        }, `ai-execute attempt#${i} src=${resolved.source} model=${att.modelId} slim=${useSlim} maxOut=${maxOut} tools=${isRetry ? 0 : "fast"}`),
+                        generateTextWithToolFallback(
+                          generateText,
+                          {
+                            model,
+                            system: systemWithRules,
+                            messages,
+                            tools: attemptTools,
+                            // Fewer tool-loop steps = faster builds. Most builds need 2-3 steps.
+                            stopWhen: stepCountIs(profile.stopSteps),
+                            maxOutputTokens: maxOut,
+                            maxRetries: 0,
+                            timeout: {
+                              totalMs: perAttemptMs,
+                              stepMs: perAttemptMs,
+                              chunkMs: 12_000,
+                            },
+                            abortSignal: combinedSignal,
+                          },
+                          `ai-execute attempt#${i} src=${resolved.source} model=${att.modelId} slim=${useSlim} maxOut=${maxOut} tools=${isRetry ? 0 : "fast"}`,
+                        ),
                       );
                       await recordProviderHealth({
                         feature: "build",
@@ -1946,7 +2312,6 @@ export const Route = createFileRoute("/api/assistant/execute")({
                         projectId,
                         userId,
                       });
-
                     } finally {
                       clearTimeout(timeoutId);
                     }
@@ -1955,19 +2320,28 @@ export const Route = createFileRoute("/api/assistant/execute")({
                     try {
                       const events = extractToolActivity(textRes);
                       aiActivity = events.map((e) => {
-                        const a = e.args ?? {};
+                        const a = (e.args ?? {}) as Record<string, unknown>;
+                        const s = (k: string) => (typeof a[k] === "string" ? (a[k] as string) : "");
                         let summary = "";
-                        if (e.tool === "roblox_asset_search") summary = `searched toolbox "${a.query ?? ""}" (${a.category ?? "Models"})`;
-                        else if (e.tool === "roblox_asset_info") summary = `checked asset ${a.assetId ?? ""}`;
-                        else if (e.tool === "roblox_asset_thumbnail") summary = `previewed asset ${a.assetId ?? ""}`;
-                        else if (e.tool === "roblox_docs_search") summary = `checked Roblox docs for "${a.query ?? ""}"`;
-                        else if (e.tool === "web_search") summary = `web search "${a.query ?? ""}"`;
-                        else if (e.tool === "fetch_url") summary = `fetched ${a.url ?? ""}`;
-                        else if (e.tool === "list_project_files") summary = `listed your project files`;
-                        else if (e.tool === "read_project_file") summary = `read ${a.path ?? ""}`;
-                        else if (e.tool === "read_workspace_context") summary = `inspected your live Studio workspace`;
-                        else if (e.tool === "roblox_terrain_preset") summary = `loaded terrain preset "${a.preset ?? ""}"`;
-                        else if (e.tool === "add_mcp_server") summary = `added MCP server ${a.name ?? a.url ?? ""}`;
+                        if (e.tool === "roblox_asset_search")
+                          summary = `searched toolbox "${s("query")}" (${s("category") || "Models"})`;
+                        else if (e.tool === "roblox_asset_info")
+                          summary = `checked asset ${s("assetId")}`;
+                        else if (e.tool === "roblox_asset_thumbnail")
+                          summary = `previewed asset ${s("assetId")}`;
+                        else if (e.tool === "roblox_docs_search")
+                          summary = `checked Roblox docs for "${s("query")}"`;
+                        else if (e.tool === "web_search") summary = `web search "${s("query")}"`;
+                        else if (e.tool === "fetch_url") summary = `fetched ${s("url")}`;
+                        else if (e.tool === "list_project_files")
+                          summary = `listed your project files`;
+                        else if (e.tool === "read_project_file") summary = `read ${s("path")}`;
+                        else if (e.tool === "read_workspace_context")
+                          summary = `inspected your live Studio workspace`;
+                        else if (e.tool === "roblox_terrain_preset")
+                          summary = `loaded terrain preset "${s("preset")}"`;
+                        else if (e.tool === "add_mcp_server")
+                          summary = `added MCP server ${s("name") || s("url")}`;
                         else if (e.tool === "update_mcp_server") summary = `updated MCP server`;
                         else if (e.tool === "list_mcp_servers") summary = `listed your MCP servers`;
                         else summary = e.tool;
@@ -1982,8 +2356,6 @@ export const Route = createFileRoute("/api/assistant/execute")({
                     result = normalizeResult(tryParseJSON(rawText));
                     lastErr = null;
                     break;
-
-
                   } catch (err: any) {
                     const attemptProvider = att.useResolved ? resolved.provider : "groq";
                     const attemptSource = att.useResolved ? resolved.source : "mcp";
@@ -2000,15 +2372,21 @@ export const Route = createFileRoute("/api/assistant/execute")({
                     lastErr = err;
                     const msg = String(err?.message ?? err);
                     const isTooLarge = /too large|context length|token|tpm|413/i.test(msg);
-                    const isAbort = err?.name === "AbortError" || /aborted|abort|timeout/i.test(msg);
-                    const isBadJson = /json|no json object|unexpected end|unterminated|truncated/i.test(msg);
+                    const isAbort =
+                      err?.name === "AbortError" || /aborted|abort|timeout/i.test(msg);
+                    const isBadJson =
+                      /json|no json object|unexpected end|unterminated|truncated/i.test(msg);
                     console.error(
                       `[ai-execute] attempt ${i} failed (tooLarge=${isTooLarge}, abort=${isAbort}, badJson=${isBadJson}): ${msg.slice(0, 300)}`,
                     );
                     if (!isTooLarge && !isAbort && rawText && gateway) {
                       try {
                         result = normalizeResult(
-                          await repairJsonWithGroq(rawText, gateway, gateway(BLOXSMITH_LARGE_MODEL)),
+                          await repairJsonWithGroq(
+                            rawText,
+                            gateway,
+                            gateway(BLOXSMITH_LARGE_MODEL),
+                          ),
                         );
                         lastErr = null;
                         break;
@@ -2057,7 +2435,6 @@ export const Route = createFileRoute("/api/assistant/execute")({
               }
             }
           }
-
 
           if (!result) {
             await refundOnFailure("ai generation returned no result");
@@ -2111,29 +2488,55 @@ export const Route = createFileRoute("/api/assistant/execute")({
           // didn't queue ANY toolbox insert, auto-search and inject one so
           // the result isn't just empty Lighting tweaks.
           const lowerPrompt = prompt.toLowerCase();
-          const wantsMap = /\b(map|world|lobby|arena|city|town|village|island|dungeon|level|scene|environment)\b/.test(lowerPrompt);
-          const hasInsert = mappedActions.some((a: any) => a?.type === "insert_toolbox_asset" || a?.type === "insertAsset");
+          const wantsMap =
+            /\b(map|world|lobby|arena|city|town|village|island|dungeon|level|scene|environment)\b/.test(
+              lowerPrompt,
+            );
+          const hasInsert = mappedActions.some(
+            (a: any) => a?.type === "insert_toolbox_asset" || a?.type === "insertAsset",
+          );
           if (wantsMap) {
-            const hasSpawn = mappedActions.some((a: any) => a?.type === "spawn" || (a?.type === "create" && a?.className === "SpawnLocation"));
-            const mapFolders = ["Map", "Buildings", "Roads", "Trees", "Props", "Zones"].map((name) => ({
-              type: "create",
-              className: "Folder",
-              name,
-              parent: name === "Map" ? "Workspace" : "Workspace/Map",
-            }));
+            const hasSpawn = mappedActions.some(
+              (a: any) =>
+                a?.type === "spawn" || (a?.type === "create" && a?.className === "SpawnLocation"),
+            );
+            const mapFolders = ["Map", "Buildings", "Roads", "Trees", "Props", "Zones"].map(
+              (name) => ({
+                type: "create",
+                className: "Folder",
+                name,
+                parent: name === "Map" ? "Workspace" : "Workspace/Map",
+              }),
+            );
             mappedActions.unshift(...mapFolders);
             if (!hasSpawn) {
-              mappedActions.push({ type: "spawn", name: "BloxsmithSpawn", parent: "Workspace/Map", position: { __t: "Vector3", x: 0, y: 6, z: 0 } });
+              mappedActions.push({
+                type: "spawn",
+                name: "BloxsmithSpawn",
+                parent: "Workspace/Map",
+                position: { __t: "Vector3", x: 0, y: 6, z: 0 },
+              });
             }
           }
           if (wantsMap && !hasInsert) {
             try {
               const { searchRobloxAssets } = await import("@/lib/ai-tools.server");
               // Build a focused query from the prompt (first 6 words).
-              const q = prompt.replace(/[^a-zA-Z0-9 ]/g, " ").split(/\s+/).filter(Boolean).slice(0, 6).join(" ") + " map";
-              const items = await searchRobloxAssets(q, "Models", 3, { freeOnly: true, verifiedOnly: false });
+              const q =
+                prompt
+                  .replace(/[^a-zA-Z0-9 ]/g, " ")
+                  .split(/\s+/)
+                  .filter(Boolean)
+                  .slice(0, 6)
+                  .join(" ") + " map";
+              const items = await searchRobloxAssets(q, "Models", 3, {
+                freeOnly: true,
+                verifiedOnly: false,
+              });
               if (items.length > 0) {
-                console.log(`[Execute API] Safety net: injected toolbox map ${items[0].assetId} ("${items[0].name}") for query "${q}"`);
+                console.log(
+                  `[Execute API] Safety net: injected toolbox map ${items[0].assetId} ("${items[0].name}") for query "${q}"`,
+                );
                 mappedActions.push({
                   type: "insert_toolbox_asset",
                   assetId: items[0].assetId,
@@ -2151,7 +2554,6 @@ export const Route = createFileRoute("/api/assistant/execute")({
               console.error("Safety net toolbox search failed:", err);
             }
           }
-
 
           // Validation check
           const { data: existingForValidation } = await supabaseUser
@@ -2190,7 +2592,6 @@ export const Route = createFileRoute("/api/assistant/execute")({
               source: f.content,
             });
           }
-
 
           // Detect dangerous actions
           const dangers = detectDangerousActions(result.files, queued);

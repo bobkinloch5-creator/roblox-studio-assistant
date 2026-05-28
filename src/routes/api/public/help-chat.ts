@@ -150,11 +150,17 @@ export const Route = createFileRoute("/api/public/help-chat")({
           const body = await request.json().catch(() => ({}));
           const message = typeof body?.message === "string" ? body.message.trim() : "";
           if (!message) {
-            return new Response(JSON.stringify({ error: "missing_message" }), { status: 400, headers: cors });
+            return new Response(JSON.stringify({ error: "missing_message" }), {
+              status: 400,
+              headers: cors,
+            });
           }
           if (message.length > MAX_MESSAGE_CHARS) {
             return new Response(
-              JSON.stringify({ error: "too_long", message: `Please keep your question under ${MAX_MESSAGE_CHARS} characters.` }),
+              JSON.stringify({
+                error: "too_long",
+                message: `Please keep your question under ${MAX_MESSAGE_CHARS} characters.`,
+              }),
               { status: 400, headers: cors },
             );
           }
@@ -164,10 +170,13 @@ export const Route = createFileRoute("/api/public/help-chat")({
 
           if (!gateway) {
             console.warn("[help-chat] no model gateway configured; using local fallback answer.");
-            return new Response(JSON.stringify({ reply: localHelpAnswer(message), model: "local-fallback" }), {
-              status: 200,
-              headers: cors,
-            });
+            return new Response(
+              JSON.stringify({ reply: localHelpAnswer(message), model: "local-fallback" }),
+              {
+                status: 200,
+                headers: cors,
+              },
+            );
           }
 
           const messages = [
@@ -186,20 +195,34 @@ export const Route = createFileRoute("/api/public/help-chat")({
               abortSignal: AbortSignal.timeout(30_000),
             });
             const reply = (text ?? "").trim() || localHelpAnswer(message);
-            return new Response(JSON.stringify({ reply, model: gateway.modelName }), { status: 200, headers: cors });
-          } catch (err: any) {
-            console.warn("[help-chat] model call failed; using local fallback:", err?.message ?? err);
-            return new Response(JSON.stringify({ reply: localHelpAnswer(message), model: "local-fallback" }), {
+            return new Response(JSON.stringify({ reply, model: gateway.modelName }), {
               status: 200,
               headers: cors,
             });
+          } catch (err: any) {
+            console.warn(
+              "[help-chat] model call failed; using local fallback:",
+              err?.message ?? err,
+            );
+            return new Response(
+              JSON.stringify({ reply: localHelpAnswer(message), model: "local-fallback" }),
+              {
+                status: 200,
+                headers: cors,
+              },
+            );
           }
         } catch (err: any) {
           console.error("[help-chat] unexpected error:", err?.message ?? err);
-          return new Response(JSON.stringify({ reply: "Something went wrong, but you can still check /faq or /docs for setup help." }), {
-            status: 200,
-            headers: cors,
-          });
+          return new Response(
+            JSON.stringify({
+              reply: "Something went wrong, but you can still check /faq or /docs for setup help.",
+            }),
+            {
+              status: 200,
+              headers: cors,
+            },
+          );
         }
       },
     },

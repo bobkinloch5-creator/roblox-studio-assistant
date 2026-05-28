@@ -60,9 +60,7 @@ async function runBuild(projectId: string, prompt: string, callerUserId: string)
   if (!spent) throw new Error("Could not spend credit (concurrent update).");
 
   const { generateText, stepCountIs } = await import("ai");
-  const { SYSTEM_PROMPT } = await import(
-    "@/lib/ai-gateway.server"
-  );
+  const { SYSTEM_PROMPT } = await import("@/lib/ai-gateway.server");
   const { resolveBuiltInGateway } = await import("@/lib/ai-providers.server");
   const { buildBloxSmithTools } = await import("@/lib/ai-tools.server");
 
@@ -212,7 +210,10 @@ export const buildRobloxTool = defineTool({
     let billUserId = userId;
     if (!billUserId) {
       const { data: p } = await supabaseAdmin
-        .from("projects").select("user_id").eq("id", projectId).maybeSingle();
+        .from("projects")
+        .select("user_id")
+        .eq("id", projectId)
+        .maybeSingle();
       billUserId = p?.user_id ?? null;
     }
     if (!billUserId) throw new Error("No user to bill credits to.");
@@ -271,14 +272,13 @@ export const listProjectsTool = defineTool({
     if (!userId && !isAdmin) throw new Error("Unauthorized.");
 
     // Owned projects
-    let ownedIds = new Set<string>();
+    const ownedIds = new Set<string>();
     if (userId) {
       const { data: owned } = await supabaseAdmin
         .from("projects")
         .select("id")
         .eq("user_id", userId);
       (owned ?? []).forEach((p) => ownedIds.add(p.id));
-
     }
 
     let query = supabaseAdmin
@@ -348,7 +348,15 @@ export const mcpConnectionHelpTool = defineTool({
     const snippets: Record<string, unknown> = {
       claude_code: {
         file: "~/.claude.json",
-        config: { mcpServers: { bloxsmith: { type: "http", url: endpoint, headers: { Authorization: "Bearer YOUR_MCP_TOKEN" } } } },
+        config: {
+          mcpServers: {
+            bloxsmith: {
+              type: "http",
+              url: endpoint,
+              headers: { Authorization: "Bearer YOUR_MCP_TOKEN" },
+            },
+          },
+        },
       },
       codex: {
         file: "~/.codex/config.toml",
@@ -356,23 +364,55 @@ export const mcpConnectionHelpTool = defineTool({
       },
       vscode: {
         file: ".vscode/mcp.json",
-        config: { servers: { bloxsmith: { type: "http", url: endpoint, headers: { Authorization: "Bearer YOUR_MCP_TOKEN" } } } },
+        config: {
+          servers: {
+            bloxsmith: {
+              type: "http",
+              url: endpoint,
+              headers: { Authorization: "Bearer YOUR_MCP_TOKEN" },
+            },
+          },
+        },
       },
       cursor: {
         file: "~/.cursor/mcp.json",
-        config: { mcpServers: { bloxsmith: { url: endpoint, headers: { Authorization: "Bearer YOUR_MCP_TOKEN" } } } },
+        config: {
+          mcpServers: {
+            bloxsmith: { url: endpoint, headers: { Authorization: "Bearer YOUR_MCP_TOKEN" } },
+          },
+        },
       },
       windsurf: {
         file: "~/.codeium/windsurf/mcp_config.json",
-        config: { mcpServers: { bloxsmith: { serverUrl: endpoint, headers: { Authorization: "Bearer YOUR_MCP_TOKEN" } } } },
+        config: {
+          mcpServers: {
+            bloxsmith: { serverUrl: endpoint, headers: { Authorization: "Bearer YOUR_MCP_TOKEN" } },
+          },
+        },
       },
       zed: {
         file: "Zed settings.json",
-        config: { context_servers: { bloxsmith: { source: "custom", url: endpoint, headers: { Authorization: "Bearer YOUR_MCP_TOKEN" } } } },
+        config: {
+          context_servers: {
+            bloxsmith: {
+              source: "custom",
+              url: endpoint,
+              headers: { Authorization: "Bearer YOUR_MCP_TOKEN" },
+            },
+          },
+        },
       },
       continue: {
         file: "config.yaml",
-        config: { mcpServers: [{ name: "bloxsmith", url: endpoint, headers: { Authorization: "Bearer YOUR_MCP_TOKEN" } }] },
+        config: {
+          mcpServers: [
+            {
+              name: "bloxsmith",
+              url: endpoint,
+              headers: { Authorization: "Bearer YOUR_MCP_TOKEN" },
+            },
+          ],
+        },
       },
       generic: {
         transport: "Streamable HTTP",
