@@ -128,8 +128,12 @@ function loadHistory(): Message[] {
     if (!Array.isArray(parsed)) return [];
     return parsed
       .filter(
-        (m: any) =>
-          m && (m.role === "user" || m.role === "assistant") && typeof m.content === "string",
+        (m: unknown): m is Message =>
+          !!m &&
+          typeof m === "object" &&
+          "role" in m &&
+          ((m as Message).role === "user" || (m as Message).role === "assistant") &&
+          typeof (m as Message).content === "string",
       )
       .slice(-MAX_STORED_TURNS);
   } catch {
@@ -294,12 +298,6 @@ export function HelpChat() {
     };
     dragMovedRef.current = false;
 
-    try {
-      el.setPointerCapture(e.pointerId);
-    } catch {
-      // ignore
-    }
-
     const startX = e.clientX;
     const startY = e.clientY;
 
@@ -308,6 +306,14 @@ export function HelpChat() {
       if (moved > 4 && !dragMovedRef.current) {
         dragMovedRef.current = true;
         setDragging(true);
+        // Only capture the pointer once a real drag starts. Capturing on
+        // pointerdown redirects the pointerup away from the bubble button and
+        // swallows its click — that's why the chat never opened on desktop.
+        try {
+          el.setPointerCapture(e.pointerId);
+        } catch {
+          // ignore
+        }
       }
       if (dragMovedRef.current) {
         const nextLeft = ev.clientX - dragOffsetRef.current.dx;
@@ -320,6 +326,11 @@ export function HelpChat() {
       el.removeEventListener("pointermove", onMove);
       el.removeEventListener("pointerup", onUp);
       el.removeEventListener("pointercancel", onUp);
+      try {
+        if (el.hasPointerCapture(e.pointerId)) el.releasePointerCapture(e.pointerId);
+      } catch {
+        // ignore
+      }
       const wasDrag = dragMovedRef.current;
       setTimeout(() => {
         setDragging(false);
