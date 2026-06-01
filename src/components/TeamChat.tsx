@@ -19,6 +19,13 @@ export function TeamChat({ projectId }: { projectId: string }) {
   const [unread, setUnread] = useState(0);
   const [sending, setSending] = useState(false);
   const endRef = useRef<HTMLDivElement>(null);
+  // Keep `open` in a ref so the realtime subscription doesn't depend on it.
+  // Previously, opening/closing the chat tore down and recreated the channel,
+  // which caused the message list to flicker and re-fetch constantly.
+  const openRef = useRef(open);
+  useEffect(() => {
+    openRef.current = open;
+  }, [open]);
 
   // Hydrate
   useEffect(() => {
@@ -61,14 +68,14 @@ export function TeamChat({ projectId }: { projectId: string }) {
               .eq("id", m.user_id)
               .maybeSingle();
             m.author = prof ?? undefined;
-            if (!open) setUnread((u) => u + 1);
+            if (!openRef.current) setUnread((u) => u + 1);
           }
           setMessages((prev) => (prev.some((x) => x.id === m.id) ? prev : [...prev, m]));
         },
       )
       .subscribe();
     return () => { supabase.removeChannel(ch); };
-  }, [projectId, user, open]);
+  }, [projectId, user]);
 
   useEffect(() => {
     if (open) {
@@ -81,12 +88,20 @@ export function TeamChat({ projectId }: { projectId: string }) {
     const text = draft.trim();
     if (!text || !user) return;
     setSending(true);
-    const { error } = await supabase
+    const { data: inserted, error } = await supabase
       .from("project_chat_messages")
-      .insert({ project_id: projectId, user_id: user.id, content: text });
+      .insert({ project_id: projectId, user_id: user.id, content: text })
+      .select("id,user_id,content,created_at")
+      .single();
     setSending(false);
     if (error) return;
     setDraft("");
+    // Show our own message immediately. The realtime handler skips our own
+    // inserts, so without this the message wouldn't appear until a refetch.
+    if (inserted) {
+      const mine = inserted as ChatMessage;
+      setMessages((prev) => (prev.some((x) => x.id === mine.id) ? prev : [...prev, mine]));
+    }
   };
 
   return (

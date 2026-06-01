@@ -1368,6 +1368,103 @@ export type Database = {
           }
         ]
       }
+      arcade_rewards: {
+        Row: {
+          created_at: string
+          game: string
+          id: string
+          score: number
+          credits_awarded: number
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          game: string
+          id?: string
+          score: number
+          credits_awarded: number
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          game?: string
+          id?: string
+          score?: number
+          credits_awarded?: number
+          user_id?: string
+        }
+        Relationships: []
+      }
+      arcade_scores: {
+        Row: {
+          created_at: string
+          game: string
+          id: string
+          score: number
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          game: string
+          id?: string
+          score: number
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          game?: string
+          id?: string
+          score?: number
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "arcade_scores_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          }
+        ]
+      }
+      playtest_errors: {
+        Row: {
+          created_at: string
+          id: string
+          project_id: string
+          user_id: string
+          message: string
+          kind: string
+          resolved: boolean
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          project_id: string
+          user_id: string
+          message: string
+          kind: string
+          resolved?: boolean
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          project_id?: string
+          user_id?: string
+          message?: string
+          kind?: string
+          resolved?: boolean
+        }
+        Relationships: [
+          {
+            foreignKeyName: "playtest_errors_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          }
+        ]
+      }
       video_generations: {
         Row: {
           created_at: string

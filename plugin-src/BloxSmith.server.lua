@@ -3110,6 +3110,76 @@ Workspace.DescendantRemoving:Connect(function()
 	if connected then lastContextSentAt = 0 end
 end)
 
+-- ----------------------------------------------------------------
+-- Playtest error capture
+--
+-- A Studio plugin can't *control* a playtest, but it CAN read the output
+-- log via LogService. We buffer runtime errors that occur during Play mode
+-- and flush them to the website, where the AI can diagnose and fix them.
+-- This is the closest a plugin can get to "watching" a playtest.
+-- ----------------------------------------------------------------
+local LogService = game:GetService("LogService")
+local playtestErrorBuffer = {}
+local lastPlaytestFlush = 0
+local MAX_BUFFERED_ERRORS = 40
+
+local function bufferPlaytestMessage(message, messageType)
+	-- Only capture errors and warnings — info/print would be noise.
+	if messageType ~= Enum.MessageType.MessageError and messageType ~= Enum.MessageType.MessageWarning then
+		return
+	end
+	-- Skip our own plugin chatter.
+	if string.find(message, "%[BloxSmith%]") then return end
+	if #playtestErrorBuffer >= MAX_BUFFERED_ERRORS then
+		table.remove(playtestErrorBuffer, 1)
+	end
+	table.insert(playtestErrorBuffer, {
+		message = string.sub(message, 1, 800),
+		kind = (messageType == Enum.MessageType.MessageError) and "error" or "warning",
+		at = os.time(),
+	})
+end
+
+local function flushPlaytestErrors(reason)
+	if #playtestErrorBuffer == 0 then return end
+	if not connected or activeProjectId == nil then return end
+	local batch = playtestErrorBuffer
+	playtestErrorBuffer = {}
+	pcall(function()
+		postJSON("/api/studio/playtest-errors", {
+			projectId = activeProjectId,
+			reason = reason or "playtest",
+			errors = batch,
+		})
+	end)
+end
+
+LogService.MessageOut:Connect(function(message, messageType)
+	-- Only buffer while actually playing (not in edit mode).
+	if not RunService:IsEdit() then
+		bufferPlaytestMessage(message, messageType)
+	end
+end)
+
+-- Flush periodically during play, and once more when returning to edit.
+task.spawn(function()
+	local wasPlaying = false
+	while true do
+		task.wait(5)
+		local playing = not RunService:IsEdit()
+		if playing and connected then
+			if os.clock() - lastPlaytestFlush > 8 then
+				lastPlaytestFlush = os.clock()
+				flushPlaytestErrors("during-play")
+			end
+		elseif wasPlaying and not playing then
+			-- Just stopped playing — send whatever's left.
+			flushPlaytestErrors("play-ended")
+		end
+		wasPlaying = playing
+	end
+end)
+
 -- Auto-connect only if a token is saved AND the user has previously granted
 -- consent. First-run users always see the disclosure dialog.
 if getToken() ~= "" and getConsent() then

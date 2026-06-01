@@ -17,10 +17,12 @@ const COMETAPI_BASE = "https://api.cometapi.com";
 const CREATE_TASK_PATH = "/volc/v3/contents/generations/tasks";
 const GET_TASK_PATH = "/volc/v3/contents/generations/tasks"; // + "/{taskId}"
 
-// Seedance model id on CometAPI. Their catalog lists "Doubao-Seedance-2-0";
-// the API slug has been seen as both of the below across docs, so we keep it
-// as a single constant to flip if the first call rejects it.
-const SEEDANCE_MODEL = "bytedance-seedance-2-0";
+// Seedance model id on CometAPI. Per CometAPI's own docs, the fully-live
+// text-to-video model is "bytedance-seedance-1-0-pro" (1080p, multi-shot,
+// no API-key gating). "doubao-seedance-2-pro" is the newer 2.0 model but is
+// in staged/limited beta as of mid-2026, so we default to 1.0 Pro for
+// reliability. Swap this one constant to upgrade once 2.0 is GA on your key.
+const SEEDANCE_MODEL = "bytedance-seedance-1-0-pro";
 
 // Default generation params. Seedance 2.0 supports 4–15s clips. We cap the
 // default low to control cost (~$0.063/sec → a 5s clip ≈ $0.32).
@@ -258,8 +260,11 @@ export const startVideoGeneration = createServerFn({ method: "POST" })
         body: JSON.stringify({
           model: SEEDANCE_MODEL,
           content: [{ type: "text", text: prompt }],
-          resolution,
-          duration_s: durationS,
+          // Per CometAPI docs, generation params go inside `output`.
+          output: {
+            resolution,
+            duration_s: durationS,
+          },
         }),
       });
     } catch (err) {

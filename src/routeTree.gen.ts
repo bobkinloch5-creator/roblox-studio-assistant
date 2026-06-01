@@ -27,6 +27,7 @@ import { Route as DocsRouteImport } from './routes/docs'
 import { Route as DashboardRouteImport } from './routes/dashboard'
 import { Route as ChangelogRouteImport } from './routes/changelog'
 import { Route as AuthorizeRouteImport } from './routes/authorize'
+import { Route as ArcadeRouteImport } from './routes/arcade'
 import { Route as AdminRouteImport } from './routes/admin'
 import { Route as AccountRouteImport } from './routes/account'
 import { Route as IndexRouteImport } from './routes/index'
@@ -38,6 +39,7 @@ import { Route as DotwellKnownOauthProtectedResourceRouteImport } from './routes
 import { Route as DotwellKnownOauthAuthorizationServerRouteImport } from './routes/[.]well-known.oauth-authorization-server'
 import { Route as ApiStudioSnapshotRouteImport } from './routes/api/studio/snapshot'
 import { Route as ApiStudioPollRouteImport } from './routes/api/studio/poll'
+import { Route as ApiStudioPlaytestErrorsRouteImport } from './routes/api/studio/playtest-errors'
 import { Route as ApiPublicMcpRouteImport } from './routes/api/public/mcp'
 import { Route as ApiPublicHelpChatRouteImport } from './routes/api/public/help-chat'
 import { Route as ApiAssistantExecuteRouteImport } from './routes/api/assistant/execute'
@@ -142,6 +144,11 @@ const AuthorizeRoute = AuthorizeRouteImport.update({
   path: '/authorize',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ArcadeRoute = ArcadeRouteImport.update({
+  id: '/arcade',
+  path: '/arcade',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const AdminRoute = AdminRouteImport.update({
   id: '/admin',
   path: '/admin',
@@ -197,6 +204,11 @@ const ApiStudioSnapshotRoute = ApiStudioSnapshotRouteImport.update({
 const ApiStudioPollRoute = ApiStudioPollRouteImport.update({
   id: '/api/studio/poll',
   path: '/api/studio/poll',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiStudioPlaytestErrorsRoute = ApiStudioPlaytestErrorsRouteImport.update({
+  id: '/api/studio/playtest-errors',
+  path: '/api/studio/playtest-errors',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ApiPublicMcpRoute = ApiPublicMcpRouteImport.update({
@@ -269,6 +281,7 @@ export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/account': typeof AccountRoute
   '/admin': typeof AdminRoute
+  '/arcade': typeof ArcadeRoute
   '/authorize': typeof AuthorizeRoute
   '/changelog': typeof ChangelogRoute
   '/dashboard': typeof DashboardRoute
@@ -296,6 +309,7 @@ export interface FileRoutesByFullPath {
   '/api/assistant/execute': typeof ApiAssistantExecuteRoute
   '/api/public/help-chat': typeof ApiPublicHelpChatRoute
   '/api/public/mcp': typeof ApiPublicMcpRoute
+  '/api/studio/playtest-errors': typeof ApiStudioPlaytestErrorsRoute
   '/api/studio/poll': typeof ApiStudioPollRoute
   '/api/studio/snapshot': typeof ApiStudioSnapshotRoute
   '/api/public/oauth/register': typeof ApiPublicOauthRegisterRoute
@@ -313,6 +327,7 @@ export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/account': typeof AccountRoute
   '/admin': typeof AdminRoute
+  '/arcade': typeof ArcadeRoute
   '/authorize': typeof AuthorizeRoute
   '/changelog': typeof ChangelogRoute
   '/dashboard': typeof DashboardRoute
@@ -340,6 +355,7 @@ export interface FileRoutesByTo {
   '/api/assistant/execute': typeof ApiAssistantExecuteRoute
   '/api/public/help-chat': typeof ApiPublicHelpChatRoute
   '/api/public/mcp': typeof ApiPublicMcpRoute
+  '/api/studio/playtest-errors': typeof ApiStudioPlaytestErrorsRoute
   '/api/studio/poll': typeof ApiStudioPollRoute
   '/api/studio/snapshot': typeof ApiStudioSnapshotRoute
   '/api/public/oauth/register': typeof ApiPublicOauthRegisterRoute
@@ -358,6 +374,7 @@ export interface FileRoutesById {
   '/': typeof IndexRoute
   '/account': typeof AccountRoute
   '/admin': typeof AdminRoute
+  '/arcade': typeof ArcadeRoute
   '/authorize': typeof AuthorizeRoute
   '/changelog': typeof ChangelogRoute
   '/dashboard': typeof DashboardRoute
@@ -385,6 +402,7 @@ export interface FileRoutesById {
   '/api/assistant/execute': typeof ApiAssistantExecuteRoute
   '/api/public/help-chat': typeof ApiPublicHelpChatRoute
   '/api/public/mcp': typeof ApiPublicMcpRoute
+  '/api/studio/playtest-errors': typeof ApiStudioPlaytestErrorsRoute
   '/api/studio/poll': typeof ApiStudioPollRoute
   '/api/studio/snapshot': typeof ApiStudioSnapshotRoute
   '/api/public/oauth/register': typeof ApiPublicOauthRegisterRoute
@@ -404,6 +422,7 @@ export interface FileRouteTypes {
     | '/'
     | '/account'
     | '/admin'
+    | '/arcade'
     | '/authorize'
     | '/changelog'
     | '/dashboard'
@@ -431,6 +450,7 @@ export interface FileRouteTypes {
     | '/api/assistant/execute'
     | '/api/public/help-chat'
     | '/api/public/mcp'
+    | '/api/studio/playtest-errors'
     | '/api/studio/poll'
     | '/api/studio/snapshot'
     | '/api/public/oauth/register'
@@ -448,6 +468,7 @@ export interface FileRouteTypes {
     | '/'
     | '/account'
     | '/admin'
+    | '/arcade'
     | '/authorize'
     | '/changelog'
     | '/dashboard'
@@ -475,6 +496,7 @@ export interface FileRouteTypes {
     | '/api/assistant/execute'
     | '/api/public/help-chat'
     | '/api/public/mcp'
+    | '/api/studio/playtest-errors'
     | '/api/studio/poll'
     | '/api/studio/snapshot'
     | '/api/public/oauth/register'
@@ -492,6 +514,7 @@ export interface FileRouteTypes {
     | '/'
     | '/account'
     | '/admin'
+    | '/arcade'
     | '/authorize'
     | '/changelog'
     | '/dashboard'
@@ -519,6 +542,7 @@ export interface FileRouteTypes {
     | '/api/assistant/execute'
     | '/api/public/help-chat'
     | '/api/public/mcp'
+    | '/api/studio/playtest-errors'
     | '/api/studio/poll'
     | '/api/studio/snapshot'
     | '/api/public/oauth/register'
@@ -537,6 +561,7 @@ export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   AccountRoute: typeof AccountRoute
   AdminRoute: typeof AdminRoute
+  ArcadeRoute: typeof ArcadeRoute
   AuthorizeRoute: typeof AuthorizeRoute
   ChangelogRoute: typeof ChangelogRoute
   DashboardRoute: typeof DashboardRoute
@@ -563,6 +588,7 @@ export interface RootRouteChildren {
   ApiAssistantExecuteRoute: typeof ApiAssistantExecuteRoute
   ApiPublicHelpChatRoute: typeof ApiPublicHelpChatRoute
   ApiPublicMcpRoute: typeof ApiPublicMcpRoute
+  ApiStudioPlaytestErrorsRoute: typeof ApiStudioPlaytestErrorsRoute
   ApiStudioPollRoute: typeof ApiStudioPollRoute
   ApiStudioSnapshotRoute: typeof ApiStudioSnapshotRoute
   ApiPublicOauthRegisterRoute: typeof ApiPublicOauthRegisterRoute
@@ -705,6 +731,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthorizeRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/arcade': {
+      id: '/arcade'
+      path: '/arcade'
+      fullPath: '/arcade'
+      preLoaderRoute: typeof ArcadeRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/admin': {
       id: '/admin'
       path: '/admin'
@@ -780,6 +813,13 @@ declare module '@tanstack/react-router' {
       path: '/api/studio/poll'
       fullPath: '/api/studio/poll'
       preLoaderRoute: typeof ApiStudioPollRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/studio/playtest-errors': {
+      id: '/api/studio/playtest-errors'
+      path: '/api/studio/playtest-errors'
+      fullPath: '/api/studio/playtest-errors'
+      preLoaderRoute: typeof ApiStudioPlaytestErrorsRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/api/public/mcp': {
@@ -892,6 +932,7 @@ const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AccountRoute: AccountRoute,
   AdminRoute: AdminRoute,
+  ArcadeRoute: ArcadeRoute,
   AuthorizeRoute: AuthorizeRoute,
   ChangelogRoute: ChangelogRoute,
   DashboardRoute: DashboardRoute,
@@ -920,6 +961,7 @@ const rootRouteChildren: RootRouteChildren = {
   ApiAssistantExecuteRoute: ApiAssistantExecuteRoute,
   ApiPublicHelpChatRoute: ApiPublicHelpChatRoute,
   ApiPublicMcpRoute: ApiPublicMcpRoute,
+  ApiStudioPlaytestErrorsRoute: ApiStudioPlaytestErrorsRoute,
   ApiStudioPollRoute: ApiStudioPollRoute,
   ApiStudioSnapshotRoute: ApiStudioSnapshotRoute,
   ApiPublicOauthRegisterRoute: ApiPublicOauthRegisterRoute,

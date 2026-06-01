@@ -1,357 +1,205 @@
 import { createServerFn } from "@tanstack/react-start";
-import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
-import { supabaseAdmin } from "@/integrations/supabase/client.server";
 
-const PLAYTEST_SCAN_COST = 1;
-const PLAYTEST_FIX_COST = 2;
+export type PlaytestError = {
+  id: string;
+  message: string;
+  kind: "error" | "warning";
+  createdAt: string;
+};
 
-async function assertOwnsProject(userId: string, projectId: string) {
-  const { data, error } = await supabaseAdmin
+async function assertProjectAccess(supabase: any, projectId: string, userId: string) {
+  const { data: project } = await supabase
     .from("projects")
     .select("id,user_id")
     .eq("id", projectId)
     .maybeSingle();
-  if (error) throw new Error(error.message);
-  if (!data || data.user_id !== userId) throw new Error("Project not found.");
+  if (!project) throw new Error("Project not found.");
+  if (project.user_id === userId) return;
+  const { data: c } = await supabase
+    .from("project_collaborators")
+    .select("id")
+    .eq("project_id", projectId)
+    .eq("user_id", userId)
+    .maybeSingle();
+  if (!c) throw new Error("You don't have access to this project.");
 }
 
 /**
- * Phase 1 — SCAN + PLAN.
- * Reads the latest synced project files + captured Studio errors, runs the
- * heuristic scanners, asks the AI to interpret the user's request and produce a
- * plan, and stores a `playtest_runs` row in status 'planned' awaiting approval.
- * No Studio changes happen here.
+ * Returns recent unresolved playtest errors captured by the plugin.
  */
-export const startPlaytestScan = createServerFn({ method: "POST" })
+export const getPlaytestErrors = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((i: unknown) =>
-    z.object({ projectId: z.string().uuid(), request: z.string().max(500).default("") }).parse(i),
-  )
   .handler(async ({ data, context }) => {
-    const { supabase, userId } = context as { supabase: any; userId: string };
-    await assertOwnsProject(userId, data.projectId);
+    const { supabase, userId } = context;
+    const { projectId } = (data ?? {}) as { projectId?: string };
+    if (!projectId) throw new Error("Missing project.");
+    await assertProjectAccess(supabase, projectId, userId);
 
-    // Charge the small scan cost (owners pay 0 inside spend_credits_atomic).
-    const { error: spendErr } = await supabase.rpc("spend_credits_atomic", {
-      _amount: PLAYTEST_SCAN_COST,
-    });
-    if (spendErr) {
-      if (/insufficient/i.test(spendErr.message))
-        throw new Error("Not enough credits to run a Playtest scan.");
-      throw new Error(spendErr.message);
+    const { data: rows, error } = await supabase
+      .from("playtest_errors")
+      .select("id, message, kind, created_at")
+      .eq("project_id", projectId)
+      .eq("resolved", false)
+      .order("created_at", { ascending: false })
+      .limit(40);
+
+    if (error) {
+      if (/relation .*playtest_errors.* does not exist/i.test(error.message ?? "")) {
+        return { errors: [] as PlaytestError[] };
+      }
+      throw new Error("Could not load playtest errors.");
     }
 
-    const { runHeuristics, synthesizePlan } = await import("./playtest-diagnose.server");
-
-    const [{ data: files }, { data: errs }] = await Promise.all([
-      supabaseAdmin
-        .from("project_files")
-        .select("path,file_type,service_location,content")
-        .eq("project_id", data.projectId),
-      supabaseAdmin
-        .from("studio_errors")
-        .select("file_path,error_message")
-        .eq("project_id", data.projectId)
-        .order("created_at", { ascending: false })
-        .limit(50),
-    ]);
-
-    const fileList = (files ?? []) as any[];
-    const findings = runHeuristics(fileList, (errs ?? []) as any[]);
-    const plan = await synthesizePlan({
-      request: data.request,
-      findings,
-      fileIndex: fileList.map((f) => ({ path: f.path, file_type: f.file_type })),
-    });
-
-    const { data: run, error } = await supabase
-      .from("playtest_runs")
-      .insert({
-        user_id: userId,
-        project_id: data.projectId,
-        request: data.request,
-        status: "planned",
-        findings,
-        plan,
-        credits_spent: PLAYTEST_SCAN_COST,
-      })
-      .select("*")
-      .single();
-    if (error) throw new Error(error.message);
-
-    return { run };
+    // De-dupe identical messages, keeping the most recent.
+    const seen = new Set<string>();
+    const errors: PlaytestError[] = [];
+    for (const r of rows ?? []) {
+      if (seen.has(r.message)) continue;
+      seen.add(r.message);
+      errors.push({ id: r.id, message: r.message, kind: r.kind as any, createdAt: r.created_at });
+    }
+    return { errors };
   });
 
 /**
- * Phase 2 — APPROVE + APPLY.
- * Turns approved plan steps into plugin_actions, snapshots the prior content of
- * any files the fix will touch (for rollback), charges the fix cost, and moves
- * the run to 'applying'. The Studio plugin's existing poll loop delivers them.
+ * Marks the project's captured playtest errors resolved (after a fix, or when
+ * the user dismisses them).
  */
-export const approvePlaytestPlan = createServerFn({ method: "POST" })
+export const clearPlaytestErrors = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((i: unknown) =>
-    z
-      .object({
-        runId: z.string().uuid(),
-        // Step ids the user approved; defaults to all steps in the plan.
-        approvedStepIds: z.array(z.string()).optional(),
-      })
-      .parse(i),
-  )
   .handler(async ({ data, context }) => {
-    const { supabase, userId } = context as { supabase: any; userId: string };
+    const { supabase, userId } = context;
+    const { projectId } = (data ?? {}) as { projectId?: string };
+    if (!projectId) throw new Error("Missing project.");
+    await assertProjectAccess(supabase, projectId, userId);
+    await supabase
+      .from("playtest_errors")
+      .update({ resolved: true })
+      .eq("project_id", projectId)
+      .eq("resolved", false);
+    return { ok: true };
+  });
 
-    const { data: run, error: runErr } = await supabase
-      .from("playtest_runs")
-      .select("*")
-      .eq("id", data.runId)
-      .single();
-    if (runErr || !run) throw new Error("Playtest run not found.");
-    if (run.user_id !== userId) throw new Error("Not your run.");
-    if (run.status !== "planned")
-      throw new Error(`This run is '${run.status}', not awaiting approval.`);
+export type AnalysisFinding = {
+  severity: "high" | "medium" | "low";
+  file: string | null;
+  issue: string;
+  fix: string;
+};
 
-    const allSteps = (run.plan?.steps ?? []) as any[];
-    const steps =
-      data.approvedStepIds && data.approvedStepIds.length
-        ? allSteps.filter((s) => data.approvedStepIds!.includes(s.id))
-        : allSteps;
-    if (steps.length === 0) throw new Error("No steps approved.");
+/**
+ * Pre-playtest static analysis. Reads the project's scripts and asks the AI to
+ * flag likely runtime problems BEFORE the user playtests — missing event
+ * handlers, wrong service placement, nil-index risks, unanchored parts, etc.
+ */
+export const analyzeProject = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .handler(async ({ data, context }): Promise<{ findings: AnalysisFinding[]; summary: string }> => {
+    const { supabase, userId } = context;
+    const { projectId } = (data ?? {}) as { projectId?: string };
+    if (!projectId) throw new Error("Missing project.");
+    await assertProjectAccess(supabase, projectId, userId);
 
-    // Build concrete plugin actions from the approved steps.
-    const { buildActionsForSteps } = await import("./playtest-diagnose.server");
-    const { data: files } = await supabaseAdmin
+    const { data: files } = await supabase
       .from("project_files")
-      .select("path,file_type,service_location,content")
-      .eq("project_id", run.project_id);
-    const actions = await buildActionsForSteps({
-      request: run.request,
-      steps,
-      files: (files ?? []) as any[],
-    });
-    if (actions.length === 0)
-      throw new Error("Couldn't turn the plan into Studio actions. Try rephrasing your request.");
+      .select("path, content")
+      .eq("project_id", projectId)
+      .limit(60);
 
-    // Snapshot prior content of any file paths these actions touch, for rollback.
-    const touched = new Set<string>();
-    for (const a of actions as any[]) {
-      const p = a.path || a.target || a.name;
-      if (typeof p === "string" && p) touched.add(p);
-    }
-    let rollback: Array<{ path: string; prior_content: string | null; existed: boolean }> = [];
-    if (touched.size > 0) {
-      const { data: existing } = await supabaseAdmin
-        .from("project_files")
-        .select("path,content")
-        .eq("project_id", run.project_id)
-        .in("path", Array.from(touched));
-      const map = new Map((existing ?? []).map((f: any) => [f.path, f.content]));
-      rollback = Array.from(touched).map((p) => ({
-        path: p,
-        prior_content: map.has(p) ? (map.get(p) as string) : null,
-        existed: map.has(p),
-      }));
-    }
-
-    // Charge the fix cost.
-    const { error: spendErr } = await supabase.rpc("spend_credits_atomic", {
-      _amount: PLAYTEST_FIX_COST,
-    });
-    if (spendErr) {
-      if (/insufficient/i.test(spendErr.message))
-        throw new Error("Not enough credits to apply the fix.");
-      throw new Error(spendErr.message);
-    }
-
-    // Queue actions for the plugin. A final 'playtest_ready' frames the scene.
-    const rows = (actions as any[]).map((a) => ({
-      project_id: run.project_id,
-      user_id: userId,
-      action_type: a.type,
-      payload: a,
-      status: "pending" as const,
-    }));
-    rows.push({
-      project_id: run.project_id,
-      user_id: userId,
-      action_type: "playtest_ready",
-      payload: {
-        type: "playtest_ready",
-        focus: (actions as any[]).find((a) => a.path || a.target)?.path,
-        note: "BloxSmith Playtest AI applied your approved fixes.",
-        checklist: steps.map((s: any) => s.title).slice(0, 6),
-      } as any,
-      status: "pending" as const,
-    });
-
-    const { data: inserted, error: insErr } = await supabaseAdmin
-      .from("plugin_actions")
-      .insert(rows)
-      .select("id,action_type");
-    if (insErr) throw new Error("Failed to queue Studio actions: " + insErr.message);
-
-    const { data: updated, error: updErr } = await supabase
-      .from("playtest_runs")
-      .update({
-        status: "applying",
-        applied_actions: inserted,
-        rollback_snapshot: rollback,
-        credits_spent: (run.credits_spent ?? 0) + PLAYTEST_FIX_COST,
-        updated_at: new Date().toISOString(),
-      })
-      .eq("id", run.id)
-      .select("*")
-      .single();
-    if (updErr) throw new Error(updErr.message);
-
-    return { run: updated, queued: inserted?.length ?? 0 };
-  });
-
-/**
- * Poll a run's status. The client uses this to drive the live panel and to know
- * when the queued actions have all executed (so it can trigger a verify scan).
- */
-export const getPlaytestRun = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
-  .inputValidator((i: unknown) => z.object({ runId: z.string().uuid() }).parse(i))
-  .handler(async ({ data, context }) => {
-    const { supabase, userId } = context as { supabase: any; userId: string };
-    const { data: run, error } = await supabase
-      .from("playtest_runs")
-      .select("*")
-      .eq("id", data.runId)
-      .single();
-    if (error || !run) throw new Error("Playtest run not found.");
-    if (run.user_id !== userId) throw new Error("Not your run.");
-
-    // Report how many of the queued actions have executed.
-    let applied = 0;
-    let total = 0;
-    let failed = 0;
-    const ids = (run.applied_actions ?? []).map((a: any) => a.id).filter(Boolean);
-    if (ids.length) {
-      const { data: acts } = await supabaseAdmin
-        .from("plugin_actions")
-        .select("status")
-        .in("id", ids);
-      total = acts?.length ?? 0;
-      applied = (acts ?? []).filter((a: any) => a.status === "executed").length;
-      failed = (acts ?? []).filter((a: any) => a.status === "error").length;
-    }
-    return { run, progress: { applied, total, failed } };
-  });
-
-/**
- * Phase 3 — VERIFY (re-scan). Re-runs heuristics against the now-updated files
- * and records whether the originally-found issues are resolved.
- */
-export const verifyPlaytestRun = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
-  .inputValidator((i: unknown) => z.object({ runId: z.string().uuid() }).parse(i))
-  .handler(async ({ data, context }) => {
-    const { supabase, userId } = context as { supabase: any; userId: string };
-    const { data: run, error: runErr } = await supabase
-      .from("playtest_runs")
-      .select("*")
-      .eq("id", data.runId)
-      .single();
-    if (runErr || !run) throw new Error("Playtest run not found.");
-    if (run.user_id !== userId) throw new Error("Not your run.");
-
-    const { runHeuristics } = await import("./playtest-diagnose.server");
-    const [{ data: files }, { data: errs }] = await Promise.all([
-      supabaseAdmin
-        .from("project_files")
-        .select("path,file_type,service_location,content")
-        .eq("project_id", run.project_id),
-      supabaseAdmin
-        .from("studio_errors")
-        .select("file_path,error_message")
-        .eq("project_id", run.project_id)
-        .order("created_at", { ascending: false })
-        .limit(50),
-    ]);
-    const remaining = runHeuristics((files ?? []) as any[], (errs ?? []) as any[]);
-
-    // Consider the run resolved if the originally-flagged targets are now clean.
-    const before = new Set((run.findings ?? []).map((f: any) => `${f.kind}:${f.target}`));
-    const stillBad = remaining.filter((f) => before.has(`${f.kind}:${f.target}`));
-    const resolved = stillBad.length === 0;
-
-    const summary = resolved
-      ? `Fixed ${(run.findings ?? []).length} issue(s). Re-scan is clean for the items we targeted.`
-      : `Applied fixes; ${stillBad.length} item(s) still need attention.`;
-
-    const { data: updated, error: updErr } = await supabase
-      .from("playtest_runs")
-      .update({
-        status: "done",
-        verification: { resolved, remaining: stillBad },
-        summary,
-        updated_at: new Date().toISOString(),
-      })
-      .eq("id", run.id)
-      .select("*")
-      .single();
-    if (updErr) throw new Error(updErr.message);
-    return { run: updated };
-  });
-
-/**
- * UNDO — roll back the last applied fix. Re-queues the prior file content (or a
- * delete for files the fix created) through the plugin, and marks the run
- * 'rolled_back'. Safe: only operates on the user's own project.
- */
-export const rollbackPlaytestRun = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
-  .inputValidator((i: unknown) => z.object({ runId: z.string().uuid() }).parse(i))
-  .handler(async ({ data, context }) => {
-    const { supabase, userId } = context as { supabase: any; userId: string };
-    const { data: run, error: runErr } = await supabase
-      .from("playtest_runs")
-      .select("*")
-      .eq("id", data.runId)
-      .single();
-    if (runErr || !run) throw new Error("Playtest run not found.");
-    if (run.user_id !== userId) throw new Error("Not your run.");
-    if (!["applying", "verifying", "done", "failed"].includes(run.status))
-      throw new Error(`Nothing to roll back for a '${run.status}' run.`);
-
-    const snap = (run.rollback_snapshot ?? []) as Array<{
-      path: string;
-      prior_content: string | null;
-      existed: boolean;
-    }>;
-    if (snap.length === 0) throw new Error("This run has no rollback snapshot.");
-
-    const rows = snap.map((s) =>
-      s.existed
-        ? {
-            project_id: run.project_id,
-            user_id: userId,
-            action_type: "script",
-            payload: { type: "script", path: s.path, source: s.prior_content ?? "" },
-            status: "pending" as const,
-          }
-        : {
-            project_id: run.project_id,
-            user_id: userId,
-            action_type: "delete",
-            payload: { type: "delete", path: s.path },
-            status: "pending" as const,
-          },
+    const scripts = (files ?? []).filter((f: any) =>
+      /\.(lua|luau)$/i.test(f.path ?? "") || /script/i.test(f.path ?? ""),
     );
-    const { error: insErr } = await supabaseAdmin.from("plugin_actions").insert(rows);
-    if (insErr) throw new Error("Failed to queue rollback: " + insErr.message);
 
-    const { data: updated, error: updErr } = await supabase
-      .from("playtest_runs")
-      .update({ status: "rolled_back", updated_at: new Date().toISOString() })
-      .eq("id", run.id)
-      .select("*")
-      .single();
-    if (updErr) throw new Error(updErr.message);
-    return { run: updated, reverted: rows.length };
+    if (scripts.length === 0) {
+      return { findings: [], summary: "No scripts found to analyze yet. Build something first!" };
+    }
+
+    // Cap the payload — concatenate scripts with a per-file budget so a huge
+    // project doesn't blow the context window.
+    let budget = 24000;
+    const blocks: string[] = [];
+    for (const f of scripts) {
+      const content = String(f.content ?? "").slice(0, 4000);
+      const block = `--- FILE: ${f.path} ---\n${content}`;
+      if (budget - block.length < 0) break;
+      budget -= block.length;
+      blocks.push(block);
+    }
+
+    const { generateText } = await import("ai");
+    const { resolveBuiltInGateway } = await import("./ai-providers.server");
+    const model = resolveBuiltInGateway({ kind: "build", thinking: false }).model;
+
+    const system = `You are a senior Roblox/Luau engineer doing a PRE-PLAYTEST review. Look at the scripts and find likely RUNTIME problems before the developer playtests: nil indexing, missing RemoteEvent/RemoteFunction handlers, scripts in the wrong service (e.g. server logic in StarterGui), :WaitForChild on things that never exist, infinite loops without wait, unanchored parts expected to stay put, deprecated API calls, and obvious logic errors.
+
+Return STRICT JSON only (no markdown):
+{"summary":"one-sentence overall health","findings":[{"severity":"high|medium|low","file":"path or null","issue":"what's wrong, concise","fix":"what to change, concise"}]}
+List the most important issues first. If the scripts look healthy, return an empty findings array with an encouraging summary. Max 8 findings.`;
+
+    let text = "";
+    try {
+      const out = await generateText({
+        model,
+        system,
+        prompt: blocks.join("\n\n"),
+        maxOutputTokens: 1800,
+      });
+      text = out.text ?? "";
+    } catch (err) {
+      throw new Error("Analysis failed: " + String((err as Error).message));
+    }
+
+    const match = text.match(/\{[\s\S]*\}/);
+    if (!match) return { findings: [], summary: "Analysis returned no structured result. Try again." };
+    try {
+      const parsed = JSON.parse(match[0]);
+      const findings: AnalysisFinding[] = Array.isArray(parsed.findings)
+        ? parsed.findings.slice(0, 8).map((f: any) => ({
+            severity: ["high", "medium", "low"].includes(f.severity) ? f.severity : "medium",
+            file: typeof f.file === "string" ? f.file : null,
+            issue: String(f.issue ?? "").slice(0, 300),
+            fix: String(f.fix ?? "").slice(0, 300),
+          }))
+        : [];
+      return { findings, summary: String(parsed.summary ?? "Analysis complete.").slice(0, 200) };
+    } catch {
+      return { findings: [], summary: "Could not parse the analysis. Try again." };
+    }
+  });
+
+/**
+ * Builds a ready-to-run fix prompt from the captured playtest errors. The
+ * client feeds this into the normal build/chat flow (which already applies
+ * fixes through the plugin), so we reuse the entire existing apply pipeline
+ * rather than duplicating it.
+ */
+export const buildErrorFixPrompt = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .handler(async ({ data, context }) => {
+    const { supabase, userId } = context;
+    const { projectId } = (data ?? {}) as { projectId?: string };
+    if (!projectId) throw new Error("Missing project.");
+    await assertProjectAccess(supabase, projectId, userId);
+
+    const { data: rows } = await supabase
+      .from("playtest_errors")
+      .select("message, kind")
+      .eq("project_id", projectId)
+      .eq("resolved", false)
+      .order("created_at", { ascending: false })
+      .limit(20);
+
+    const errs = rows ?? [];
+    if (errs.length === 0) {
+      return { prompt: "", count: 0 };
+    }
+
+    const list = errs
+      .map((e: any, i: number) => `${i + 1}. [${e.kind}] ${e.message}`)
+      .join("\n");
+
+    const prompt = `My last playtest produced these runtime errors and warnings. Find the root cause in my scripts and fix them. Don't just suppress the errors — fix the underlying bug. Here are the captured messages:\n\n${list}`;
+
+    return { prompt, count: errs.length };
   });

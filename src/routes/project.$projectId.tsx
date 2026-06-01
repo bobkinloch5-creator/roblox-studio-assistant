@@ -1,10 +1,8 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
-import { RequireAuth } from "@/components/RequireAuth";
 import { Header } from "@/components/layout";
 import { AiSourceSettings } from "@/components/AiSourceSettings";
 import { ModelPicker } from "@/components/ModelPicker";
 import { useAiBusySounds } from "@/hooks/useSounds";
-import { SITE_PROVIDER_LABELS, type SiteProviderId } from "@/lib/ai-models";
 
 import { useAuth } from "@/lib/auth-context";
 import { useEffect, useRef, useState } from "react";
@@ -19,16 +17,13 @@ import {
   improvePrompt,
   chatWithAI,
 } from "@/lib/ai.functions";
-import {
-  forgetProjectAiMemory,
-  listProjectAiMemories,
-  rememberProjectNote,
-} from "@/lib/ai-memory.functions";
+import { inviteCollaborator } from "@/lib/projects.functions";
 import {
   Loader2,
   Plus,
   Send,
   Trash2,
+  Users,
   FileCode,
   ArrowLeft,
   Save,
@@ -55,7 +50,6 @@ import {
   Plug,
   Search,
   AlertCircle,
-  BookOpen,
   PanelLeft,
   PanelRight,
   Square,
@@ -64,7 +58,6 @@ import {
   History,
   ImagePlus,
   Globe,
-  Shirt,
 } from "lucide-react";
 import { toast } from "sonner";
 import { downloadRbxmx } from "@/lib/rbxmx-export";
@@ -74,19 +67,16 @@ import { PluginStatus } from "@/components/PluginStatus";
 import { PushPreview, type PreviewPayload } from "@/components/PushPreview";
 import { ChatSettings } from "@/components/ChatSettings";
 import { SyncValidationDrawer } from "@/components/SyncValidationDrawer";
-import { PlaytestPanel } from "@/components/PlaytestPanel";
+import { TeamChat } from "@/components/TeamChat";
 import { AssistantMessage } from "@/components/AssistantMessage";
 import { BuildHistoryDrawer } from "@/components/BuildHistoryDrawer";
 import { OrganizeProjectButton } from "@/components/OrganizeProjectButton";
 import { TaskBoard } from "@/components/TaskBoard";
+import { PlaytestPanel } from "@/components/PlaytestPanel";
 import { MessagesSquare, Kanban } from "lucide-react";
 
 export const Route = createFileRoute("/project/$projectId")({
-  component: () => (
-    <RequireAuth>
-      <ProjectEditor />
-    </RequireAuth>
-  ),
+  component: ProjectEditor,
   head: () => ({ meta: [{ title: "Project — BloxSmith" }] }),
 });
 
@@ -106,20 +96,11 @@ type Project = {
   game_type: string;
   user_id: string;
 };
-type AiMemory = {
-  id: string;
-  key: string;
-  kind: string;
-  value: string;
-  confidence: number;
-  updated_at: string;
-  last_seen_at: string;
-};
 type Msg = { id: string; role: "user" | "assistant"; content: string; actions?: any };
 
 function ProjectEditor() {
   const { projectId } = Route.useParams();
-  const { user, session, loading, isOwner } = useAuth();
+  const { user, session, loading } = useAuth();
   const nav = useNavigate();
   const [project, setProject] = useState<Project | null>(null);
   const [files, setFiles] = useState<ProjectFile[]>([]);
@@ -244,14 +225,11 @@ function ProjectEditor() {
       console.warn("[speech]", err);
     }
   };
-  useEffect(
-    () => () => {
-      try {
-        recogRef.current?.stop();
-      } catch {}
-    },
-    [],
-  );
+  useEffect(() => () => {
+    try {
+      recogRef.current?.stop();
+    } catch {}
+  }, []);
 
   // Action status polling state
   const [actionStatuses, setActionStatuses] = useState<
@@ -271,7 +249,7 @@ function ProjectEditor() {
     // or working through a long batch — we should NOT throw a scary error
     // just because Studio hasn't checked in yet. We downgrade to a soft
     // "queued" state instead, and let the user resume by opening Studio.
-    const MAX_ATTEMPTS = 200; // ~10 minutes at 3s/poll
+    const MAX_ATTEMPTS = 600; // 10 minutes
     const interval = setInterval(async () => {
       attempts++;
 
@@ -288,7 +266,9 @@ function ProjectEditor() {
       if (data && data.length > 0) {
         const statuses = data.map((a) => a.status);
         const hasFailed = statuses.includes("failed");
-        const hasPendingOrDelivered = statuses.some((s) => s === "pending" || s === "delivered");
+        const hasPendingOrDelivered = statuses.some(
+          (s) => s === "pending" || s === "delivered",
+        );
 
         if (hasFailed) {
           clearInterval(interval);
@@ -324,7 +304,8 @@ function ProjectEditor() {
             ...prev,
             [msgId]: {
               status: "executing",
-              hint: "Still waiting for Roblox Studio. Open the BloxSmith plugin and press Sync Project to apply queued actions.",
+              hint:
+                "Still waiting for Roblox Studio. Open the BloxSmith plugin and press Sync Project to apply queued actions.",
             },
           };
         });
@@ -339,20 +320,19 @@ function ProjectEditor() {
             ...prev,
             [msgId]: {
               status: "queued",
-              hint: "Actions are queued and safe — they'll apply automatically the next time the BloxSmith plugin syncs in Studio.",
+              hint:
+                "Actions are queued and safe — they'll apply automatically the next time the BloxSmith plugin syncs in Studio.",
             },
           };
         });
       }
-    }, 3000);
+    }, 1000);
   };
   const [activeId, setActiveId] = useState<string | null>(null);
   const [draft, setDraft] = useState("");
   const [messages, setMessages] = useState<Msg[]>([]);
   const [convoId, setConvoId] = useState<string | null>(null);
-  const [conversations, setConversations] = useState<
-    Array<{ id: string; title: string | null; updated_at: string }>
-  >([]);
+  const [conversations, setConversations] = useState<Array<{ id: string; title: string | null; updated_at: string }>>([]);
   const [showHistory, setShowHistory] = useState(false);
   const [prompt, setPrompt] = useState("");
   // Image attachments for chat mode (vision). data: URLs, max 4, ~6MB each
@@ -406,18 +386,21 @@ function ProjectEditor() {
     return () => clearInterval(id);
   }, [aiBusy]);
   useAiBusySounds(aiBusy);
+  const [inviteEmail, setInviteEmail] = useState("");
+  const [showInvite, setShowInvite] = useState(false);
+  const [collabs, setCollabs] = useState<Array<{ user_id: string; role: string; email?: string }>>(
+    [],
+  );
   const [credits, setCredits] = useState<number | null>(null);
   const GENERATE_COST = 3;
-  const outOfCredits = !isOwner && credits !== null && credits < GENERATE_COST;
+  const outOfCredits = credits !== null && credits < GENERATE_COST;
   const [aiMode, setAiMode] = useState<string>("build");
   const runAI = useServerFn(generateWithAI);
   const runFixErrors = useServerFn(fixErrorsWithAI);
   const runAutopilot = useServerFn(autopilotBuild);
+  const runInvite = useServerFn(inviteCollaborator);
   const runQueuePluginAction = useServerFn(queuePluginAction);
   const runImprovePrompt = useServerFn(improvePrompt);
-  const listMemories = useServerFn(listProjectAiMemories);
-  const rememberNote = useServerFn(rememberProjectNote);
-  const forgetMemory = useServerFn(forgetProjectAiMemory);
   const [improving, setImproving] = useState(false);
   const chatEnd = useRef<HTMLDivElement>(null);
   const [showFix, setShowFix] = useState(false);
@@ -432,12 +415,7 @@ function ProjectEditor() {
   const revertMessage = async (m: Msg) => {
     const snap: any[] = m.actions?.snapshot ?? [];
     if (!snap.length) return;
-    if (
-      !confirm(
-        `Revert ${snap.length} file change${snap.length === 1 ? "" : "s"} from this AI response?\n\nThis restores old file contents, deletes anything new, and queues Studio to remove the new instances on next sync.`,
-      )
-    )
-      return;
+    if (!confirm(`Revert ${snap.length} file change${snap.length === 1 ? "" : "s"} from this AI response?\n\nThis restores old file contents, deletes anything new, and queues Studio to remove the new instances on next sync.`)) return;
     setRevertingMsg(m.id);
     try {
       let restored = 0;
@@ -516,46 +494,15 @@ function ProjectEditor() {
   // fetch_url tools to verify facts (Luau APIs, current best practices,
   // game-design patterns) before answering / building.
   const [webSearch, setWebSearch] = useState(false);
-  const [mcpServers, setMcpServers] = useState<
-    Array<{ name: string; enabled: boolean; ok: boolean | null }>
-  >([]);
-  const [mcpClient, setMcpClient] = useState<{
-    client: string | null;
-    lastUsedAt: string | null;
-  } | null>(null);
-  const [aiSettings, setAiSettings] = useState<{
-    mode: "mcp" | "api_key";
-    provider: string | null;
-    model: string | null;
-  }>({
+  const [mcpServers, setMcpServers] = useState<Array<{ name: string; enabled: boolean; ok: boolean | null }>>([]);
+  const [mcpClient, setMcpClient] = useState<{ client: string | null; lastUsedAt: string | null } | null>(null);
+  const [aiSettings, setAiSettings] = useState<{ mode: "mcp" | "api_key"; provider: string | null; model: string | null }>({
     mode: "mcp",
     provider: null,
     model: null,
   });
   const [showAiSourceModal, setShowAiSourceModal] = useState(false);
-  const [aiUsage, setAiUsage] = useState<{
-    used_5h: number;
-    limit_5h: number;
-    used_24h?: number;
-    limit_24h?: number;
-    used_7d: number;
-    limit_7d: number;
-    owner?: boolean;
-    reset_5h?: string | null;
-    reset_24h?: string | null;
-  } | null>(null);
-  const aiUsageUsed = aiUsage?.used_24h ?? aiUsage?.used_5h ?? 0;
-  const aiUsageLimit = aiUsage?.limit_24h ?? aiUsage?.limit_5h ?? 0;
-  const aiUsageBlocked = Boolean(
-    aiUsage && !aiUsage.owner && aiUsageLimit > 0 && aiUsageUsed >= aiUsageLimit,
-  );
-  const aiUsageResetLabel = aiUsage?.reset_24h
-    ? new Date(aiUsage.reset_24h).toLocaleTimeString([], {
-        hour: "numeric",
-        minute: "2-digit",
-        hour12: true,
-      })
-    : "later";
+  const [aiUsage, setAiUsage] = useState<{ used_5h: number; limit_5h: number; used_7d: number; limit_7d: number; owner?: boolean; reset_5h?: string | null } | null>(null);
   useEffect(() => {
     let cancelled = false;
     const load = async () => {
@@ -570,29 +517,18 @@ function ProjectEditor() {
         supabase.rpc("get_ai_usage"),
       ]);
       if (cancelled) return;
-      setMcpServers(
-        (
-          (serversRes.data ?? []) as Array<{
-            name: string;
-            enabled: boolean;
-            last_test_ok: boolean | null;
-          }>
-        ).map((s) => ({ name: s.name, enabled: s.enabled, ok: s.last_test_ok })),
-      );
+      setMcpServers(((serversRes.data ?? []) as Array<{ name: string; enabled: boolean; last_test_ok: boolean | null }>)
+        .map((s) => ({ name: s.name, enabled: s.enabled, ok: s.last_test_ok })));
       const t = tokenRes.data as { last_client: string | null; last_used_at: string | null } | null;
       setMcpClient(t ? { client: t.last_client, lastUsedAt: t.last_used_at } : null);
-      const a = aiRes.data as {
-        mode: "mcp" | "api_key";
-        provider: string | null;
-        model: string | null;
-      } | null;
+      const a = aiRes.data as { mode: "mcp" | "api_key"; provider: string | null; model: string | null } | null;
       setAiSettings(a ?? { mode: "mcp", provider: null, model: null });
       if (usageRes.data) setAiUsage(usageRes.data as any);
     };
 
     load();
     const ch = supabase
-      .channel(`ai-indicator-${projectId}-${Math.random().toString(36).slice(2)}`)
+      .channel("ai-indicator")
       .on("postgres_changes", { event: "*", schema: "public", table: "user_mcp_servers" }, load)
       .on("postgres_changes", { event: "*", schema: "public", table: "mcp_tokens" }, load)
       .on("postgres_changes", { event: "*", schema: "public", table: "project_ai_settings" }, load)
@@ -604,6 +540,7 @@ function ProjectEditor() {
       supabase.removeChannel(ch);
     };
   }, [projectId]);
+
 
   const [plansByMsg, setPlansByMsg] = useState<Record<string, { prompt: string; plan: string }>>(
     {},
@@ -619,18 +556,13 @@ function ProjectEditor() {
     fileCount: number;
     instanceCount: number | null;
     updatedAt: string | null;
-    memoryCount: number;
   } | null>(null);
-  const [memories, setMemories] = useState<AiMemory[]>([]);
-  const [memoryOpen, setMemoryOpen] = useState(false);
-  const [memoryDraft, setMemoryDraft] = useState("");
-  const [memoryBusy, setMemoryBusy] = useState(false);
   const [treeQuery, setTreeQuery] = useState("");
   const [scanRequestedAt, setScanRequestedAt] = useState<number | null>(null);
   const [scanTimedOut, setScanTimedOut] = useState(false);
 
   const refreshAiContext = async () => {
-    const [{ count }, { data: ctx }, { count: memoryCount }] = await Promise.all([
+    const [{ count }, { data: ctx }] = await Promise.all([
       supabase
         .from("project_files")
         .select("id", { count: "exact", head: true })
@@ -640,57 +572,12 @@ function ProjectEditor() {
         .select("instance_count,updated_at")
         .eq("project_id", projectId)
         .maybeSingle(),
-      supabase
-        .from("project_ai_memories")
-        .select("id", { count: "exact", head: true })
-        .eq("project_id", projectId),
     ]);
     setAiContext({
       fileCount: count ?? 0,
       instanceCount: ctx?.instance_count ?? null,
       updatedAt: ctx?.updated_at ?? null,
-      memoryCount: memoryCount ?? 0,
     });
-  };
-
-  const refreshMemories = async () => {
-    try {
-      const out = await listMemories({ data: { projectId } });
-      setMemories((out.memories ?? []) as AiMemory[]);
-      setAiContext((ctx) => (ctx ? { ...ctx, memoryCount: out.memories?.length ?? 0 } : ctx));
-    } catch (e: any) {
-      toast.error(e?.message ?? "Could not load AI memory.");
-    }
-  };
-
-  const addManualMemory = async () => {
-    const value = memoryDraft.trim();
-    if (value.length < 3 || memoryBusy) return;
-    setMemoryBusy(true);
-    try {
-      await rememberNote({ data: { projectId, value, kind: "preference" } });
-      setMemoryDraft("");
-      await refreshMemories();
-      toast.success("Saved to AI memory.");
-    } catch (e: any) {
-      toast.error(e?.message ?? "Could not save memory.");
-    } finally {
-      setMemoryBusy(false);
-    }
-  };
-
-  const deleteMemory = async (id: string) => {
-    if (memoryBusy) return;
-    setMemoryBusy(true);
-    try {
-      await forgetMemory({ data: { projectId, id } });
-      await refreshMemories();
-      toast.success("Forgot that memory.");
-    } catch (e: any) {
-      toast.error(e?.message ?? "Could not forget memory.");
-    } finally {
-      setMemoryBusy(false);
-    }
   };
 
   const refreshCredits = async () => {
@@ -714,7 +601,6 @@ function ProjectEditor() {
         .from("projects")
         .select("*")
         .eq("id", projectId)
-        .eq("user_id", user.id)
         .maybeSingle();
       if (!p) return toast.error("Project not found");
       setProject(p as Project);
@@ -726,16 +612,19 @@ function ProjectEditor() {
       setFiles((f ?? []) as ProjectFile[]);
       if ((f ?? []).length) setActiveId(f![0].id);
 
+      const { data: c } = await supabase
+        .from("project_collaborators")
+        .select("user_id,role")
+        .eq("project_id", projectId);
+      setCollabs((c ?? []) as any);
       refreshCredits();
       refreshAiContext();
-      refreshMemories();
 
       // Load all conversations for this project, pick the most recent (or create one).
       const { data: allConvos } = await supabase
         .from("agent_conversations")
         .select("id,title,updated_at")
         .eq("project_id", projectId)
-        .eq("user_id", user.id)
         .order("updated_at", { ascending: false });
       setConversations((allConvos ?? []) as any);
       let cid = allConvos?.[0]?.id ?? null;
@@ -755,20 +644,7 @@ function ProjectEditor() {
           .select("id,role,content,actions")
           .eq("conversation_id", cid)
           .order("created_at", { ascending: true });
-        const loaded = (msgs ?? []).map((m: any) => ({
-          id: m.id,
-          role: m.role,
-          content: m.content,
-          actions: m.actions,
-        }));
-        // Collapse accidental duplicate messages (same role + identical content
-        // back-to-back) so a double-write greeting only renders once.
-        const deduped = loaded.filter(
-          (m, i) =>
-            i === 0 ||
-            !(m.role === loaded[i - 1].role && m.content === loaded[i - 1].content),
-        );
-        setMessages(deduped);
+        setMessages((msgs ?? []).map((m: any) => ({ id: m.id, role: m.role, content: m.content, actions: m.actions })));
       }
     })();
   }, [user, projectId]);
@@ -781,14 +657,7 @@ function ProjectEditor() {
       .select("id,role,content,actions")
       .eq("conversation_id", cid)
       .order("created_at", { ascending: true });
-    setMessages(
-      (msgs ?? []).map((m: any) => ({
-        id: m.id,
-        role: m.role,
-        content: m.content,
-        actions: m.actions,
-      })),
-    );
+    setMessages((msgs ?? []).map((m: any) => ({ id: m.id, role: m.role, content: m.content, actions: m.actions })));
   };
 
   const newChat = async () => {
@@ -829,11 +698,7 @@ function ProjectEditor() {
     // Auto-title from first user message if still "New chat"
     const cur = conversations.find((c) => c.id === convoId);
     const patch: any = { updated_at: new Date().toISOString() };
-    if (
-      role === "user" &&
-      cur &&
-      (!cur.title || cur.title === "New chat" || cur.title === "Team Chat" || cur.title === "Chat")
-    ) {
+    if (role === "user" && cur && (!cur.title || cur.title === "New chat" || cur.title === "Team Chat" || cur.title === "Chat")) {
       patch.title = content.slice(0, 60).replace(/\s+/g, " ").trim() || "New chat";
     }
     await supabase.from("agent_conversations").update(patch).eq("id", convoId);
@@ -887,19 +752,14 @@ function ProjectEditor() {
     };
   }, [user, projectId]);
 
-  // realtime AI chat for the current user's private conversation
+  // realtime AI chat (so collaborators see each other's prompts + AI replies live)
   useEffect(() => {
     if (!convoId) return;
     const ch = supabase
       .channel(`agent_messages:${convoId}`)
       .on(
         "postgres_changes",
-        {
-          event: "*",
-          schema: "public",
-          table: "agent_messages",
-          filter: `conversation_id=eq.${convoId}`,
-        },
+        { event: "*", schema: "public", table: "agent_messages", filter: `conversation_id=eq.${convoId}` },
         (payload) => {
           setMessages((prev) => {
             if (payload.eventType === "INSERT") {
@@ -915,9 +775,7 @@ function ProjectEditor() {
         },
       )
       .subscribe();
-    return () => {
-      supabase.removeChannel(ch);
-    };
+    return () => { supabase.removeChannel(ch); };
   }, [convoId]);
 
   const active = files.find((f) => f.id === activeId) ?? null;
@@ -1070,9 +928,7 @@ function ProjectEditor() {
   const cancelScanWait = () => {
     setScanRequestedAt(null);
     setScanTimedOut(false);
-    toast.info(
-      "Stopped waiting here. Use Cancel Scan inside the Studio plugin if Roblox is still scanning.",
-    );
+    toast.info("Stopped waiting here. Use Cancel Scan inside the Studio plugin if Roblox is still scanning.");
   };
 
   // Subscribe to realtime plugin context updates
@@ -1094,7 +950,6 @@ function ProjectEditor() {
             fileCount: prev?.fileCount ?? 0,
             instanceCount: updatedCtx?.instance_count ?? null,
             updatedAt: updatedCtx?.updated_at ?? null,
-            memoryCount: prev?.memoryCount ?? 0,
           }));
         },
       )
@@ -1106,8 +961,6 @@ function ProjectEditor() {
 
   const isStudioConnected =
     aiContext?.updatedAt != null && Date.now() - new Date(aiContext.updatedAt).getTime() < 40_000;
-
-  const [playtestPanelOpen, setPlaytestPanelOpen] = useState(false);
 
   useEffect(() => {
     if (!scanRequestedAt) return;
@@ -1128,8 +981,7 @@ function ProjectEditor() {
   const scannerState = scanTimedOut
     ? {
         label: "Error",
-        detail:
-          "Project scan timed out. Retry, reconnect, or cancel the scan in the Studio plugin.",
+        detail: "Project scan timed out. Retry, reconnect, or cancel the scan in the Studio plugin.",
         tone: "border-rose-500/35 bg-rose-500/10 text-rose-300",
       }
     : scanRequestedAt && !isStudioConnected
@@ -1182,10 +1034,7 @@ function ProjectEditor() {
     }
   };
 
-  const runGenerate = async (
-    userPrompt: string,
-    opts?: { skipUserBubble?: boolean; images?: string[]; forceThinking?: boolean },
-  ) => {
+  const runGenerate = async (userPrompt: string, opts?: { skipUserBubble?: boolean; images?: string[] }) => {
     if (aiBusy) return;
     if (outOfCredits) {
       toast.error("Out of credits. Buy more or wait for the daily refill.");
@@ -1196,95 +1045,58 @@ function ProjectEditor() {
     const controller = new AbortController();
     aiAbortRef.current = controller;
     const imgs = opts?.images ?? [];
-    // Watchdog: if the server call never resolves, don't let the input stay
-    // locked forever (which makes every later prompt silently do nothing
-    // because of the `if (aiBusy) return` guard). Image/replica builds get
-    // longer because they need vision analysis and richer Studio actions.
-    let watchdogFired = false;
-    const heavyVisionBuild =
-      imgs.length > 0 ||
-      /\b(replica|replicate|recreate|1\s*:?\s*1|one[-\s]?to[-\s]?one|attached image|reference image|full game|entire game)\b/i.test(
-        userPrompt,
-      );
-    const watchdog = setTimeout(
-      () => {
-        watchdogFired = true;
-        try {
-          controller.abort();
-        } catch {
-          /* noop */
-        }
-      },
-      heavyVisionBuild ? 150_000 : 90_000,
-    );
     if (!opts?.skipUserBubble) {
       const bubble = imgs.length
         ? `${userPrompt}\n\n_📎 attached ${imgs.length} image${imgs.length === 1 ? "" : "s"}_`
         : userPrompt;
       await pushMsg("user", bubble);
     }
-    // Show an immediate "thinking" placeholder so the user always gets visible
-    // feedback. Without this, a slow or empty generation looks like "nothing
-    // happened" (a blank bubble). We replace this id with the real result, or
-    // remove it on error.
-    const thinkingId = crypto.randomUUID();
-    setMessages((m) => [...m, { id: thinkingId, role: "assistant", content: "_Thinking…_" }]);
-    const removeThinking = () => setMessages((m) => m.filter((x) => x.id !== thinkingId));
+    let response: Response | null = null;
     try {
-      // Call the REAL AI generation server function (Claude Sonnet via the
-      // gateway, with tools, clothing, validation, and the error-feedback
-      // loop). Previously this hit /api/assistant/execute, a stub that always
-      // returned a canned 6-operation "starter" and never invoked the model —
-      // which is why every big build came back thin.
-      const out = (await runAI({
-        data: {
+      response = await fetch("/api/assistant/execute", {
+        method: "POST",
+        signal: controller.signal,
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${session?.access_token || ""}`,
+        },
+        body: JSON.stringify({
           projectId,
           prompt: userPrompt,
-          mode: "generate",
-          preview: true,
-          thinking: opts?.forceThinking ?? thinking,
-          ...(imgs.length && /^data:image\//.test(imgs[0]) ? { imageDataUrl: imgs[0] } : {}),
-        },
-      })) as {
-        message: string;
-        files?: any[];
-        actions?: any[];
-        validation?: { errors?: any[]; warnings?: any[]; summary?: string };
-        queuedCount?: number;
-        generationId?: string | null;
-        status?: string;
-        dangers?: string[];
-        aiActivity?: any[];
-      };
+          autoExecute: autoExecute && !planMode,
+          studioConnected: aiContext?.updatedAt != null,
+          thinking,
+          aiMode,
+          ...(imgs.length ? { attachments: imgs } : {}),
+        }),
+      });
 
-      if (stopRequested.current) {
-        removeThinking();
-        await pushMsg("assistant", "Stopped the request before it finished.");
-        return;
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.error || `Server responded with ${response.status}`);
       }
-      removeThinking();
 
+      const out = await response.json();
       const v = out.validation;
-      const vLine =
-        v && ((v.errors?.length ?? 0) > 0 || (v.warnings?.length ?? 0) > 0)
-          ? `\n\nSync check: ${v.errors?.length ?? 0} blocked · ${v.warnings?.length ?? 0} warning(s).` +
-            (v.errors?.length
-              ? "\n" +
-                v.errors
-                  .slice(0, 5)
-                  .map((e: any) => `  ✗ ${e.target} — ${e.message}`)
-                  .join("\n")
-              : "") +
-            (v.warnings?.length
-              ? "\n" +
-                v.warnings
-                  .slice(0, 3)
-                  .map((w: any) => `  ⚠ ${w.target} — ${w.message}`)
-                  .join("\n")
-              : "")
-          : "";
+      const vLine = v
+        ? `\n\nSync check: ${v.errors?.length ?? 0} blocked · ${v.warnings?.length ?? 0} warning(s).` +
+          (v.errors?.length
+            ? "\n" +
+              v.errors
+                .slice(0, 5)
+                .map((e: any) => `  ✗ ${e.target} — ${e.message}`)
+                .join("\n")
+            : "") +
+          (v.warnings?.length
+            ? "\n" +
+              v.warnings
+                .slice(0, 3)
+                .map((w: any) => `  ⚠ ${w.target} — ${w.message}`)
+                .join("\n")
+            : "")
+        : "";
       const askLine =
-        (out.queuedCount ?? 0) > 0 && out.status !== "executing"
+        out.queuedCount > 0 && out.status !== "executing"
           ? `\n\nReview the ${out.queuedCount} operation${out.queuedCount === 1 ? "" : "s"} below — push to Studio when ready.`
           : "";
       const dangerLine = out.dangers?.length
@@ -1294,16 +1106,10 @@ function ProjectEditor() {
             .join("\n")}`
         : "";
       const tempId = crypto.randomUUID();
-      // Never render an empty assistant bubble. If the server came back with no
-      // message text, synthesize one from what it queued (or an honest fallback
-      // so the user always knows what happened).
-      const baseMessage =
-        (out.message && out.message.trim()) ||
-        ((out.queuedCount ?? out.actions?.length ?? 0) > 0
-          ? `Queued ${out.queuedCount ?? out.actions?.length} operation${(out.queuedCount ?? out.actions?.length) === 1 ? "" : "s"} for Studio.`
-          : "The AI didn't return a build this time. Try again, or rephrase into a smaller step (e.g. 'just the spawn area' or 'just the shop UI').");
-      const fullContent = baseMessage + vLine + dangerLine + askLine;
-      setMessages((m) => [...m, { id: tempId, role: "assistant", content: fullContent }]);
+      setMessages((m) => [
+        ...m,
+        { id: tempId, role: "assistant", content: out.message + vLine + dangerLine + askLine },
+      ]);
       // Snapshot pre-state of every file the AI is about to touch, so the user
       // can hit "Revert" to undo this batch (restore old content / delete new
       // files / queue plugin deletes in Studio).
@@ -1327,29 +1133,24 @@ function ProjectEditor() {
         dangers: out.dangers ?? [],
         snapshot,
       };
-      const realId = await persistMsg("assistant", fullContent, actionsMeta);
+      const realId = await persistMsg("assistant", out.message + vLine + dangerLine + askLine, actionsMeta);
       const finalId = realId ?? tempId;
-      setMessages((m) =>
-        m.map((x) => (x.id === tempId ? { ...x, id: finalId, actions: actionsMeta } : x)),
-      );
+      setMessages((m) => m.map((x) => (x.id === tempId ? { ...x, id: finalId, actions: actionsMeta } : x)));
 
       // Always surface what the AI built so the user can see files + actions,
       // even when Auto Execute is on.
-      if (out.generationId && (out.queuedCount ?? 0) > 0) {
+      if (out.generationId && out.queuedCount > 0) {
         setPreviewsByMsg((p) => ({
           ...p,
           [finalId]: {
-            generationId: out.generationId as string,
+            generationId: out.generationId,
             files: out.files ?? [],
             actions: out.actions ?? [],
           },
         }));
       }
       if (out.aiActivity?.length) {
-        setActivityByMsg((p) => ({
-          ...p,
-          [finalId]: out.aiActivity as { tool: string; summary: string; ok: boolean }[],
-        }));
+        setActivityByMsg((p) => ({ ...p, [finalId]: out.aiActivity }));
       }
 
       if (out.status === "executing" && out.generationId) {
@@ -1371,14 +1172,6 @@ function ProjectEditor() {
         }));
       }
     } catch (e: any) {
-      removeThinking();
-      if (watchdogFired) {
-        await pushMsg(
-          "assistant",
-          "That took too long and timed out. The server may be busy or the request was too big — try again, or break it into a smaller step.",
-        );
-        return;
-      }
       if (stopRequested.current || e?.name === "AbortError") {
         await pushMsg("assistant", "Stopped the request before it finished.");
         return;
@@ -1387,42 +1180,33 @@ function ProjectEditor() {
       let friendly = /insufficient credits|Not enough credits/i.test(msg)
         ? "Out of credits. Buy more on the Pricing page or wait for the daily refill at midnight UTC."
         : msg;
-      // Surface the real cause. A generation failure is almost always an AI
-      // problem (missing GROQ_API_KEY, model error, bad JSON), NOT a Studio
-      // plugin issue — so don't blame the plugin connection.
-      const timeoutLike =
-        /operation was aborted|aborted due to timeout|took too long|timeout|timed out/i.test(msg);
-      if (timeoutLike) {
-        friendly =
-          "The AI provider timed out before finishing this build. I refunded any credits charged for this failed run. Try again, switch to Gemini Flash, or split the request into a smaller step.";
-      }
-      const generationFailure =
+      // Surface the real cause. A 500 from the execute route is almost always
+      // an AI-generation problem (missing GROQ_API_KEY, model error, bad JSON),
+      // NOT a Studio plugin issue — so don't blame the plugin connection.
+      if (
         friendly.includes("Failed to call a function") ||
         friendly.includes("generation failed") ||
-        friendly.includes("AI returned") ||
-        friendly.includes("Autopilot failed");
-      if (!timeoutLike && generationFailure) {
+        (response && response.status === 500)
+      ) {
         friendly =
           "The AI build request failed on the server" +
           (msg && msg !== "Failed" ? `: ${msg}` : ".") +
           "\n\nThis is a generation error, not a Studio connection problem. " +
-          "If it keeps happening, check the server logs and that the AI provider key is set.";
+          "If it keeps happening, check the server logs for the /api/assistant/execute route.";
       }
       toast.error(friendly);
       await pushMsg("assistant", friendly);
     } finally {
-      clearTimeout(watchdog);
       if (aiAbortRef.current === controller) aiAbortRef.current = null;
       setAiBusy(false);
       refreshCredits();
       refreshAiContext();
-      refreshMemories();
     }
   };
 
   const runPlanRequest = async (userPrompt: string) => {
     if (aiBusy) return;
-    if (!isOwner && credits !== null && credits < PLAN_COST) {
+    if (credits !== null && credits < PLAN_COST) {
       toast.error("Not enough credits for a plan.");
       return;
     }
@@ -1448,13 +1232,12 @@ function ProjectEditor() {
       setAiBusy(false);
       refreshCredits();
       refreshAiContext();
-      refreshMemories();
     }
   };
 
   const runChatRequest = async (userPrompt: string, images: string[] = []) => {
     if (aiBusy) return;
-    if (!isOwner && credits !== null && credits < CHAT_COST) {
+    if (credits !== null && credits < CHAT_COST) {
       toast.error("Not enough credits for chat.");
       return;
     }
@@ -1464,10 +1247,7 @@ function ProjectEditor() {
       : userPrompt;
     await pushMsg("user", bubble);
     const tempAssistantId = crypto.randomUUID();
-    setMessages((m) => [
-      ...m,
-      { id: tempAssistantId, role: "assistant", content: "_Thinking..._" },
-    ]);
+    setMessages((m) => [...m, { id: tempAssistantId, role: "assistant", content: "_Thinking..._" }]);
     try {
       const history = messages.slice(-10).map((m) => ({ role: m.role, content: m.content }));
       const out: any = await runChat({
@@ -1501,29 +1281,18 @@ function ProjectEditor() {
       setMessages((m) =>
         m.map((x) =>
           x.id === tempAssistantId
-            ? {
-                ...x,
-                id: realId ?? tempAssistantId,
-                content: friendly,
-                actions: { kind: "chat_error" },
-              }
+            ? { ...x, id: realId ?? tempAssistantId, content: friendly, actions: { kind: "chat_error" } }
             : x,
         ),
       );
     } finally {
       setAiBusy(false);
       refreshCredits();
-      refreshAiContext();
-      refreshMemories();
     }
   };
 
   const send = async () => {
     if ((!prompt.trim() && attachments.length === 0) || aiBusy) return;
-    if (aiUsageBlocked) {
-      toast.error(`Daily AI timer used up. Try again at ${aiUsageResetLabel}.`);
-      return;
-    }
     const p = prompt;
     const imgs = attachments;
     setPrompt("");
@@ -1539,41 +1308,6 @@ function ProjectEditor() {
     else await runGenerate(composedPrompt, { images: imgs });
   };
 
-  const runPlaytestRequest = async () => {
-    if (aiBusy) return;
-    if (aiUsageBlocked) {
-      toast.error(`Daily AI timer used up. Try again at ${aiUsageResetLabel}.`);
-      return;
-    }
-    // Immediate acknowledgement so the tap visibly does something.
-    if (!isStudioConnected) {
-      toast.warning(
-        "Studio isn't connected — open the BloxSmith plugin in Roblox Studio so the test scene appears there. Setting it up now anyway.",
-      );
-    } else {
-      toast.info("Setting up your playtest scene in Studio…");
-    }
-    setThinking(true);
-    setWebSearch(true);
-    setPlanMode(false);
-    toggleChatMode(false);
-    await runGenerate(
-      `[AI PLAYTEST MODE]
-[WEB SEARCH ENABLED] Use web_search / fetch_url only when current Roblox API docs or safety guidance are needed.
-You are setting up a LIVE, runnable playtest inside the user's Roblox Studio via the connected plugin, then they will press Play (F5) and watch it.
-
-Goal: make the requested scenario actually runnable and observable in Studio, not just a written report.
-
-Do this in order:
-1. Read the current project files and any live Studio/plugin snapshot.
-2. Set up the test scenario the user asked for by QUEUEING REAL ACTIONS (create/create_part/spawn/script/insertAsset/set/select etc.) — e.g. a spawn point, the player's starting tools/items, any props, and any temporary test scripts needed to observe the behavior. Keep changes focused and clearly named (e.g. put test-only objects under a "Workspace/PlaytestSetup" folder so they're easy to remove).
-3. Add small, safe instrumentation if helpful (e.g. a Script that prints clear [PLAYTEST] markers to Output for the things the user wants to verify).
-4. As the FINAL action, emit a single "playtest_ready" action with: focus = the path to the main thing to watch, note = one short line on what you set up, and checklist = the concrete things the user should look for when they press Play.
-
-After the actions, write a SHORT message: what you set up, then "Press Play (F5) in Studio to run it" and the checklist. Do NOT claim you pressed Play — Roblox doesn't allow the plugin to start Play Solo, so the user presses it. When they report what happened (or paste Output), follow up with Pass / Needs Fix and queue focused fixes.`,
-      { forceThinking: true },
-    );
-  };
 
   const buildFromPlan = async (msgId: string) => {
     const entry = plansByMsg[msgId];
@@ -1657,7 +1391,7 @@ After the actions, write a SHORT message: what you set up, then "Press Play (F5)
 
   const doFix = async () => {
     if (!fixLogs.trim() || fixBusy) return;
-    if (!isOwner && credits !== null && credits < FIX_COST && !outOfCredits) {
+    if (credits !== null && credits < FIX_COST && !outOfCredits) {
       toast.error("Not enough credits.");
       return;
     }
@@ -1696,13 +1430,12 @@ After the actions, write a SHORT message: what you set up, then "Press Play (F5)
       setFixBusy(false);
       refreshCredits();
       refreshAiContext();
-      refreshMemories();
     }
   };
 
   const doAutopilot = async () => {
     if (!autoDesc.trim() || autoBusy) return;
-    if (!isOwner && credits !== null && credits < AUTOPILOT_COST) {
+    if (credits !== null && credits < AUTOPILOT_COST) {
       toast.error(`Autopilot needs ${AUTOPILOT_COST} credits.`);
       return;
     }
@@ -1720,32 +1453,31 @@ After the actions, write a SHORT message: what you set up, then "Press Play (F5)
         ? `\n\nAssumptions:\n${out.assumptions.map((a) => `  • ${a}`).join("\n")}`
         : "";
       const v = (out as any).validation;
-      const vLine =
-        v && ((v.errors ?? 0) > 0 || (v.warnings ?? 0) > 0)
-          ? `\n\nSync check: ${v.errors ?? 0} blocked · ${v.warnings ?? 0} warning(s) across ${v.phases?.length ?? 0} phase(s).` +
-            (v.phases ?? [])
-              .filter((p: any) => p.errors?.length || p.warnings?.length)
-              .slice(0, 4)
-              .map(
-                (p: any) =>
-                  `\n  ${p.title}:` +
-                  (p.errors?.length
-                    ? "\n" +
-                      p.errors
-                        .slice(0, 3)
-                        .map((e: any) => `    ✗ ${e.target} — ${e.message}`)
-                        .join("\n")
-                    : "") +
-                  (p.warnings?.length
-                    ? "\n" +
-                      p.warnings
-                        .slice(0, 2)
-                        .map((w: any) => `    ⚠ ${w.target} — ${w.message}`)
-                        .join("\n")
-                    : ""),
-              )
-              .join("")
-          : "";
+      const vLine = v
+        ? `\n\nSync check: ${v.errors ?? 0} blocked · ${v.warnings ?? 0} warning(s) across ${v.phases?.length ?? 0} phase(s).` +
+          (v.phases ?? [])
+            .filter((p: any) => p.errors?.length || p.warnings?.length)
+            .slice(0, 4)
+            .map(
+              (p: any) =>
+                `\n  ${p.title}:` +
+                (p.errors?.length
+                  ? "\n" +
+                    p.errors
+                      .slice(0, 3)
+                      .map((e: any) => `    ✗ ${e.target} — ${e.message}`)
+                      .join("\n")
+                  : "") +
+                (p.warnings?.length
+                  ? "\n" +
+                    p.warnings
+                      .slice(0, 2)
+                      .map((w: any) => `    ⚠ ${w.target} — ${w.message}`)
+                      .join("\n")
+                  : ""),
+            )
+            .join("")
+        : "";
       const summary = `${out.summary}\n\nBuild plan:\n${phaseList}${assumptions}\n\nQueued ${out.totalActions} actions covering ${out.totalFiles} files. Waiting for the Studio plugin to confirm each action before calling it applied.${vLine}`;
       await pushMsg("assistant", summary, {
         kind: "autopilot",
@@ -1766,15 +1498,33 @@ After the actions, write a SHORT message: what you set up, then "Press Play (F5)
       setAutoBusy(false);
       refreshCredits();
       refreshAiContext();
-      refreshMemories();
+    }
+  };
+
+  const doInvite = async () => {
+    if (!inviteEmail.trim()) return;
+    try {
+      await runInvite({ data: { projectId, email: inviteEmail.trim(), role: "editor" } });
+      toast.success("Collaborator added");
+      setInviteEmail("");
+      setShowInvite(false);
+      const { data: c } = await supabase
+        .from("project_collaborators")
+        .select("user_id,role")
+        .eq("project_id", projectId);
+      setCollabs((c ?? []) as any);
+    } catch (e: any) {
+      toast.error(e.message ?? "Failed");
     }
   };
 
   if (loading || !project)
-    return <div className="h-screen grid place-items-center text-muted-foreground">Loading...</div>;
+    return (
+      <div className="min-h-screen grid place-items-center text-muted-foreground">Loading...</div>
+    );
 
   return (
-    <div className="h-screen flex flex-col overflow-hidden">
+    <div className="min-h-screen flex flex-col">
       <Header />
       <SyncValidationDrawer
         open={syncDrawerOpen}
@@ -1787,14 +1537,7 @@ After the actions, write a SHORT message: what you set up, then "Press Play (F5)
         outOfCredits={outOfCredits}
         fixCost={GENERATE_COST}
       />
-      {playtestPanelOpen && (
-        <PlaytestPanel
-          projectId={projectId}
-          studioConnected={isStudioConnected}
-          onClose={() => setPlaytestPanelOpen(false)}
-        />
-      )}
-      <div className="shrink-0 border-b border-border bg-surface/40">
+      <div className="border-b border-border bg-surface/40">
         <div className="mx-auto max-w-7xl px-3 sm:px-4 py-3 flex items-center justify-between gap-2 sm:gap-3 flex-wrap">
           <div className="flex items-center gap-2 sm:gap-3 min-w-0 flex-1">
             <Link to="/dashboard" className="text-muted-foreground hover:text-foreground shrink-0">
@@ -1807,6 +1550,19 @@ After the actions, write a SHORT message: what you set up, then "Press Play (F5)
           </div>
           <div className="flex items-center gap-1.5 sm:gap-2 flex-wrap">
             <PluginStatus />
+            <TeamChat projectId={projectId} />
+
+            <button
+              onClick={() => setShowInvite((s) => !s)}
+              className="rounded-lg border border-border px-2 sm:px-3 py-1.5 text-xs flex items-center gap-1.5 hover:bg-surface"
+              aria-label="Collaborators"
+            >
+              <Users className="h-3.5 w-3.5" />{" "}
+              <span className="hidden sm:inline">
+                {collabs.length} collaborator{collabs.length !== 1 && "s"}
+              </span>
+              <span className="sm:hidden">{collabs.length}</span>
+            </button>
             <button
               onClick={() => {
                 if (!files.length) return toast.error("No files yet — generate some first");
@@ -1844,10 +1600,26 @@ After the actions, write a SHORT message: what you set up, then "Press Play (F5)
             </Link>
           </div>
         </div>
+        {showInvite && (
+          <div className="mx-auto max-w-7xl px-3 sm:px-4 pb-3 flex gap-2">
+            <input
+              value={inviteEmail}
+              onChange={(e) => setInviteEmail(e.target.value)}
+              placeholder="friend@email.com"
+              className="flex-1 min-w-0 rounded-lg bg-surface-elevated border border-border px-3 py-1.5 text-sm"
+            />
+            <button
+              onClick={doInvite}
+              className="rounded-lg bg-primary px-4 py-1.5 text-sm font-semibold text-primary-foreground shrink-0"
+            >
+              Invite
+            </button>
+          </div>
+        )}
       </div>
 
       {/* Mobile panel switcher */}
-      <div className="shrink-0 lg:hidden border-b border-border bg-surface/30 sticky top-[57px] z-30">
+      <div className="lg:hidden border-b border-border bg-surface/30 sticky top-[57px] z-30">
         <div className="mx-auto max-w-7xl px-3 grid grid-cols-3 text-xs">
           {(
             [
@@ -1868,7 +1640,7 @@ After the actions, write a SHORT message: what you set up, then "Press Play (F5)
       </div>
 
       <main
-        className="flex-1 min-h-0 overflow-hidden grid gap-0 relative lg:[grid-template-columns:var(--files-w)_minmax(0,1fr)_var(--chat-col-w)]"
+        className="flex-1 grid gap-0 relative lg:[grid-template-columns:var(--files-w)_minmax(0,1fr)_var(--chat-col-w)]"
         style={{
           ["--chat-w" as any]: `${chatWidth}px`,
           ["--files-w" as any]: showFiles ? "240px" : "0px",
@@ -1896,7 +1668,7 @@ After the actions, write a SHORT message: what you set up, then "Press Play (F5)
         )}
         {/* File tree */}
         <aside
-          className={`${mobileTab === "files" ? "flex" : "hidden"} ${showFiles ? "lg:flex" : "lg:hidden"} min-h-0 h-full border-r border-border bg-surface/20 overflow-hidden flex-col`}
+          className={`${mobileTab === "files" ? "block" : "hidden"} ${showFiles ? "lg:block" : "lg:hidden"} border-r border-border bg-surface/20 overflow-y-auto max-h-[calc(100vh-8rem)] flex flex-col`}
         >
           <div className="p-3 space-y-3 border-b border-border/40 shrink-0">
             <div className="flex items-center justify-between">
@@ -1962,11 +1734,7 @@ After the actions, write a SHORT message: what you set up, then "Press Play (F5)
                 onClick={scanRequestedAt && !scanTimedOut ? cancelScanWait : refreshFilesFromStudio}
                 className="rounded-md border border-border bg-background/40 px-2 py-1.5 text-xs font-medium hover:bg-surface-elevated"
               >
-                {scanRequestedAt && !scanTimedOut
-                  ? "Cancel Wait"
-                  : scanTimedOut
-                    ? "Retry"
-                    : "Rescan"}
+                {scanRequestedAt && !scanTimedOut ? "Cancel Wait" : scanTimedOut ? "Retry" : "Rescan"}
               </button>
             </div>
           </div>
@@ -2003,17 +1771,14 @@ After the actions, write a SHORT message: what you set up, then "Press Play (F5)
               <div className="px-4 py-8 flex flex-col items-center justify-center text-center gap-2">
                 <Loader2 className="h-5 w-5 animate-spin text-primary" />
                 <span className="text-xs text-muted-foreground">
-                  {scanTimedOut
-                    ? "Project scan timed out. Press Retry."
-                    : "Scanning Roblox Studio project..."}
+                  {scanTimedOut ? "Project scan timed out. Press Retry." : "Scanning Roblox Studio project..."}
                 </span>
               </div>
             ) : (
               <div className="px-4 py-8 flex flex-col items-center justify-center text-center gap-2">
                 <Plug className="h-5 w-5 text-muted-foreground/60" />
                 <span className="text-xs text-muted-foreground leading-relaxed">
-                  Roblox Studio is not connected. Open the Bloxsmith AI plugin in Studio and press
-                  Sync Project.
+                  Roblox Studio is not connected. Open the Bloxsmith AI plugin in Studio and press Sync Project.
                 </span>
                 <Link
                   to="/plugin"
@@ -2028,7 +1793,7 @@ After the actions, write a SHORT message: what you set up, then "Press Play (F5)
 
         {/* Editor */}
         <section
-          className={`${mobileTab === "editor" ? "flex" : "hidden"} lg:flex flex-col min-h-0 h-full flex-1 min-w-0 bg-background/20 overflow-hidden`}
+          className={`${mobileTab === "editor" ? "flex" : "hidden"} lg:flex flex-col min-h-[60vh] flex-1 min-w-0 bg-background/20`}
         >
           {active ? (
             <div className="flex flex-col flex-1 min-h-0">
@@ -2060,9 +1825,7 @@ After the actions, write a SHORT message: what you set up, then "Press Play (F5)
 
               <div className="grid gap-2 border-b border-border/50 bg-background/35 px-4 py-2 text-[11px] text-muted-foreground sm:grid-cols-3">
                 <div className="min-w-0">
-                  <div className="uppercase tracking-wide text-muted-foreground/60">
-                    Full Object Path
-                  </div>
+                  <div className="uppercase tracking-wide text-muted-foreground/60">Full Object Path</div>
                   <div className="truncate font-mono text-foreground/80">{activeStudioPath}</div>
                 </div>
                 <div className="min-w-0">
@@ -2070,9 +1833,7 @@ After the actions, write a SHORT message: what you set up, then "Press Play (F5)
                   <div className="truncate font-mono text-foreground/80">{active.file_type}</div>
                 </div>
                 <div className="min-w-0">
-                  <div className="uppercase tracking-wide text-muted-foreground/60">
-                    Roblox Service
-                  </div>
+                  <div className="uppercase tracking-wide text-muted-foreground/60">Roblox Service</div>
                   <div className="truncate font-mono text-foreground/80">
                     {active.service_location || active.path.split("/")[0]}
                   </div>
@@ -2141,7 +1902,7 @@ After the actions, write a SHORT message: what you set up, then "Press Play (F5)
 
         {/* AI chat */}
         <aside
-          className={`${mobileTab === "chat" ? "flex" : "hidden"} ${showChat ? "lg:flex" : "lg:hidden"} relative min-h-0 h-full border-l border-border bg-surface/20 flex-col overflow-hidden`}
+          className={`${mobileTab === "chat" ? "flex" : "hidden"} ${showChat ? "lg:flex" : "lg:hidden"} relative border-l border-border bg-surface/20 flex-col max-h-[calc(100vh-8rem)] min-h-[60vh]`}
         >
           {/* Drag handle to stretch chat panel wider/narrower */}
           <div
@@ -2160,7 +1921,7 @@ After the actions, write a SHORT message: what you set up, then "Press Play (F5)
             }}
             className="hidden lg:block absolute left-0 top-0 h-full w-1.5 -ml-[3px] cursor-col-resize z-20 hover:bg-primary/40 active:bg-primary/60 transition-colors"
           />
-          <div className="shrink-0 px-4 py-3 border-b border-border/60 space-y-3">
+          <div className="px-4 py-3 border-b border-border/60 space-y-3">
             <div className="flex items-center justify-between gap-2">
               {(() => {
                 const hasLive = aiContext?.updatedAt != null;
@@ -2192,24 +1953,10 @@ After the actions, write a SHORT message: what you set up, then "Press Play (F5)
                     />
                     <span className="font-medium text-foreground">BloxSmith Executor</span>
                     <span className="text-muted-foreground/70">·</span>
-                    <span className="tabular-nums">
-                      {isOwner ? "∞ cr" : credits === null ? "…" : `${credits} cr`}
-                    </span>
+                    <span className="tabular-nums">{credits === null ? "…" : credits} cr</span>
                   </button>
                 );
               })()}
-              <button
-                type="button"
-                onClick={async () => {
-                  setMemoryOpen(true);
-                  await refreshMemories();
-                }}
-                title="View and edit persistent AI memory for this project"
-                className="inline-flex items-center gap-1.5 rounded-full border border-border/50 bg-background/40 px-2 py-1 text-[11px] font-medium text-muted-foreground transition hover:border-primary/50 hover:text-foreground"
-              >
-                <BookOpen className="h-3.5 w-3.5 text-primary" />
-                Memory {aiContext?.memoryCount ?? memories.length}
-              </button>
               <div className="flex items-center gap-0.5">
                 <button
                   onClick={() => setShowAuto(true)}
@@ -2224,13 +1971,6 @@ After the actions, write a SHORT message: what you set up, then "Press Play (F5)
                   className="h-7 w-7 grid place-items-center rounded-md text-muted-foreground hover:text-foreground hover:bg-surface-elevated transition"
                 >
                   <Bug className="h-3.5 w-3.5" />
-                </button>
-                <button
-                  onClick={() => setPlaytestPanelOpen(true)}
-                  title="Playtest with AI — scan your game, find problems, and fix them in Studio"
-                  className="h-7 w-7 grid place-items-center rounded-md text-muted-foreground hover:text-primary-glow hover:bg-primary/10 transition disabled:cursor-not-allowed disabled:opacity-40"
-                >
-                  <Gamepad2 className="h-3.5 w-3.5" />
                 </button>
                 {(() => {
                   const totalErr = Object.values(validationByMsg).reduce(
@@ -2279,16 +2019,12 @@ After the actions, write a SHORT message: what you set up, then "Press Play (F5)
                           onClick={newChat}
                           className="w-full flex items-center gap-2 px-2 py-2 text-xs font-medium rounded-md hover:bg-surface-elevated text-foreground"
                         >
-                          <span className="grid h-4 w-4 place-items-center rounded bg-primary/20 text-primary">
-                            +
-                          </span>
+                          <span className="grid h-4 w-4 place-items-center rounded bg-primary/20 text-primary">+</span>
                           New chat
                         </button>
                         <div className="my-1 border-t border-border" />
                         {conversations.length === 0 ? (
-                          <p className="px-2 py-3 text-[11px] text-muted-foreground text-center">
-                            No history yet
-                          </p>
+                          <p className="px-2 py-3 text-[11px] text-muted-foreground text-center">No history yet</p>
                         ) : (
                           conversations.map((c) => {
                             const active = c.id === convoId;
@@ -2305,10 +2041,7 @@ After the actions, write a SHORT message: what you set up, then "Press Play (F5)
                                   {c.title || "New chat"}
                                 </button>
                                 <span className="text-[9px] text-muted-foreground/60 tabular-nums shrink-0">
-                                  {new Date(c.updated_at).toLocaleDateString([], {
-                                    month: "short",
-                                    day: "numeric",
-                                  })}
+                                  {new Date(c.updated_at).toLocaleDateString([], { month: "short", day: "numeric" })}
                                 </span>
                                 <button
                                   onClick={() => deleteConversation(c.id)}
@@ -2372,7 +2105,7 @@ After the actions, write a SHORT message: what you set up, then "Press Play (F5)
                 </button>
               </div>
             </div>
-            <div className="grid grid-cols-2 gap-2 text-[11px] xl:grid-cols-5">
+            <div className="grid grid-cols-4 gap-2 text-[11px]">
               <button
                 onClick={() => setShowAuto(true)}
                 className="rounded-lg border border-border bg-background/35 px-2 py-2 text-left hover:bg-surface-elevated transition"
@@ -2386,10 +2119,7 @@ After the actions, write a SHORT message: what you set up, then "Press Play (F5)
                 </span>
               </button>
               <button
-                onClick={() => {
-                  setPlanMode((v) => !v);
-                  if (chatMode) toggleChatMode(false);
-                }}
+                onClick={() => { setPlanMode((v) => !v); if (chatMode) toggleChatMode(false); }}
                 className={`rounded-lg border px-2 py-2 text-left transition ${planMode ? "border-primary/50 bg-primary/10" : "border-border bg-background/35 hover:bg-surface-elevated"}`}
                 title="Draft a plan before building"
               >
@@ -2413,18 +2143,6 @@ After the actions, write a SHORT message: what you set up, then "Press Play (F5)
                 </span>
               </button>
               <button
-                onClick={() => setPlaytestPanelOpen(true)}
-                className="rounded-lg border border-border bg-background/35 px-2 py-2 text-left hover:bg-surface-elevated transition disabled:cursor-not-allowed disabled:opacity-50"
-                title="Playtest with AI — scan, find problems, and Fix in Studio"
-              >
-                <span className="flex items-center gap-1.5 font-semibold text-foreground">
-                  <Gamepad2 className="h-3 w-3 text-primary" /> Playtest
-                </span>
-                <span className="mt-0.5 block truncate text-muted-foreground">
-                  deep QA
-                </span>
-              </button>
-              <button
                 onClick={() => toggleAutoExecute(!autoExecute)}
                 className={`rounded-lg border px-2 py-2 text-left transition ${autoExecute ? "border-success/40 bg-success/10" : "border-border bg-background/35 hover:bg-surface-elevated"}`}
                 title="Auto-build safe operations in Studio"
@@ -2439,7 +2157,7 @@ After the actions, write a SHORT message: what you set up, then "Press Play (F5)
             </div>
           </div>
 
-          <div className="flex-1 min-h-0 overflow-y-auto px-4 py-5 space-y-4 scroll-smooth">
+          <div className="flex-1 overflow-y-auto px-4 py-5 space-y-4 scroll-smooth">
             {messages.length === 0 && (
               <div className="flex flex-col items-center justify-center h-full py-8 px-2">
                 <div className="relative mb-6">
@@ -2477,11 +2195,6 @@ After the actions, write a SHORT message: what you set up, then "Press Play (F5)
                       title: "Add persistence",
                       desc: "Add DataStore-backed coins, rebirths, inventory, autosave, and BindToClose handling.",
                     },
-                    {
-                      icon: Shirt,
-                      title: "Design clothing",
-                      desc: "Make me a black and red cyber hoodie design, plus matching pants, as Roblox-ready clothing.",
-                    },
                   ].map((s) => (
                     <button
                       key={s.title}
@@ -2502,10 +2215,7 @@ After the actions, write a SHORT message: what you set up, then "Press Play (F5)
             {messages.map((m) => {
               const isUser = m.role === "user";
               return (
-                <div
-                  key={m.id}
-                  className={`flex gap-2.5 animate-fade-in ${isUser ? "justify-end" : "justify-start"}`}
-                >
+                <div key={m.id} className={`flex gap-2.5 animate-fade-in ${isUser ? "justify-end" : "justify-start"}`}>
                   {!isUser && (
                     <div className="shrink-0 mt-1 h-8 w-8 rounded-full bg-gradient-to-br from-primary to-primary-glow flex items-center justify-center shadow-lg shadow-primary/30 ring-1 ring-primary/40 overflow-hidden">
                       <img
@@ -2516,9 +2226,7 @@ After the actions, write a SHORT message: what you set up, then "Press Play (F5)
                       />
                     </div>
                   )}
-                  <div
-                    className={`flex flex-col gap-2 max-w-[88%] ${isUser ? "items-end" : "items-start"}`}
-                  >
+                  <div className={`flex flex-col gap-2 max-w-[88%] ${isUser ? "items-end" : "items-start"}`}>
                     <span className="text-[10px] uppercase tracking-wider font-semibold text-muted-foreground/70 px-1">
                       {isUser ? "You" : "BloxSmith AI"}
                     </span>
@@ -2535,21 +2243,13 @@ After the actions, write a SHORT message: what you set up, then "Press Play (F5)
                       {!isUser && activityByMsg[m.id]?.length > 0 && (
                         <div className="rounded-lg border border-border/60 bg-surface/40 p-2 space-y-1">
                           <div className="text-[10px] uppercase tracking-wider font-semibold text-muted-foreground/80 px-0.5">
-                            AI activity · {activityByMsg[m.id].length} tool call
-                            {activityByMsg[m.id].length === 1 ? "" : "s"}
+                            AI activity · {activityByMsg[m.id].length} tool call{activityByMsg[m.id].length === 1 ? "" : "s"}
                           </div>
                           <ul className="space-y-0.5">
                             {activityByMsg[m.id].slice(0, 12).map((ev, i) => (
-                              <li
-                                key={i}
-                                className="flex items-center gap-1.5 text-[11px] text-foreground/80"
-                              >
-                                <span
-                                  className={`h-1.5 w-1.5 rounded-full shrink-0 ${ev.ok ? "bg-emerald-400" : "bg-amber-400"}`}
-                                />
-                                <span className="font-mono text-muted-foreground text-[10px]">
-                                  {ev.tool}
-                                </span>
+                              <li key={i} className="flex items-center gap-1.5 text-[11px] text-foreground/80">
+                                <span className={`h-1.5 w-1.5 rounded-full shrink-0 ${ev.ok ? "bg-emerald-400" : "bg-amber-400"}`} />
+                                <span className="font-mono text-muted-foreground text-[10px]">{ev.tool}</span>
                                 <span className="truncate">{ev.summary}</span>
                               </li>
                             ))}
@@ -2564,10 +2264,7 @@ After the actions, write a SHORT message: what you set up, then "Press Play (F5)
                       {!isUser && previewsByMsg[m.id] && (
                         <PushPreview
                           preview={previewsByMsg[m.id]}
-                          readOnly={
-                            actionStatuses[m.id]?.status === "executing" ||
-                            actionStatuses[m.id]?.status === "complete"
-                          }
+                          readOnly={actionStatuses[m.id]?.status === "executing" || actionStatuses[m.id]?.status === "complete"}
                           onApplied={() =>
                             setPreviewsByMsg((p) => {
                               const n = { ...p };
@@ -2643,13 +2340,11 @@ After the actions, write a SHORT message: what you set up, then "Press Play (F5)
                           ) : (
                             <Bug className="h-3.5 w-3.5" />
                           )}
-                          Auto-fix {validationByMsg[m.id].errors.length} blocked ({GENERATE_COST}{" "}
-                          cr)
+                          Auto-fix {validationByMsg[m.id].errors.length} blocked ({GENERATE_COST} cr)
                         </button>
                       )}
-                      {!isUser &&
-                        m.actions?.snapshot?.length > 0 &&
-                        (revertedByMsg[m.id] ? (
+                      {!isUser && m.actions?.snapshot?.length > 0 && (
+                        revertedByMsg[m.id] ? (
                           <div className="inline-flex items-center gap-1.5 rounded-md border border-emerald-500/30 bg-emerald-500/10 px-3 py-1.5 text-xs font-medium text-emerald-300">
                             <CheckCircle2 className="h-3.5 w-3.5" />
                             Reverted
@@ -2668,7 +2363,8 @@ After the actions, write a SHORT message: what you set up, then "Press Play (F5)
                             )}
                             Revert this change
                           </button>
-                        ))}
+                        )
+                      )}
                     </div>
                   </div>
                   {isUser && (
@@ -2679,120 +2375,97 @@ After the actions, write a SHORT message: what you set up, then "Press Play (F5)
                 </div>
               );
             })}
-            {aiBusy &&
-              (() => {
-                const phase = chatMode ? "chat" : planMode ? "plan" : "build";
-                const phaseLabel =
-                  phase === "chat"
-                    ? "Thinking…"
-                    : phase === "plan"
-                      ? "Planning your build…"
-                      : "Crafting your Roblox magic…";
-                const steps =
-                  phase === "chat"
-                    ? ["Reading your message", "Reviewing project context", "Composing a reply"]
-                    : phase === "plan"
-                      ? [
-                          "Analyzing your request",
-                          "Inspecting current project tree",
-                          "Outlining the build steps",
-                          "Finalizing the plan",
-                        ]
-                      : [
-                          "Reading your request",
-                          "Loading current project state",
-                          "Designing scripts & instances",
-                          "Generating files and actions",
-                          "Validating against Roblox",
-                          "Finalizing the build",
-                        ];
-                // step roughly every 3.5s for a livelier feel, clamp to last
-                const stepIdx = Math.min(steps.length - 1, Math.floor(aiBusyElapsed / 3.5));
-                const mm = String(Math.floor(aiBusyElapsed / 60)).padStart(1, "0");
-                const ss = String(aiBusyElapsed % 60).padStart(2, "0");
-                return (
-                  <div className="flex gap-2.5 animate-fade-in">
-                    <div className="shrink-0 mt-1 h-7 w-7 rounded-full bg-gradient-to-br from-primary to-primary-glow flex items-center justify-center shadow-lg shadow-primary/30 ring-1 ring-primary/40 animate-pulse">
-                      <Sparkles className="h-3.5 w-3.5 text-primary-foreground" />
-                    </div>
-                    <div className="flex flex-col gap-2">
-                      <span className="text-[10px] uppercase tracking-wider font-semibold text-muted-foreground/70 px-1">
-                        BloxSmith AI
-                      </span>
-                      <button
-                        type="button"
-                        onClick={() => setAiBusyExpanded((v) => !v)}
-                        className="text-left rounded-2xl rounded-tl-sm bg-surface-elevated/80 backdrop-blur-sm border border-primary/20 px-3.5 py-2.5 shadow-md hover:border-primary/40 transition cursor-pointer"
-                        title={aiBusyExpanded ? "Hide details" : "Tap to see what the AI is doing"}
-                      >
-                        <div className="inline-flex items-center gap-2.5">
-                          <span className="flex gap-1">
-                            <span
-                              className="h-1.5 w-1.5 rounded-full bg-primary animate-bounce"
-                              style={{ animationDelay: "0ms" }}
-                            />
-                            <span
-                              className="h-1.5 w-1.5 rounded-full bg-primary animate-bounce"
-                              style={{ animationDelay: "150ms" }}
-                            />
-                            <span
-                              className="h-1.5 w-1.5 rounded-full bg-primary animate-bounce"
-                              style={{ animationDelay: "300ms" }}
-                            />
-                          </span>
-                          <span className="text-xs text-foreground/80 font-medium">
-                            {phaseLabel}
-                          </span>
-                          <span className="text-[10px] text-muted-foreground tabular-nums">
-                            {mm}:{ss}
-                          </span>
-                          <span className="text-[10px] text-muted-foreground/70 ml-1">
-                            {aiBusyExpanded ? "▾" : "▸"}
-                          </span>
-                        </div>
-                        {aiBusyExpanded && (
-                          <div className="mt-3 pt-3 border-t border-border/60 space-y-1.5">
-                            {steps.map((s, i) => {
-                              const done = i < stepIdx;
-                              const active = i === stepIdx;
-                              return (
-                                <div key={i} className="flex items-center gap-2 text-xs">
-                                  {done ? (
-                                    <CheckCircle2 className="h-3.5 w-3.5 text-primary shrink-0" />
-                                  ) : active ? (
-                                    <Loader2 className="h-3.5 w-3.5 text-primary animate-spin shrink-0" />
-                                  ) : (
-                                    <span className="h-3.5 w-3.5 rounded-full border border-border shrink-0" />
-                                  )}
-                                  <span
-                                    className={
-                                      active
-                                        ? "text-foreground"
-                                        : done
-                                          ? "text-muted-foreground line-through"
-                                          : "text-muted-foreground/70"
-                                    }
-                                  >
-                                    {s}
-                                  </span>
-                                </div>
-                              );
-                            })}
-                            <p className="text-[10px] text-muted-foreground/60 pt-1">
-                              Estimated progress — the AI works on these in order.
-                            </p>
-                          </div>
-                        )}
-                      </button>
-                    </div>
+            {aiBusy && (() => {
+              const phase = chatMode ? "chat" : planMode ? "plan" : "build";
+              const phaseLabel = phase === "chat" ? "Thinking…" : phase === "plan" ? "Planning your build…" : "Crafting your Roblox magic…";
+              const steps = phase === "chat"
+                ? [
+                    "Reading your message",
+                    "Reviewing project context",
+                    "Composing a reply",
+                  ]
+                : phase === "plan"
+                ? [
+                    "Analyzing your request",
+                    "Inspecting current project tree",
+                    "Outlining the build steps",
+                    "Finalizing the plan",
+                  ]
+                : [
+                    "Reading your request",
+                    "Loading current project state",
+                    "Designing scripts & instances",
+                    "Generating files and actions",
+                    "Validating against Roblox",
+                    "Finalizing the build",
+                  ];
+              // step roughly every 3.5s for a livelier feel, clamp to last
+              const stepIdx = Math.min(steps.length - 1, Math.floor(aiBusyElapsed / 3.5));
+              const mm = String(Math.floor(aiBusyElapsed / 60)).padStart(1, "0");
+              const ss = String(aiBusyElapsed % 60).padStart(2, "0");
+              return (
+                <div className="flex gap-2.5 animate-fade-in">
+                  <div className="shrink-0 mt-1 h-7 w-7 rounded-full bg-gradient-to-br from-primary to-primary-glow flex items-center justify-center shadow-lg shadow-primary/30 ring-1 ring-primary/40 animate-pulse">
+                    <Sparkles className="h-3.5 w-3.5 text-primary-foreground" />
                   </div>
-                );
-              })()}
+                  <div className="flex flex-col gap-2">
+                    <span className="text-[10px] uppercase tracking-wider font-semibold text-muted-foreground/70 px-1">
+                      BloxSmith AI
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => setAiBusyExpanded((v) => !v)}
+                      className="text-left rounded-2xl rounded-tl-sm bg-surface-elevated/80 backdrop-blur-sm border border-primary/20 px-3.5 py-2.5 shadow-md hover:border-primary/40 transition cursor-pointer"
+                      title={aiBusyExpanded ? "Hide details" : "Tap to see what the AI is doing"}
+                    >
+                      <div className="inline-flex items-center gap-2.5">
+                        <span className="flex gap-1">
+                          <span className="h-1.5 w-1.5 rounded-full bg-primary animate-bounce" style={{ animationDelay: "0ms" }} />
+                          <span className="h-1.5 w-1.5 rounded-full bg-primary animate-bounce" style={{ animationDelay: "150ms" }} />
+                          <span className="h-1.5 w-1.5 rounded-full bg-primary animate-bounce" style={{ animationDelay: "300ms" }} />
+                        </span>
+                        <span className="text-xs text-foreground/80 font-medium">{phaseLabel}</span>
+                        <span className="text-[10px] text-muted-foreground tabular-nums">{mm}:{ss}</span>
+                        <span className="text-[10px] text-muted-foreground/70 ml-1">
+                          {aiBusyExpanded ? "▾" : "▸"}
+                        </span>
+                      </div>
+                      {aiBusyExpanded && (
+                        <div className="mt-3 pt-3 border-t border-border/60 space-y-1.5">
+                          {steps.map((s, i) => {
+                            const done = i < stepIdx;
+                            const active = i === stepIdx;
+                            return (
+                              <div key={i} className="flex items-center gap-2 text-xs">
+                                {done ? (
+                                  <CheckCircle2 className="h-3.5 w-3.5 text-primary shrink-0" />
+                                ) : active ? (
+                                  <Loader2 className="h-3.5 w-3.5 text-primary animate-spin shrink-0" />
+                                ) : (
+                                  <span className="h-3.5 w-3.5 rounded-full border border-border shrink-0" />
+                                )}
+                                <span className={active ? "text-foreground" : done ? "text-muted-foreground line-through" : "text-muted-foreground/70"}>
+                                  {s}
+                                </span>
+                              </div>
+                            );
+                          })}
+                          <p className="text-[10px] text-muted-foreground/60 pt-1">
+                            Estimated progress — the AI works on these in order.
+                          </p>
+                        </div>
+                      )}
+                    </button>
+                  </div>
+                </div>
+              );
+            })()}
             <div ref={chatEnd} />
           </div>
 
+
           {outOfCredits && !(chatMode && credits !== null && credits >= CHAT_COST) ? (
-            <div className="shrink-0 border-t border-border p-3 space-y-2 bg-destructive/5">
+            <div className="border-t border-border p-3 space-y-2 bg-destructive/5">
               <p className="text-sm font-semibold text-destructive">You're out of credits</p>
               <p className="text-xs text-muted-foreground">
                 Each build costs {GENERATE_COST} credits. Your balance gets +10 free credits daily
@@ -2806,7 +2479,12 @@ After the actions, write a SHORT message: what you set up, then "Press Play (F5)
               </Link>
             </div>
           ) : (
-            <div className="shrink-0 border-t border-border p-3 space-y-2">
+            <div className="border-t border-border p-3 space-y-2">
+              <PlaytestPanel
+                projectId={projectId}
+                busy={aiBusy}
+                onRunFix={(p) => runGenerate(p)}
+              />
               <div
                 className={`rounded-xl border bg-background/45 p-2 transition ${chatMode ? "border-accent/40" : planMode ? "border-primary/40" : "border-border focus-within:border-primary/40"}`}
               >
@@ -2838,34 +2516,17 @@ After the actions, write a SHORT message: what you set up, then "Press Play (F5)
                       "Add a leaderstats system",
                       "Build a simple shop GUI",
                       "Make a loading screen",
-                      "1:1 building replica",
+                      "Add a daily reward",
                     ].map((tpl) => (
                       <button
                         key={tpl}
                         type="button"
-                        disabled={aiUsageBlocked}
-                        onClick={() => {
-                          if (tpl === "1:1 building replica") {
-                            setPrompt(
-                              "Generate a detailed 1-to-1 Roblox building replica from my attached image. Match the architecture, roof, colors, materials, windows, doors, trim, scale, and visible details. Build it as a complete Model under Workspace/Map/Buildings with ground, spawn, lighting, and many anchored parts.",
-                            );
-                            setThinking(true);
-                            fileInputRef.current?.click();
-                          } else {
-                            setPrompt(tpl);
-                          }
-                        }}
-                        className="rounded-full border border-border bg-surface/60 px-2.5 py-1 text-[11px] text-muted-foreground hover:text-foreground hover:border-primary/40 hover:bg-primary/5 transition disabled:cursor-not-allowed disabled:opacity-50"
+                        onClick={() => setPrompt(tpl)}
+                        className="rounded-full border border-border bg-surface/60 px-2.5 py-1 text-[11px] text-muted-foreground hover:text-foreground hover:border-primary/40 hover:bg-primary/5 transition"
                       >
                         {tpl}
                       </button>
                     ))}
-                  </div>
-                )}
-                {aiUsageBlocked && (
-                  <div className="mb-2 rounded-lg border border-amber-400/40 bg-amber-500/10 px-3 py-2 text-xs text-amber-100">
-                    Daily AI timer used up ({aiUsageUsed}/{aiUsageLimit}). Chat and builds unlock
-                    again at {aiUsageResetLabel}.
                   </div>
                 )}
                 <textarea
@@ -2884,10 +2545,6 @@ After the actions, write a SHORT message: what you set up, then "Press Play (F5)
                     }
                   }}
                   onKeyDown={(e) => {
-                    if (aiUsageBlocked) {
-                      e.preventDefault();
-                      return;
-                    }
                     if (e.key === "Enter" && !e.shiftKey) {
                       e.preventDefault();
                       send();
@@ -2895,16 +2552,13 @@ After the actions, write a SHORT message: what you set up, then "Press Play (F5)
                   }}
                   rows={3}
                   placeholder={
-                    aiUsageBlocked
-                      ? `Daily AI timer used up. Try again at ${aiUsageResetLabel}.`
-                      : chatMode
-                        ? "Ask anything, or attach a screenshot of your game/Studio — the AI will analyze it."
-                        : planMode
-                          ? "Describe the Roblox system or attach a building picture you want planned..."
-                          : "Type any command: build a map, add UI, recreate a building from reference image, fix bugs..."
+                    chatMode
+                      ? "Ask anything, or attach a screenshot of your game/Studio — the AI will analyze it."
+                      : planMode
+                        ? "Describe the Roblox system you want planned..."
+                        : "Type any command: build a map, add UI, create scripts, insert assets, fix bugs..."
                   }
-                  disabled={aiUsageBlocked}
-                  className="min-h-20 w-full resize-none bg-transparent px-1 py-1 text-sm leading-relaxed placeholder:text-muted-foreground focus:outline-none disabled:cursor-not-allowed disabled:opacity-60"
+                  className="min-h-20 w-full resize-none bg-transparent px-1 py-1 text-sm leading-relaxed placeholder:text-muted-foreground focus:outline-none"
                 />
                 <input
                   ref={fileInputRef}
@@ -2945,7 +2599,7 @@ After the actions, write a SHORT message: what you set up, then "Press Play (F5)
                           setImproving(false);
                         }
                       }}
-                      disabled={aiUsageBlocked || improving || !prompt.trim()}
+                      disabled={improving || !prompt.trim()}
                       title="Improve prompt"
                       className="h-8 w-8 grid place-items-center rounded-lg text-muted-foreground hover:text-foreground hover:bg-surface transition disabled:opacity-40"
                     >
@@ -2979,7 +2633,7 @@ After the actions, write a SHORT message: what you set up, then "Press Play (F5)
                           ? `Max ${MAX_ATTACHMENTS} images`
                           : "Attach image for AI to analyze"
                       }
-                      disabled={aiUsageBlocked || attachments.length >= MAX_ATTACHMENTS}
+                      disabled={attachments.length >= MAX_ATTACHMENTS}
                       className={`inline-flex h-8 items-center gap-1 rounded-lg border px-2 transition disabled:opacity-40 ${attachments.length > 0 ? "border-primary/40 text-primary bg-primary/10" : "border-primary/30 text-primary/90 hover:bg-primary/10"}`}
                     >
                       <ImagePlus className="h-4 w-4" />
@@ -2988,11 +2642,7 @@ After the actions, write a SHORT message: what you set up, then "Press Play (F5)
                     <button
                       type="button"
                       onClick={() => setWebSearch((v) => !v)}
-                      title={
-                        webSearch
-                          ? "Web search ON — AI will research before answering"
-                          : "Enable web search (AI will look things up)"
-                      }
+                      title={webSearch ? "Web search ON — AI will research before answering" : "Enable web search (AI will look things up)"}
                       className={`h-8 w-8 grid place-items-center rounded-lg transition ${webSearch ? "text-sky-300 bg-sky-500/15" : "text-muted-foreground hover:text-foreground hover:bg-surface"}`}
                     >
                       <Globe className="h-4 w-4" />
@@ -3010,7 +2660,7 @@ After the actions, write a SHORT message: what you set up, then "Press Play (F5)
                   ) : (
                     <button
                       onClick={send}
-                      disabled={aiUsageBlocked || (!prompt.trim() && attachments.length === 0)}
+                      disabled={!prompt.trim() && attachments.length === 0}
                       className="inline-flex h-8 items-center gap-2 rounded-lg bg-primary px-3 text-xs font-semibold text-primary-foreground hover:opacity-90 transition disabled:opacity-30"
                       title={
                         chatMode
@@ -3021,13 +2671,7 @@ After the actions, write a SHORT message: what you set up, then "Press Play (F5)
                       }
                     >
                       <Send className="h-3.5 w-3.5" />
-                      {chatMode
-                        ? "Chat"
-                        : planMode
-                          ? "Plan"
-                          : autoExecute
-                            ? "Apply to Studio"
-                            : "Preview"}
+                      {chatMode ? "Chat" : planMode ? "Plan" : autoExecute ? "Execute" : "Preview"}
                     </button>
                   )}
                 </div>
@@ -3081,12 +2725,7 @@ After the actions, write a SHORT message: what you set up, then "Press Play (F5)
                       const mcpPart =
                         mcpServers.length === 0
                           ? "MCP: off"
-                          : `MCP: ${mcpServers
-                              .slice(0, 2)
-                              .map((s) => s.name)
-                              .join(
-                                ", ",
-                              )}${mcpServers.length > 2 ? ` +${mcpServers.length - 2}` : ""}`;
+                          : `MCP: ${mcpServers.slice(0, 2).map((s) => s.name).join(", ")}${mcpServers.length > 2 ? ` +${mcpServers.length - 2}` : ""}`;
                       const label = client
                         ? `${client}${modelLabel ? ` · ${modelLabel}` : ""} · ${mcpPart}`
                         : `Waiting for AI client · ${mcpPart}`;
@@ -3103,45 +2742,32 @@ After the actions, write a SHORT message: what you set up, then "Press Play (F5)
 
                   <ModelPicker
                     projectId={projectId}
-                    provider={
-                      aiSettings.provider && aiSettings.provider in SITE_PROVIDER_LABELS
-                        ? (aiSettings.provider as SiteProviderId)
-                        : null
-                    }
+                    provider={(aiSettings.provider === "groq" || aiSettings.provider === "neokens") ? aiSettings.provider : null}
                     model={aiSettings.model}
                     onChange={(p, m) => setAiSettings({ mode: "api_key", provider: p, model: m })}
                   />
 
-                  {aiUsage &&
-                    !aiUsage.owner &&
-                    (() => {
-                      const used = aiUsage.used_24h ?? aiUsage.used_5h;
-                      const limit = aiUsage.limit_24h ?? aiUsage.limit_5h;
-                      const pct = Math.min(100, Math.round((used / limit) * 100));
-                      const near = pct >= 80;
-                      const full = pct >= 100;
-                      return (
-                        <div
-                          className={`inline-flex items-center gap-1.5 rounded-full bg-surface-elevated/60 border px-2.5 py-0.5 text-[10px] tabular-nums ${full ? "border-destructive/60" : near ? "border-amber-400/60" : "border-border/40"}`}
-                          title={`AI timer: ${used}/${limit} in last 24h · ${aiUsage.used_7d}/${aiUsage.limit_7d} in last 7d${aiUsage.reset_24h ? ` · resets ${new Date(aiUsage.reset_24h).toLocaleTimeString([], { hour: "numeric", minute: "2-digit", hour12: true })}` : ""}`}
-                        >
-                          <span
-                            className={`h-1.5 w-1.5 rounded-full ${full ? "bg-destructive" : near ? "bg-amber-400" : "bg-emerald-500/70"}`}
-                          />
-                          <span className="text-muted-foreground">
-                            24h {used}/{limit} · 7d {aiUsage.used_7d}/{aiUsage.limit_7d}
-                          </span>
-                        </div>
-                      );
-                    })()}
+                  {aiUsage && !aiUsage.owner && (() => {
+                    const pct5 = Math.min(100, Math.round((aiUsage.used_5h / aiUsage.limit_5h) * 100));
+                    const near = pct5 >= 80;
+                    const full = pct5 >= 100;
+                    return (
+                      <div
+                        className={`inline-flex items-center gap-1.5 rounded-full bg-surface-elevated/60 border px-2.5 py-0.5 text-[10px] tabular-nums ${full ? "border-destructive/60" : near ? "border-amber-400/60" : "border-border/40"}`}
+                        title={`AI usage: ${aiUsage.used_5h}/${aiUsage.limit_5h} in last 5h · ${aiUsage.used_7d}/${aiUsage.limit_7d} in last 7d${aiUsage.reset_5h ? ` · resets ${new Date(aiUsage.reset_5h).toLocaleTimeString()}` : ""}`}
+                      >
+                        <span className={`h-1.5 w-1.5 rounded-full ${full ? "bg-destructive" : near ? "bg-amber-400" : "bg-emerald-500/70"}`} />
+                        <span className="text-muted-foreground">
+                          Usage {aiUsage.used_5h}/{aiUsage.limit_5h} · {aiUsage.used_7d}/{aiUsage.limit_7d}
+                        </span>
+                      </div>
+                    );
+                  })()}
 
                   <div
+
                     className="inline-flex items-center gap-1.5 rounded-full bg-surface-elevated/60 border border-border/40 px-2.5 py-0.5 text-[10px]"
-                    title={
-                      isStudioConnected
-                        ? "Roblox Studio plugin connected"
-                        : "Roblox Studio plugin not connected"
-                    }
+                    title={isStudioConnected ? "Roblox Studio plugin connected" : "Roblox Studio plugin not connected"}
                   >
                     <span
                       className={`h-1.5 w-1.5 rounded-full ${isStudioConnected ? "bg-success animate-pulse" : "bg-amber-400"}`}
@@ -3151,6 +2777,7 @@ After the actions, write a SHORT message: what you set up, then "Press Play (F5)
                     </span>
                   </div>
                 </div>
+
 
                 <span className="text-[10px] text-muted-foreground whitespace-nowrap">
                   {chatMode
@@ -3166,105 +2793,13 @@ After the actions, write a SHORT message: what you set up, then "Press Play (F5)
         </aside>
       </main>
 
+
       {showAiSourceModal && (
         <AiSourceSettings projectId={projectId} onClose={() => setShowAiSourceModal(false)} />
       )}
 
-      {memoryOpen && (
-        <div
-          className="fixed inset-0 z-50 grid place-items-center bg-background/80 p-4 backdrop-blur-sm"
-          onClick={() => !memoryBusy && setMemoryOpen(false)}
-        >
-          <div
-            onClick={(e) => e.stopPropagation()}
-            className="flex max-h-[82vh] w-full max-w-2xl flex-col rounded-2xl border border-border bg-surface shadow-2xl"
-          >
-            <div className="flex items-center justify-between border-b border-border p-4">
-              <div className="flex items-center gap-2">
-                <BookOpen className="h-4 w-4 text-primary" />
-                <div>
-                  <h2 className="text-sm font-semibold">AI Memory</h2>
-                  <p className="text-xs text-muted-foreground">
-                    Saved project preferences and facts are included in future chat, plans, fixes,
-                    and builds.
-                  </p>
-                </div>
-              </div>
-              <button
-                onClick={() => !memoryBusy && setMemoryOpen(false)}
-                className="text-muted-foreground hover:text-foreground"
-              >
-                <X className="h-4 w-4" />
-              </button>
-            </div>
-            <div className="min-h-0 flex-1 overflow-y-auto p-4">
-              <div className="rounded-xl border border-border bg-background/45 p-3">
-                <label className="text-xs font-semibold text-foreground">Remember this</label>
-                <textarea
-                  value={memoryDraft}
-                  onChange={(e) => setMemoryDraft(e.target.value)}
-                  placeholder="Example: Always make my game neon cyberpunk, mobile friendly, and server-authoritative."
-                  rows={3}
-                  maxLength={1000}
-                  className="mt-2 w-full resize-none rounded-lg border border-border bg-background/70 p-3 text-sm outline-none focus:border-primary/50"
-                />
-                <div className="mt-2 flex items-center justify-between gap-2">
-                  <span className="text-[11px] text-muted-foreground">
-                    The AI also learns from messages like "remember that..." automatically.
-                  </span>
-                  <button
-                    onClick={addManualMemory}
-                    disabled={memoryBusy || memoryDraft.trim().length < 3}
-                    className="inline-flex items-center gap-2 rounded-lg bg-primary px-3 py-2 text-xs font-semibold text-primary-foreground transition hover:opacity-90 disabled:opacity-40"
-                  >
-                    {memoryBusy ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <BookOpen className="h-3.5 w-3.5" />}
-                    Save memory
-                  </button>
-                </div>
-              </div>
-
-              <div className="mt-4 space-y-2">
-                {memories.length === 0 ? (
-                  <div className="rounded-xl border border-dashed border-border p-6 text-center text-sm text-muted-foreground">
-                    No memories saved yet. Add one above or tell the AI "remember that..."
-                  </div>
-                ) : (
-                  memories.map((memory) => (
-                    <div
-                      key={memory.id}
-                      className="flex items-start justify-between gap-3 rounded-xl border border-border bg-background/35 p-3"
-                    >
-                      <div className="min-w-0">
-                        <div className="flex flex-wrap items-center gap-2">
-                          <span className="rounded-full bg-primary/10 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-primary">
-                            {memory.kind.replace(/_/g, " ")}
-                          </span>
-                          <span className="truncate text-[11px] text-muted-foreground">
-                            {memory.key.replace(/_/g, " ")}
-                          </span>
-                        </div>
-                        <p className="mt-1 text-sm leading-relaxed text-foreground/90">
-                          {memory.value}
-                        </p>
-                      </div>
-                      <button
-                        onClick={() => deleteMemory(memory.id)}
-                        disabled={memoryBusy}
-                        className="grid h-8 w-8 shrink-0 place-items-center rounded-lg text-muted-foreground transition hover:bg-destructive/10 hover:text-destructive disabled:opacity-40"
-                        title="Forget this memory"
-                      >
-                        <Trash2 className="h-3.5 w-3.5" />
-                      </button>
-                    </div>
-                  ))
-                )}
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-
       {showFix && (
+
         <div
           className="fixed inset-0 z-50 grid place-items-center bg-background/80 backdrop-blur-sm p-4"
           onClick={() => !fixBusy && setShowFix(false)}
@@ -3425,9 +2960,7 @@ After the actions, write a SHORT message: what you set up, then "Press Play (F5)
                   <button
                     onClick={doAutopilot}
                     disabled={
-                      autoBusy ||
-                      !autoDesc.trim() ||
-                      (!isOwner && credits !== null && credits < AUTOPILOT_COST)
+                      autoBusy || !autoDesc.trim() || (credits !== null && credits < AUTOPILOT_COST)
                     }
                     className="inline-flex items-center gap-2 rounded-lg bg-gradient-to-r from-primary to-primary-glow px-4 py-2 text-sm font-semibold text-primary-foreground disabled:opacity-50"
                   >

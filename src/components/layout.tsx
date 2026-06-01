@@ -12,6 +12,7 @@ export function Header() {
   const { user, signOut, profile } = useAuth();
   const [open, setOpen] = useState(false);
   const [profileOpen, setProfileOpen] = useState(false);
+  const [moreOpen, setMoreOpen] = useState(false);
 
   const initials = profile?.display_name
     ? profile.display_name.slice(0, 2).toUpperCase()
@@ -29,53 +30,81 @@ export function Header() {
             Beta
           </span>
         </Link>
-        <nav className="hidden md:flex items-center gap-5 lg:gap-6 text-sm text-muted-foreground ml-4 shrink-0">
-
-          <Link to="/templates" className="hover:text-foreground">
+        <nav className="hidden lg:flex items-center gap-4 xl:gap-5 text-sm text-muted-foreground ml-4 min-w-0">
+          <Link to="/templates" className="hover:text-foreground whitespace-nowrap">
             Templates
           </Link>
-          <Link to="/showcase" className="hover:text-foreground">
+          <Link to="/showcase" className="hover:text-foreground whitespace-nowrap">
             Showcase
           </Link>
-          <Link to="/ideas" className="hover:text-foreground">
-            Ideas
-          </Link>
-          <Link to="/video" className="hover:text-foreground">
+          <Link to="/video" className="hover:text-foreground whitespace-nowrap">
             Video
           </Link>
-          <Link to="/pricing" className="hover:text-foreground">
+          <Link to="/arcade" className="hover:text-foreground whitespace-nowrap">
+            Arcade
+          </Link>
+          <Link to="/pricing" className="hover:text-foreground whitespace-nowrap">
             Pricing
           </Link>
-          <Link to="/docs" className="hover:text-foreground">
-            Docs
-          </Link>
-          <Link to="/plugin" className="hover:text-foreground">
-            Plugin
-          </Link>
-          <Link to="/mcp" className="hover:text-foreground">
-            MCP
-          </Link>
-          <Link to="/changelog" className="hover:text-foreground">
-            Changelog
-          </Link>
-          <a href="https://kingdavez.click" target="_blank" rel="noopener noreferrer" className="hover:text-foreground">
-            3D Models
-          </a>
 
-
-          {user && (
-            <Link to="/dashboard" className="hover:text-foreground">
-              Dashboard
-            </Link>
-          )}
+          {/* Everything else lives under More so the bar can't overflow. */}
+          <div
+            className="relative"
+            onMouseEnter={() => setMoreOpen(true)}
+            onMouseLeave={() => setMoreOpen(false)}
+          >
+            <button
+              type="button"
+              onClick={() => setMoreOpen((o) => !o)}
+              className="inline-flex items-center gap-1 hover:text-foreground whitespace-nowrap"
+            >
+              More
+              <ChevronDown className={`h-3 w-3 transition ${moreOpen ? "rotate-180" : ""}`} />
+            </button>
+            {moreOpen && (
+              <div className="absolute left-0 top-full pt-2 z-50">
+                <div className="w-44 rounded-xl bg-surface-elevated border border-border shadow-2xl overflow-hidden py-1.5 animate-fade-in">
+                  <Link to="/ideas" className="block px-4 py-2 text-sm hover:bg-surface transition" onClick={() => setMoreOpen(false)}>
+                    Ideas
+                  </Link>
+                  <Link to="/docs" className="block px-4 py-2 text-sm hover:bg-surface transition" onClick={() => setMoreOpen(false)}>
+                    Docs
+                  </Link>
+                  <Link to="/plugin" className="block px-4 py-2 text-sm hover:bg-surface transition" onClick={() => setMoreOpen(false)}>
+                    Plugin
+                  </Link>
+                  <Link to="/mcp" className="block px-4 py-2 text-sm hover:bg-surface transition" onClick={() => setMoreOpen(false)}>
+                    MCP
+                  </Link>
+                  <Link to="/changelog" className="block px-4 py-2 text-sm hover:bg-surface transition" onClick={() => setMoreOpen(false)}>
+                    Changelog
+                  </Link>
+                  <a
+                    href="https://kingdavez.click"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="block px-4 py-2 text-sm hover:bg-surface transition"
+                    onClick={() => setMoreOpen(false)}
+                  >
+                    3D Models
+                  </a>
+                  {user && (
+                    <Link to="/dashboard" className="block px-4 py-2 text-sm hover:bg-surface transition" onClick={() => setMoreOpen(false)}>
+                      Dashboard
+                    </Link>
+                  )}
+                </div>
+              </div>
+            )}
+          </div>
         </nav>
-        <div className="hidden md:flex items-center gap-3">
+        <div className="hidden lg:flex items-center gap-2.5 xl:gap-3 min-w-0">
           <a
             href="https://discord.gg/J9TU7syJCr"
             target="_blank"
             rel="noopener noreferrer"
             title="Join the BloxSmith Discord — +5 free credits"
-            className="inline-flex items-center gap-1.5 rounded-full bg-[#5865F2]/15 hover:bg-[#5865F2]/25 border border-[#5865F2]/30 px-2.5 py-1 text-xs font-semibold text-[#7c8ff5] transition"
+            className="inline-flex items-center gap-1.5 rounded-full bg-[#5865F2]/15 hover:bg-[#5865F2]/25 border border-[#5865F2]/30 px-2.5 py-1 text-xs font-semibold text-[#7c8ff5] transition whitespace-nowrap shrink-0"
           >
             <svg viewBox="0 0 24 24" className="h-3.5 w-3.5" fill="currentColor" aria-hidden><path d="M20.317 4.369A19.79 19.79 0 0 0 16.558 3c-.18.327-.39.766-.535 1.117a18.27 18.27 0 0 0-5.487 0C10.39 3.766 10.175 3.327 9.992 3a19.736 19.736 0 0 0-3.76 1.369C2.4 9.97 1.36 15.42 1.87 20.785a19.9 19.9 0 0 0 5.99 3.03c.484-.66.917-1.363 1.29-2.104-.71-.27-1.39-.6-2.03-.99.17-.124.336-.253.495-.386 3.93 1.83 8.18 1.83 12.06 0 .161.133.327.262.495.386-.643.39-1.324.72-2.034.99.374.74.806 1.443 1.29 2.103a19.852 19.852 0 0 0 5.992-3.03c.6-6.225-1.05-11.625-4.31-16.415zM8.02 17.045c-1.183 0-2.157-1.085-2.157-2.42 0-1.333.953-2.42 2.157-2.42 1.21 0 2.176 1.094 2.157 2.42 0 1.335-.953 2.42-2.157 2.42zm7.96 0c-1.184 0-2.157-1.085-2.157-2.42 0-1.333.952-2.42 2.157-2.42 1.21 0 2.176 1.094 2.156 2.42 0 1.335-.946 2.42-2.156 2.42z"/></svg>
             Discord +5
@@ -172,29 +201,44 @@ export function Header() {
             </>
           )}
         </div>
-        <button className="md:hidden" onClick={() => setOpen((o) => !o)} aria-label="Menu">
+        <button className="lg:hidden" onClick={() => setOpen((o) => !o)} aria-label="Menu">
           {open ? <X /> : <Menu />}
         </button>
       </div>
       {open && (
-        <div className="md:hidden border-t border-border px-4 py-4 space-y-3">
+        <div className="lg:hidden border-t border-border px-4 py-4 space-y-3">
           <div className="flex items-center gap-3">
             <ThemeToggle />
             <LanguageSwitcher compact />
           </div>
-          <Link to="/pricing" className="block py-2">
+          <Link to="/templates" className="block py-2" onClick={() => setOpen(false)}>
+            Templates
+          </Link>
+          <Link to="/showcase" className="block py-2" onClick={() => setOpen(false)}>
+            Showcase
+          </Link>
+          <Link to="/ideas" className="block py-2" onClick={() => setOpen(false)}>
+            Ideas
+          </Link>
+          <Link to="/video" className="block py-2" onClick={() => setOpen(false)}>
+            Video
+          </Link>
+          <Link to="/arcade" className="block py-2" onClick={() => setOpen(false)}>
+            Arcade
+          </Link>
+          <Link to="/pricing" className="block py-2" onClick={() => setOpen(false)}>
             Pricing
           </Link>
-          <Link to="/docs" className="block py-2">
+          <Link to="/docs" className="block py-2" onClick={() => setOpen(false)}>
             Docs
           </Link>
-          <Link to="/plugin" className="block py-2">
+          <Link to="/plugin" className="block py-2" onClick={() => setOpen(false)}>
             Plugin
           </Link>
-          <Link to="/mcp" className="block py-2">
+          <Link to="/mcp" className="block py-2" onClick={() => setOpen(false)}>
             MCP
           </Link>
-          <Link to="/changelog" className="block py-2">
+          <Link to="/changelog" className="block py-2" onClick={() => setOpen(false)}>
             Changelog
           </Link>
           <a href="https://kingdavez.click" target="_blank" rel="noopener noreferrer" className="block py-2">

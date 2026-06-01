@@ -491,7 +491,7 @@ type ModelDiagnosticsRun = {
 };
 
 function ModelDiagnosticsSection() {
-  const runTest = useServerFn(testAllSiteModels);
+  const runTest = useServerFn(testAllSiteModels) as any;
   const [running, setRunning] = useState(false);
   const [run, setRun] = useState<ModelDiagnosticsRun | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -500,7 +500,7 @@ function ModelDiagnosticsSection() {
     setRunning(true);
     setError(null);
     try {
-      const result = await (runTest as any)({ data: {} });
+      const result = await runTest({ data: {} });
       setRun(result as ModelDiagnosticsRun);
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err));
