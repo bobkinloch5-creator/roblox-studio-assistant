@@ -7,12 +7,7 @@ import { toast } from "sonner";
 
 export const Route = createFileRoute("/checkout/custom")({
   component: CustomCheckout,
-  head: () => ({
-    meta: [
-      { title: "Custom Credits — BloxSmith" },
-      { name: "robots", content: "noindex, nofollow" },
-    ],
-  }),
+  head: () => ({ meta: [{ title: "Custom Credits — BloxSmith" }, { name: "robots", content: "noindex, nofollow" }] }),
 });
 
 const PAYPAL_HANDLE = "kinloch930";
@@ -29,9 +24,7 @@ function CustomCheckout() {
   const [submitting, setSubmitting] = useState(false);
   const [submitted, setSubmitted] = useState(false);
 
-  useEffect(() => {
-    if (!loading && !user) nav({ to: "/login" });
-  }, [loading, user, nav]);
+  useEffect(() => { if (!loading && !user) nav({ to: "/login" }); }, [loading, user, nav]);
 
   const safeCredits = Math.max(MIN_CREDITS, Math.min(MAX_CREDITS, Math.floor(credits || 0)));
   const price = useMemo(() => Math.round(safeCredits * CUSTOM_RATE * 100) / 100, [safeCredits]);
@@ -39,10 +32,7 @@ function CustomCheckout() {
 
   const submit = async () => {
     if (!user) return;
-    if (txId.trim().length < 6) {
-      toast.error("Enter a valid PayPal transaction ID");
-      return;
-    }
+    if (txId.trim().length < 6) { toast.error("Enter a valid PayPal transaction ID"); return; }
     setSubmitting(true);
     const { error } = await supabase.from("payment_requests").insert({
       user_id: user.id,
@@ -54,10 +44,7 @@ function CustomCheckout() {
       status: "pending",
     });
     setSubmitting(false);
-    if (error) {
-      toast.error(error.message);
-      return;
-    }
+    if (error) { toast.error(error.message); return; }
     setSubmitted(true);
     toast.success("Submitted! Credits will be added after verification.");
   };
@@ -67,16 +54,10 @@ function CustomCheckout() {
       <Header />
       <main className="flex-1 mx-auto max-w-xl w-full px-4 py-12 space-y-6">
         <h1 className="text-3xl font-bold">Custom credit amount</h1>
-        <p className="text-sm text-muted-foreground">
-          Pick exactly how many credits you need. Rate:{" "}
-          <span className="text-foreground font-semibold">${CUSTOM_RATE.toFixed(2)}</span> per
-          credit.
-        </p>
+        <p className="text-sm text-muted-foreground">Pick exactly how many credits you need. Rate: <span className="text-foreground font-semibold">${CUSTOM_RATE.toFixed(2)}</span> per credit.</p>
 
         <div className="glass rounded-2xl p-6 space-y-4">
-          <label htmlFor="custom-credits-input" className="block text-sm font-medium">
-            Credits ({MIN_CREDITS}–{MAX_CREDITS})
-          </label>
+          <label htmlFor="custom-credits-input" className="block text-sm font-medium">Credits ({MIN_CREDITS}–{MAX_CREDITS})</label>
           <input
             id="custom-credits-input"
             aria-label={`Number of credits to buy (between ${MIN_CREDITS} and ${MAX_CREDITS})`}
@@ -88,9 +69,7 @@ function CustomCheckout() {
             onChange={(e) => setCredits(Number(e.target.value))}
             className="w-full rounded-lg bg-surface-elevated border border-border px-3 py-2 text-base"
           />
-          <label htmlFor="custom-credits-slider" className="sr-only">
-            Adjust credits with slider
-          </label>
+          <label htmlFor="custom-credits-slider" className="sr-only">Adjust credits with slider</label>
           <input
             id="custom-credits-slider"
             aria-label="Adjust credits with slider"
@@ -116,76 +95,30 @@ function CustomCheckout() {
 
         <div className="glass rounded-2xl p-6 space-y-4">
           <h2 className="font-semibold">Step 1 — Send payment</h2>
-          <p className="text-sm text-muted-foreground">
-            Pay <span className="font-semibold text-foreground">${price.toFixed(2)} USD</span> via
-            PayPal. The link below pre-fills the amount.
-          </p>
-          <a
-            href={paypalUrl}
-            target="_blank"
-            rel="noreferrer"
-            className="block w-full text-center rounded-xl bg-[#ffc439] text-black font-semibold py-3 hover:opacity-90"
-          >
+          <p className="text-sm text-muted-foreground">Pay <span className="font-semibold text-foreground">${price.toFixed(2)} USD</span> via PayPal. The link below pre-fills the amount.</p>
+          <a href={paypalUrl} target="_blank" rel="noreferrer" className="block w-full text-center rounded-xl bg-[#ffc439] text-black font-semibold py-3 hover:opacity-90">
             Pay ${price.toFixed(2)} on paypal.me/{PAYPAL_HANDLE}
           </a>
-          <p className="text-xs text-muted-foreground">
-            In the PayPal note, include:{" "}
-            <code className="bg-surface-elevated px-1 rounded">
-              {user?.email} — {safeCredits} credits
-            </code>
-          </p>
+          <p className="text-xs text-muted-foreground">In the PayPal note, include: <code className="bg-surface-elevated px-1 rounded">{user?.email} — {safeCredits} credits</code></p>
         </div>
 
         <div className="glass rounded-2xl p-6 space-y-4">
           <h2 className="font-semibold">Step 2 — Submit for verification</h2>
           {submitted ? (
             <div className="rounded-lg border border-primary/40 bg-primary/10 p-4 text-sm">
-              Your payment is pending verification. You'll see your credits update on the dashboard
-              once approved.
-              <div className="mt-3">
-                <Link to="/dashboard" className="underline">
-                  Back to dashboard
-                </Link>
-              </div>
+              Your payment is pending verification. You'll see your credits update on the dashboard once approved.
+              <div className="mt-3"><Link to="/dashboard" className="underline">Back to dashboard</Link></div>
             </div>
           ) : (
             <>
-              <label htmlFor="custom-tx-id" className="sr-only">
-                PayPal Transaction ID
-              </label>
-              <input
-                id="custom-tx-id"
-                aria-label="PayPal Transaction ID"
-                value={txId}
-                onChange={(e) => setTxId(e.target.value)}
-                placeholder="PayPal Transaction ID (e.g. 7AB12345CD678901E)"
-                className="w-full rounded-lg bg-surface-elevated border border-border px-3 py-2 text-sm"
-              />
-              <label htmlFor="custom-note" className="sr-only">
-                Optional note
-              </label>
-              <textarea
-                id="custom-note"
-                aria-label="Optional note about the payment"
-                value={note}
-                onChange={(e) => setNote(e.target.value)}
-                placeholder="Optional note (e.g. PayPal email used)"
-                className="w-full rounded-lg bg-surface-elevated border border-border px-3 py-2 text-sm min-h-[80px]"
-              />
-              <button
-                onClick={submit}
-                disabled={submitting}
-                className="w-full rounded-xl bg-primary py-3 font-semibold text-primary-foreground hover:bg-primary/90 disabled:opacity-60"
-              >
+              <label htmlFor="custom-tx-id" className="sr-only">PayPal Transaction ID</label>
+              <input id="custom-tx-id" aria-label="PayPal Transaction ID" value={txId} onChange={(e) => setTxId(e.target.value)} placeholder="PayPal Transaction ID (e.g. 7AB12345CD678901E)" className="w-full rounded-lg bg-surface-elevated border border-border px-3 py-2 text-sm" />
+              <label htmlFor="custom-note" className="sr-only">Optional note</label>
+              <textarea id="custom-note" aria-label="Optional note about the payment" value={note} onChange={(e) => setNote(e.target.value)} placeholder="Optional note (e.g. PayPal email used)" className="w-full rounded-lg bg-surface-elevated border border-border px-3 py-2 text-sm min-h-[80px]" />
+              <button onClick={submit} disabled={submitting} className="w-full rounded-xl bg-primary py-3 font-semibold text-primary-foreground hover:bg-primary/90 disabled:opacity-60">
                 {submitting ? "Submitting…" : "Submit for verification"}
               </button>
-              <p className="text-xs text-muted-foreground">
-                By submitting, you confirm the payment was made and agree to our{" "}
-                <Link to="/terms" className="underline">
-                  Terms
-                </Link>
-                . Fraudulent submissions result in account ban.
-              </p>
+              <p className="text-xs text-muted-foreground">By submitting, you confirm the payment was made and agree to our <Link to="/terms" className="underline">Terms</Link>. Fraudulent submissions result in account ban.</p>
             </>
           )}
         </div>

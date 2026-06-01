@@ -1,4 +1,4 @@
-import { memo, useMemo, useState } from "react";
+import { useState } from "react";
 import { Check, Copy } from "lucide-react";
 import { toast } from "sonner";
 
@@ -14,11 +14,7 @@ function parseMarkdown(input: string): Block[] {
       const text = input.slice(last, m.index);
       if (text.trim()) blocks.push({ type: "text", content: text });
     }
-    blocks.push({
-      type: "code",
-      lang: (m[1] || "lua").toLowerCase(),
-      content: m[2].replace(/\n$/, ""),
-    });
+    blocks.push({ type: "code", lang: (m[1] || "lua").toLowerCase(), content: m[2].replace(/\n$/, "") });
     last = re.lastIndex;
   }
   if (last < input.length) {
@@ -90,15 +86,8 @@ function InlineText({ content }: { content: string }) {
   );
 }
 
-// Memoized so that re-renders of the parent chat component (which happen on
-// every keystroke in the prompt box, every status-poll tick, and the running
-// "elapsed" timer) do NOT re-parse and re-render every prior message. With the
-// default shallow prop compare, a message whose `content` string is unchanged
-// is skipped entirely — turning per-keystroke work from O(all messages) into
-// O(only the message that actually changed). This was a real source of typing
-// lag in long conversations.
-export const AssistantMessage = memo(function AssistantMessage({ content }: { content: string }) {
-  const blocks = useMemo(() => parseMarkdown(content), [content]);
+export function AssistantMessage({ content }: { content: string }) {
+  const blocks = parseMarkdown(content);
   return (
     <div className="space-y-1">
       {blocks.map((b, i) =>
@@ -110,4 +99,4 @@ export const AssistantMessage = memo(function AssistantMessage({ content }: { co
       )}
     </div>
   );
-});
+}

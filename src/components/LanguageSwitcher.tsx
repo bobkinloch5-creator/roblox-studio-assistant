@@ -1,5 +1,5 @@
-import { useEffect, useMemo, useRef, useState } from "react";
-import { Check, ChevronDown, Globe2, X } from "lucide-react";
+import { useEffect, useMemo, useState } from "react";
+import { ChevronDown, Globe2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 type Language = {
@@ -58,18 +58,8 @@ const LANGUAGES: Language[] = [
 ];
 
 const RTL_LANGUAGES = new Set(["ar", "fa", "he", "ur"]);
-const POPULAR_CODES = new Set(["en", "es", "fr", "pt", "de", "ar", "hi", "zh-CN", "ja", "ko"]);
-
-const GOOGLE_CODE_ALIASES: Record<string, string> = {
-  he: "iw",
-};
-
-function toGoogleCode(code: string) {
-  return GOOGLE_CODE_ALIASES[code] ?? code;
-}
-
 const INCLUDED_LANGUAGES = LANGUAGES.filter((language) => language.code !== "en")
-  .map((language) => toGoogleCode(language.code))
+  .map((language) => language.code)
   .join(",");
 
 declare global {
@@ -87,7 +77,7 @@ function getStoredLanguage() {
 }
 
 function setTranslateCookie(language: string) {
-  const value = `/en/${toGoogleCode(language)}`;
+  const value = `/en/${language}`;
   document.cookie = `googtrans=${value};path=/;SameSite=Lax`;
 
   if (window.location.hostname.includes(".")) {
@@ -154,7 +144,9 @@ function loadGoogleTranslate() {
       existing.addEventListener(
         "error",
         () => reject(new Error("Google Translate failed to load")),
-        { once: true },
+        {
+          once: true,
+        },
       );
       return;
     }
@@ -170,22 +162,10 @@ function loadGoogleTranslate() {
   return translateLoader;
 }
 
-function reloadOnceForLanguage(language: string) {
-  try {
-    const key = `bloxsmith-translate-reload:${language}`;
-    if (window.sessionStorage.getItem(key)) return;
-    window.sessionStorage.setItem(key, "1");
-  } catch (_) {
-    // sessionStorage unavailable — fall through and reload anyway.
-  }
-  window.location.reload();
-}
-
 function applyGoogleLanguage(language: string, attempts = 0) {
-  const googleCode = toGoogleCode(language);
   const combo = document.querySelector<HTMLSelectElement>(".goog-te-combo");
   if (combo) {
-    combo.value = googleCode;
+    combo.value = language;
     combo.dispatchEvent(new Event("change"));
     return;
   }
@@ -195,23 +175,25 @@ function applyGoogleLanguage(language: string, attempts = 0) {
     return;
   }
 
-  reloadOnceForLanguage(language);
+  window.location.reload();
 }
 
-const PROTECT_SELECTOR = "pre, code, textarea, input, .notranslate, [data-notranslate]";
-
 function protectTechnicalText() {
-  document.querySelectorAll<HTMLElement>(PROTECT_SELECTOR).forEach((element) => {
-    if (element.getAttribute("translate") === "no") return;
-    element.classList.add("notranslate");
-    element.setAttribute("translate", "no");
-  });
+  document
+    .querySelectorAll<HTMLElement>("pre, code, textarea, input, .notranslate, [data-notranslate]")
+    .forEach((element) => {
+      element.classList.add("notranslate");
+      element.setAttribute("translate", "no");
+    });
 }
 
 export function LanguageSwitcher({ compact = false }: { compact?: boolean }) {
+  // Start at the SSR-safe default ("en") and read the stored language in
+  // an effect. Reading localStorage in a lazy state initializer caused
+  // React error #419 (hydration mismatch) for any user who had previously
+  // picked a non-English language — the server-rendered HTML said "en" but
+  // the client immediately re-rendered with the stored value.
   const [language, setLanguage] = useState("en");
-  const [open, setOpen] = useState(false);
-  const observerRef = useRef<MutationObserver | null>(null);
 
   useEffect(() => {
     setLanguage(getStoredLanguage());
@@ -220,14 +202,6 @@ export function LanguageSwitcher({ compact = false }: { compact?: boolean }) {
   const languageLabel = useMemo(
     () => LANGUAGES.find((item) => item.code === language)?.label ?? "Language",
     [language],
-  );
-  const popularLanguages = useMemo(
-    () => LANGUAGES.filter((item) => POPULAR_CODES.has(item.code)),
-    [],
-  );
-  const otherLanguages = useMemo(
-    () => LANGUAGES.filter((item) => !POPULAR_CODES.has(item.code)),
-    [],
   );
 
   useEffect(() => {
@@ -238,172 +212,55 @@ export function LanguageSwitcher({ compact = false }: { compact?: boolean }) {
 
   useEffect(() => {
     if (typeof window === "undefined") return;
-    observerRef.current?.disconnect();
-    observerRef.current = null;
 
-    if (language === "en") {
-      clearTranslateCookie();
-      return;
-    }
+    protectTechnicalText();
+    const observer = new MutationObserver(protectTechnicalText);
+    observer.observe(document.body, { childList: true, subtree: true });
 
-    let scheduled = false;
-    let idleHandle: number | null = null;
-    let timeoutHandle: number | null = null;
+    return () => observer.disconnect();
+  }, []);
 
-    const runProtect = () => {
-      scheduled = false;
-      idleHandle = null;
-      timeoutHandle = null;
-      protectTechnicalText();
-    };
-
-    const schedule = () => {
-      if (scheduled) return;
-      scheduled = true;
-      const ric = (window as any).requestIdleCallback as
-        | ((cb: () => void, opts?: { timeout: number }) => number)
-        | undefined;
-      if (ric) {
-        idleHandle = ric(runProtect, { timeout: 500 });
-      } else {
-        timeoutHandle = window.setTimeout(runProtect, 300);
-      }
-    };
+  useEffect(() => {
+    if (typeof window === "undefined" || language === "en") return;
 
     protectTechnicalText();
     setTranslateCookie(language);
-
-    const observer = new MutationObserver(schedule);
-    observer.observe(document.body, { childList: true, subtree: true });
-    observerRef.current = observer;
-
     loadGoogleTranslate()
       .then(() => applyGoogleLanguage(language))
-      .catch(() => reloadOnceForLanguage(language));
-
-    return () => {
-      observer.disconnect();
-      observerRef.current = null;
-      if (idleHandle != null && (window as any).cancelIdleCallback) {
-        (window as any).cancelIdleCallback(idleHandle);
-      }
-      if (timeoutHandle != null) {
-        window.clearTimeout(timeoutHandle);
-      }
-    };
+      .catch(() => {
+        window.location.reload();
+      });
   }, [language]);
 
   useEffect(() => {
-    if (!open || !compact) return;
-    const original = document.body.style.overflow;
-    document.body.style.overflow = "hidden";
-    const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key === "Escape") setOpen(false);
-    };
-    window.addEventListener("keydown", onKeyDown);
-    return () => {
-      document.body.style.overflow = original;
-      window.removeEventListener("keydown", onKeyDown);
-    };
-  }, [open, compact]);
+    if (typeof window === "undefined" || language !== "en") return;
+    clearTranslateCookie();
+  }, [language]);
 
   const handleChange = (nextLanguage: string) => {
     setLanguage(nextLanguage);
-    setOpen(false);
     window.localStorage.setItem(STORAGE_KEY, nextLanguage);
 
     if (nextLanguage === "en") {
       clearTranslateCookie();
       window.location.reload();
+      return;
     }
+
+    setTranslateCookie(nextLanguage);
+    protectTechnicalText();
+    loadGoogleTranslate()
+      .then(() => applyGoogleLanguage(nextLanguage))
+      .catch(() => {
+        window.location.reload();
+      });
   };
-
-  const renderLanguageButton = (item: Language) => (
-    <button
-      key={item.code}
-      onClick={() => handleChange(item.code)}
-      className="flex w-full items-center gap-3 px-4 py-3 text-left transition hover:bg-background/35 active:bg-background/45"
-      type="button"
-      role="menuitemradio"
-      aria-checked={language === item.code}
-    >
-      <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-primary/10 text-xs font-bold uppercase text-primary-glow">
-        {item.code.split("-")[0]}
-      </span>
-      <span className="min-w-0 flex-1">
-        <span className="block truncate text-sm font-semibold text-foreground">{item.label}</span>
-        <span className="block truncate text-[11px] text-muted-foreground">
-          {item.code === "en" ? "Original website language" : "Translate website"}
-        </span>
-      </span>
-      <span className="flex h-7 w-7 shrink-0 items-center justify-center">
-        {language === item.code && <Check className="h-4 w-4 text-primary-glow" />}
-      </span>
-    </button>
-  );
-
-  if (compact) {
-    return (
-      <div className="relative">
-        <button
-          onClick={() => setOpen((value) => !value)}
-          className="inline-flex h-9 w-10 items-center justify-center rounded-xl border border-border/70 bg-surface/85 text-foreground shadow-[var(--shadow-card)] transition hover:bg-surface-elevated active:scale-95"
-          aria-label={`Change language. Current language: ${languageLabel}`}
-          aria-expanded={open}
-          type="button"
-          title={`Language: ${languageLabel}`}
-        >
-          <Globe2 className="h-4 w-4 text-primary-glow" />
-        </button>
-
-        {open && (
-          <>
-            <div
-              className="fixed inset-0 z-40 bg-background/45 backdrop-blur-[1px]"
-              onClick={() => setOpen(false)}
-            />
-            <div className="fixed inset-x-3 top-[5.75rem] z-50 max-h-[calc(100dvh-7rem)] overflow-hidden rounded-2xl border border-border/70 bg-surface-elevated/98 shadow-2xl backdrop-blur-xl animate-fade-in">
-              <div className="sticky top-0 z-20 flex items-center justify-between border-b border-border/60 bg-surface-elevated/98 px-4 py-3">
-                <div>
-                  <p className="text-sm font-bold">Choose language</p>
-                  <p className="text-xs text-muted-foreground">Current: {languageLabel}</p>
-                </div>
-                <button
-                  onClick={() => setOpen(false)}
-                  className="inline-flex h-9 w-9 items-center justify-center rounded-xl border border-border bg-surface/70"
-                  aria-label="Close language picker"
-                  type="button"
-                >
-                  <X className="h-4 w-4" />
-                </button>
-              </div>
-              <div className="max-h-[calc(100dvh-12rem)] overflow-y-auto overscroll-contain">
-                <div className="sticky top-0 z-10 border-b border-border/40 bg-surface-elevated/95 px-4 py-2 backdrop-blur-xl">
-                  <p className="text-[10.5px] font-bold uppercase tracking-[0.18em] text-muted-foreground">
-                    Popular
-                  </p>
-                </div>
-                <div className="py-1.5">{popularLanguages.map(renderLanguageButton)}</div>
-                <div className="sticky top-0 z-10 border-b border-border/40 bg-surface-elevated/95 px-4 py-2 backdrop-blur-xl">
-                  <p className="text-[10.5px] font-bold uppercase tracking-[0.18em] text-muted-foreground">
-                    More languages
-                  </p>
-                </div>
-                <div className="py-1.5 pb-[max(1rem,env(safe-area-inset-bottom))]">
-                  {otherLanguages.map(renderLanguageButton)}
-                </div>
-              </div>
-            </div>
-          </>
-        )}
-      </div>
-    );
-  }
 
   return (
     <label
       className={cn(
         "relative inline-flex items-center gap-2 rounded-lg border border-border/70 bg-surface/70 px-2.5 py-2 text-sm text-foreground shadow-sm transition hover:border-primary/40 hover:bg-surface",
+        compact && "w-full",
       )}
       title={`Language: ${languageLabel}`}
     >
@@ -412,7 +269,10 @@ export function LanguageSwitcher({ compact = false }: { compact?: boolean }) {
       <select
         value={language}
         onChange={(event) => handleChange(event.target.value)}
-        className="min-w-0 w-[9.75rem] appearance-none bg-transparent pr-5 text-sm font-medium outline-none"
+        className={cn(
+          "min-w-0 appearance-none bg-transparent pr-5 text-sm font-medium outline-none",
+          compact ? "w-full" : "w-[9.75rem]",
+        )}
         aria-label="Choose website language"
       >
         {LANGUAGES.map((item) => (

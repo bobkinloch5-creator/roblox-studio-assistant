@@ -202,9 +202,7 @@ export function TaskBoard({ projectId, open, onClose, onBuildTask }: Props) {
             <ClipboardList className="h-4 w-4 text-primary shrink-0" />
             <div className="min-w-0">
               <h2 className="text-sm font-semibold truncate">Task Board</h2>
-              <p className="text-[11px] text-muted-foreground">
-                Plan → Build → Insert → Test → Fix
-              </p>
+              <p className="text-[11px] text-muted-foreground">Plan → Build → Insert → Test → Fix</p>
             </div>
           </div>
           <button
@@ -229,11 +227,7 @@ export function TaskBoard({ projectId, open, onClose, onBuildTask }: Props) {
               disabled={busy === "__plan"}
               className="h-9 px-3 rounded-md bg-primary text-primary-foreground text-xs font-medium inline-flex items-center gap-1.5 hover:opacity-90 disabled:opacity-50"
             >
-              {busy === "__plan" ? (
-                <Loader2 className="h-3.5 w-3.5 animate-spin" />
-              ) : (
-                <Sparkles className="h-3.5 w-3.5" />
-              )}
+              {busy === "__plan" ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Sparkles className="h-3.5 w-3.5" />}
               Auto-plan
             </button>
           </div>
@@ -243,11 +237,7 @@ export function TaskBoard({ projectId, open, onClose, onBuildTask }: Props) {
               disabled={busy === "__next"}
               className="h-8 px-2.5 rounded-md border border-border bg-surface text-xs inline-flex items-center gap-1.5 hover:bg-surface-elevated disabled:opacity-50"
             >
-              {busy === "__next" ? (
-                <Loader2 className="h-3 w-3 animate-spin" />
-              ) : (
-                <Wand2 className="h-3 w-3" />
-              )}
+              {busy === "__next" ? <Loader2 className="h-3 w-3 animate-spin" /> : <Wand2 className="h-3 w-3" />}
               Next Best Task
             </button>
             <button
@@ -255,11 +245,7 @@ export function TaskBoard({ projectId, open, onClose, onBuildTask }: Props) {
               disabled={busy === "__finish"}
               className="h-8 px-2.5 rounded-md border border-border bg-surface text-xs inline-flex items-center gap-1.5 hover:bg-surface-elevated disabled:opacity-50"
             >
-              {busy === "__finish" ? (
-                <Loader2 className="h-3 w-3 animate-spin" />
-              ) : (
-                <CheckCircle2 className="h-3 w-3" />
-              )}
+              {busy === "__finish" ? <Loader2 className="h-3 w-3 animate-spin" /> : <CheckCircle2 className="h-3 w-3" />}
               Finish This Game
             </button>
             <button
@@ -268,9 +254,7 @@ export function TaskBoard({ projectId, open, onClose, onBuildTask }: Props) {
                 try {
                   const res = await importErrs({ data: { projectId, limit: 20 } });
                   if (res.created > 0) {
-                    toast.success(
-                      `Imported ${res.created} fix task${res.created === 1 ? "" : "s"} from Studio errors.`,
-                    );
+                    toast.success(`Imported ${res.created} fix task${res.created === 1 ? "" : "s"} from Studio errors.`);
                     await refresh();
                   } else {
                     toast.message(res.reason ?? "Nothing to import.");
@@ -285,11 +269,7 @@ export function TaskBoard({ projectId, open, onClose, onBuildTask }: Props) {
               className="h-8 px-2.5 rounded-md border border-border bg-surface text-xs inline-flex items-center gap-1.5 hover:bg-surface-elevated disabled:opacity-50"
               title="Pull recent Studio runtime errors onto the board as needs_fix tasks"
             >
-              {busy === "__errs" ? (
-                <Loader2 className="h-3 w-3 animate-spin" />
-              ) : (
-                <Bug className="h-3 w-3 text-amber-400" />
-              )}
+              {busy === "__errs" ? <Loader2 className="h-3 w-3 animate-spin" /> : <Bug className="h-3 w-3 text-amber-400" />}
               Pull Studio Errors
             </button>
             <div className="flex-1" />
@@ -315,10 +295,7 @@ export function TaskBoard({ projectId, open, onClose, onBuildTask }: Props) {
             <div className="mt-2 rounded-md border border-border bg-surface p-3 text-xs space-y-2">
               <div className="flex items-center justify-between">
                 <div className="font-semibold">Finish report — {report.completion}% complete</div>
-                <button
-                  onClick={() => setReport(null)}
-                  className="text-muted-foreground hover:text-foreground"
-                >
+                <button onClick={() => setReport(null)} className="text-muted-foreground hover:text-foreground">
                   <X className="h-3.5 w-3.5" />
                 </button>
               </div>
@@ -336,9 +313,7 @@ export function TaskBoard({ projectId, open, onClose, onBuildTask }: Props) {
                     ) : (
                       <AlertTriangle className="h-3 w-3 text-amber-400" />
                     )}
-                    <span className={s.present ? "text-foreground" : "text-muted-foreground"}>
-                      {s.label}
-                    </span>
+                    <span className={s.present ? "text-foreground" : "text-muted-foreground"}>{s.label}</span>
                   </div>
                 ))}
               </div>
@@ -369,10 +344,7 @@ export function TaskBoard({ projectId, open, onClose, onBuildTask }: Props) {
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-3">
               {COLUMNS.map((col) => (
-                <div
-                  key={col.key}
-                  className={`rounded-lg border border-border ${col.tone} flex flex-col min-h-32`}
-                >
+                <div key={col.key} className={`rounded-lg border border-border ${col.tone} flex flex-col min-h-32`}>
                   <div className="px-2.5 py-2 border-b border-border/60 flex items-center justify-between">
                     <span className="text-[11px] font-semibold uppercase tracking-wide text-foreground/80">
                       {col.label}
@@ -409,11 +381,7 @@ export function TaskBoard({ projectId, open, onClose, onBuildTask }: Props) {
                               className="h-6 px-1.5 rounded border border-primary/40 bg-primary/10 text-primary text-[10px] inline-flex items-center gap-1 hover:bg-primary/20 disabled:opacity-50"
                               title="Build with AI"
                             >
-                              {busy === t.id ? (
-                                <Loader2 className="h-2.5 w-2.5 animate-spin" />
-                              ) : (
-                                <Hammer className="h-2.5 w-2.5" />
-                              )}
+                              {busy === t.id ? <Loader2 className="h-2.5 w-2.5 animate-spin" /> : <Hammer className="h-2.5 w-2.5" />}
                               Build
                             </button>
                           )}

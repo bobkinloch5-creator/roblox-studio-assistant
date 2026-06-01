@@ -26,7 +26,7 @@ function ShowcaseDetail() {
       const { data, error } = await supabase
         .from("projects")
         .select(
-          "id, showcase_title, showcase_description, showcase_thumbnail_url, showcase_likes_count, showcase_remix_count, name, game_type, description",
+          "id, showcase_title, showcase_description, showcase_thumbnail_url, showcase_likes_count, showcase_remix_count, name, game_type, description"
         )
         .eq("id", projectId)
         .eq("showcase_published", true)
@@ -85,7 +85,9 @@ function ShowcaseDetail() {
         <Header />
         <main className="mx-auto max-w-3xl px-4 py-20 text-center">
           <h1 className="text-2xl font-bold">Project not found</h1>
-          <p className="text-muted-foreground mt-2">This project may have been unpublished.</p>
+          <p className="text-muted-foreground mt-2">
+            This project may have been unpublished.
+          </p>
           <Link to="/showcase" className="mt-6 inline-block text-primary-glow">
             ← Back to showcase
           </Link>
@@ -190,7 +192,9 @@ function ShowcaseDetail() {
               </div>
             </div>
 
-            <p className="mt-6 text-foreground/90 whitespace-pre-wrap leading-relaxed">{desc}</p>
+            <p className="mt-6 text-foreground/90 whitespace-pre-wrap leading-relaxed">
+              {desc}
+            </p>
           </div>
         </div>
       </main>

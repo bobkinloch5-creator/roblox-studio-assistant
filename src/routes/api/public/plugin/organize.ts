@@ -31,12 +31,7 @@ const ALLOWED_TYPES = new Set(["organize", "move", "rename"]);
 
 // Compact the live workspace snapshot down to (path, className) tuples so
 // the prompt stays small. We only need names + class to plan organization.
-function flattenTree(
-  node: any,
-  parentPath: string,
-  out: Array<{ path: string; className: string }>,
-  limit = 400,
-) {
+function flattenTree(node: any, parentPath: string, out: Array<{ path: string; className: string }>, limit = 400) {
   if (!node || out.length >= limit) return;
   const name = node.name ?? node.Name ?? "?";
   const path = parentPath ? `${parentPath}.${name}` : name;
@@ -82,7 +77,7 @@ export const Route = createFileRoute("/api/public/plugin/organize")({
             headers: cors,
           });
 
-        // Verify ownership. Projects are private per account.
+        // Verify access (owner or collaborator)
         const { data: project } = await supabaseAdmin
           .from("projects")
           .select("id,user_id,name")
@@ -93,7 +88,17 @@ export const Route = createFileRoute("/api/public/plugin/organize")({
             status: 404,
             headers: cors,
           });
-        if (project.user_id !== userId)
+        let allowed = project.user_id === userId;
+        if (!allowed) {
+          const { data: c } = await supabaseAdmin
+            .from("project_collaborators")
+            .select("id")
+            .eq("project_id", projectId)
+            .eq("user_id", userId)
+            .maybeSingle();
+          allowed = !!c;
+        }
+        if (!allowed)
           return new Response(JSON.stringify({ error: "forbidden" }), {
             status: 403,
             headers: cors,
@@ -117,7 +122,7 @@ export const Route = createFileRoute("/api/public/plugin/organize")({
         // Flatten tree → compact list for the prompt
         const instances: Array<{ path: string; className: string }> = [];
         const ctx = ctxRow.context as any;
-        const services = (ctx?.services ?? ctx?.tree ?? ctx?.workspace) ? [ctx] : [];
+        const services = ctx?.services ?? ctx?.tree ?? ctx?.workspace ? [ctx] : [];
         // Try common shapes
         if (Array.isArray(ctx?.services)) {
           for (const svc of ctx.services) flattenTree(svc, "", instances, 500);
@@ -145,10 +150,10 @@ export const Route = createFileRoute("/api/public/plugin/organize")({
         // Ask Groq (already configured) for ONLY organize/move/rename actions.
         const apiKey = process.env.GROQ_API_KEY;
         if (!apiKey)
-          return new Response(JSON.stringify({ error: "AI not configured on server" }), {
-            status: 500,
-            headers: cors,
-          });
+          return new Response(
+            JSON.stringify({ error: "AI not configured on server" }),
+            { status: 500, headers: cors },
+          );
 
         const systemPrompt = `You are BloxSmith's workspace organizer. Given the current Roblox Studio workspace tree, propose a tidy structure using ONLY these action types: "organize", "move", and "rename".
 
@@ -184,7 +189,7 @@ Action shapes:
               "Content-Type": "application/json",
             },
             body: JSON.stringify({
-              model: "llama-3.3-70b-versatile",
+              model: "openai/gpt-oss-120b",
               messages: [
                 { role: "system", content: systemPrompt },
                 { role: "user", content: userPrompt },
@@ -241,7 +246,9 @@ Action shapes:
           payload: a as any,
           status: "pending" as const,
         }));
-        const { error: insertErr } = await supabaseAdmin.from("plugin_actions").insert(rows);
+        const { error: insertErr } = await supabaseAdmin
+          .from("plugin_actions")
+          .insert(rows);
         if (insertErr) {
           return new Response(
             JSON.stringify({ error: "Failed to queue actions: " + insertErr.message }),

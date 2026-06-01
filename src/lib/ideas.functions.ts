@@ -59,8 +59,7 @@ export const generateGameIdeas = createServerFn({ method: "POST" })
       const out = await generateText({ model, system, prompt: catLine, maxOutputTokens: 1400 });
       text = out.text;
     } catch (err) {
-      if (!isOwner)
-        await supabase.rpc("refund_credits", { _amount: COST, _reason: "ideas failed" });
+      if (!isOwner) await supabase.rpc("refund_credits", { _amount: COST, _reason: "ideas failed" });
       throw new Error("Idea generation failed: " + String((err as Error).message));
     }
 

@@ -24,16 +24,6 @@ type GenFile = {
 
 type GenAction = { type: string; [k: string]: any };
 
-async function assertProjectOwner(supabase: any, projectId: string, userId: string) {
-  const { data: project, error } = await supabase
-    .from("projects")
-    .select("id,user_id")
-    .eq("id", projectId)
-    .eq("user_id", userId)
-    .maybeSingle();
-  if (error || !project) throw new Error("Project not found or unauthorized.");
-}
-
 function compactForAI(value: string, maxChars: number): string {
   const text = String(value ?? "")
     .replace(/data:image\/[a-zA-Z0-9.+-]+;base64,[A-Za-z0-9+/=]+/g, "[image omitted]")
@@ -116,9 +106,7 @@ function isToolAIError(err: unknown): boolean {
   );
 }
 
-function classifyAIError(
-  err: unknown,
-): "timeout" | "context" | "rate_limit" | "tool" | "json" | "provider" | "unknown" {
+function classifyAIError(err: unknown): "timeout" | "context" | "rate_limit" | "tool" | "json" | "provider" | "unknown" {
   const msg = getAIErrorMessage(err);
   const status = getAIStatus(err);
   if (isAbortError(err) || /aborted|abort|timeout|timed out/i.test(msg)) return "timeout";
@@ -130,55 +118,29 @@ function classifyAIError(
   return "unknown";
 }
 
-function pickGenerationTools(
-  prompt: string,
-  allTools: Record<string, any>,
-): Record<string, unknown> {
+function pickGenerationTools(prompt: string, allTools: Record<string, any>): Record<string, unknown> {
   const lower = prompt.toLowerCase();
   const picked: Record<string, unknown> = {};
   const add = (name: string) => {
     if (name in allTools) picked[name] = allTools[name];
   };
 
-  if (
-    /\b(datastore|remoteevent|remotefunction|marketplaceservice|pathfindingservice|tweenservice|runservice|animation|animator|humanoid|screen.?gui|luau|creator hub|api reference|docs|documentation)\b/i.test(
-      lower,
-    )
-  ) {
+  if (/\b(datastore|remoteevent|remotefunction|marketplaceservice|pathfindingservice|tweenservice|runservice|animation|animator|humanoid|screen.?gui|luau|creator hub|api reference|docs|documentation)\b/i.test(lower)) {
     add("roblox_docs_search");
   }
-  if (
-    /\b(search the web|web search|look up|current|latest|today|internet|url|https?:\/\/)\b/i.test(
-      lower,
-    )
-  ) {
+  if (/\b(search the web|web search|look up|current|latest|today|internet|url|https?:\/\/)\b/i.test(lower)) {
     add("web_search");
     add("fetch_url");
   }
-  if (
-    /\b(toolbox|creator store|free model|asset|model id|insert model|use a model|marketplace|skybox|music|sound|decal|image id|thumbnail|icon|logo|banner|loading screen)\b/i.test(
-      lower,
-    )
-  ) {
+  if (/\b(toolbox|creator store|free model|asset|model id|insert model|use a model|marketplace|skybox|music|sound|decal|image id|thumbnail|icon|logo|banner|loading screen)\b/i.test(lower)) {
     add("roblox_asset_search");
   }
-  if (
-    /\b(asset info|asset details|verify asset|thumbnail|preview|safe model|scan scripts?)\b/i.test(
-      lower,
-    )
-  ) {
+  if (/\b(asset info|asset details|verify asset|thumbnail|preview|safe model|scan scripts?)\b/i.test(lower)) {
     add("roblox_asset_info");
     add("roblox_asset_thumbnail");
   }
   if (/\b(image|thumbnail|icon|logo|decal|artwork|poster|banner|loading screen)\b/i.test(lower)) {
     add("generate_image");
-  }
-  if (
-    /\b(shirt|pants|t-?shirt|tee|hoodie|jacket|coat|uniform|outfit|clothing|clothes|apparel|wearable|costume|dress|garment|accessor(y|ies)|hat|cap|helmet|glasses|goggles|mask|backpack|bag|chain|necklace|wings?|hair|shoulder|pauldron)\b/i.test(
-      lower,
-    )
-  ) {
-    add("generate_clothing");
   }
 
   return picked;
@@ -196,7 +158,6 @@ export const generateWithAI = createServerFn({ method: "POST" })
   .handler(async ({ data, context }) => {
     const { supabase, userId } = context;
     const { projectId, prompt, mode, preview, imageDataUrl, thinking } = data;
-    await assertProjectOwner(supabase, projectId, userId);
 
     const { data: roles } = await supabase.from("user_roles").select("role").eq("user_id", userId);
     const isOwner = (roles ?? []).some((r) => r.role === "owner" || r.role === "admin");
@@ -212,20 +173,15 @@ export const generateWithAI = createServerFn({ method: "POST" })
 
     const { generateText, Output, stepCountIs } = await import("ai");
     const { SYSTEM_PROMPT } = await import("./ai-gateway.server");
-    const { getModelProfile, resolveAiGateway, createProvider } = await import(
-      "./ai-providers.server"
-    );
-    const { NEOKENS_SAFE_FALLBACK_MODEL } = await import("./ai-models");
-    const { buildProjectMemoryBlock, rememberProjectInteraction } =
-      await import("./ai-memory.server");
+    const { getModelProfile, resolveAiGateway } = await import("./ai-providers.server");
+    const { buildProjectMemoryBlock, rememberProjectInteraction } = await import("./ai-memory.server");
 
     const { buildBloxSmithTools } = await import("./ai-tools.server");
 
     // Heuristic: short prompts (edits, tweaks, single-feature asks) use the fast
     // tier even in generate mode. Big/complex asks keep the deeper model.
     const promptLen = prompt.trim().length;
-    const complexKeywords =
-      /(system|datastore|leaderboard|tycoon|simulator|obby|admin|gamepass|multiple|all|whole|full game|entire|refactor|rewrite|architecture)/i;
+    const complexKeywords = /(system|datastore|leaderboard|tycoon|simulator|obby|admin|gamepass|multiple|all|whole|full game|entire|refactor|rewrite|architecture)/i;
     const isComplex = mode === "generate" && (promptLen > 400 || complexKeywords.test(prompt));
     const routingKind: "build" | "fast" = mode === "generate" && isComplex ? "build" : "fast";
 
@@ -252,7 +208,7 @@ export const generateWithAI = createServerFn({ method: "POST" })
       heavyBuild: isComplex,
     });
 
-    const [liveContextResult, allFilesResult, memoryBlock, studioErrorBlock] = await Promise.all([
+    const [liveContextResult, allFilesResult, memoryBlock] = await Promise.all([
       supabase
         .from("plugin_context")
         .select("context,instance_count,updated_at")
@@ -264,11 +220,6 @@ export const generateWithAI = createServerFn({ method: "POST" })
         .eq("project_id", projectId)
         .limit(isComplex ? 120 : 80),
       buildProjectMemoryBlock(supabase, projectId, { limit: 10, maxChars: isComplex ? 1400 : 900 }),
-      (await import("./ai-studio-errors.server")).buildStudioErrorBlock(supabase, projectId, {
-        windowMinutes: 90,
-        limit: 6,
-        maxChars: 1200,
-      }),
     ]);
     const liveContext = liveContextResult.data;
     const allFiles = allFilesResult.data;
@@ -310,15 +261,9 @@ export const generateWithAI = createServerFn({ method: "POST" })
         const ctx: any = liveContext.context;
         const services = ctx?.services ?? ctx;
         const summary = Array.isArray(services)
-          ? services
-              .slice(0, 12)
-              .map((s: any) => `${s.name ?? s.className}:${s.childCount ?? 0}`)
-              .join(", ")
+          ? services.slice(0, 12).map((s: any) => `${s.name ?? s.className}:${s.childCount ?? 0}`).join(", ")
           : typeof services === "object"
-            ? Object.keys(services)
-                .slice(0, 12)
-                .map((k) => `${k}:${Array.isArray(services[k]) ? services[k].length : 1}`)
-                .join(", ")
+            ? Object.keys(services).slice(0, 12).map((k) => `${k}:${Array.isArray(services[k]) ? services[k].length : 1}`).join(", ")
             : JSON.stringify(services).slice(0, 600);
         liveBlock = `LIVE STUDIO WORKSPACE (${liveContext.instance_count} instances): ${summary}`;
       } catch {
@@ -326,51 +271,30 @@ export const generateWithAI = createServerFn({ method: "POST" })
       }
     }
 
-    let result: { message: string; files: GenFile[]; actions: GenAction[] } = {
-      message: "",
-      files: [],
-      actions: [],
-    };
-    let recovered = false;
-    let fullPrompt = "";
-    let timeoutMs = 16_000;
+    let result: { message: string; files: GenFile[]; actions: GenAction[] };
     try {
-      fullPrompt = `${memoryBlock ? `${memoryBlock}\n\n` : ""}${studioErrorBlock ? `${studioErrorBlock}\n\n` : ""}${liveBlock}\n\nFULL PROJECT FILE MAP (${(allFiles ?? []).length} files - every file your project has, by location):\n${projectMap || "  (no files yet)"}\n\nRelevant project files (with content preview):\n${filesBlock || "(none indexed)"}\n\nUser request:\n${prompt}\n\nRules:\n- You have FULL AWARENESS of the project above. Reference real files by path. NEVER duplicate something that already exists - MODIFY it.\n- Use PROJECT MEMORY for durable preferences, naming, genre, and recent context. If memory conflicts with live files or the user's latest request, obey the latest request and live project state.
+      const fullPrompt = `${memoryBlock ? `${memoryBlock}\n\n` : ""}${liveBlock}\n\nFULL PROJECT FILE MAP (${(allFiles ?? []).length} files - every file your project has, by location):\n${projectMap || "  (no files yet)"}\n\nRelevant project files (with content preview):\n${filesBlock || "(none indexed)"}\n\nUser request:\n${prompt}\n\nRules:\n- You have FULL AWARENESS of the project above. Reference real files by path. NEVER duplicate something that already exists - MODIFY it.\n- Use PROJECT MEMORY for durable preferences, naming, genre, and recent context. If memory conflicts with live files or the user's latest request, obey the latest request and live project state.
 - Organize new files into clean subfolders by feature (e.g. ServerScriptService/Combat/HitService, ReplicatedStorage/Modules/Config, StarterPlayerScripts/UI/Hud). Do NOT dump everything at the root of a service.\n- Place server Scripts in ServerScriptService, LocalScripts in StarterPlayerScripts or StarterGui, GUIs in StarterGui, RemoteEvents/RemoteFunctions in ReplicatedStorage/Remotes, ModuleScripts in ReplicatedStorage/Modules (shared) or ServerStorage/Modules (server-only), Tools in StarterPack, physical/world objects in Workspace.\n- For ground/landscape requests (grass, sand, snow, water, hills, islands), use real Roblox Terrain via the \`terrainFill\` action. NEVER spawn hundreds of thin Parts.\n- Do NOT claim success - phrase as "Queued for Studio...".\n- If the request is a casual question (no code changes), reply naturally in 'message' with empty 'files' and 'actions'.\n- Use tools (web_search, roblox_asset_*, fetch_url) ONLY when you genuinely need fresh info - every tool call slows you down.\n\nReturn the JSON object as specified.`;
       const { generateTextWithToolFallback } = await import("./ai-retry.server");
-      const builtInTools = pickGenerationTools(
-        prompt,
-        buildBloxSmithTools({
-          userId,
-          projectId,
-          referenceImageDataUrl: imageDataUrl ?? null,
-        }) as Record<string, any>,
-      );
+      const builtInTools = pickGenerationTools(prompt, buildBloxSmithTools({ userId }) as Record<string, any>);
       const mcpTools = shouldLoadUserMcpTools(prompt)
         ? await (await import("./mcp-client.server")).buildUserMcpTools(userId)
         : {};
       const tools = { ...builtInTools, ...mcpTools } as Record<string, unknown>;
-      timeoutMs = isComplex
+      const timeoutMs = isComplex
         ? Math.min(profile.timeoutMs, thinking ? 38_000 : 30_000)
         : Math.min(profile.timeoutMs, thinking ? 28_000 : 16_000);
-      const { text: rawText } = await generateTextWithToolFallback(
-        generateText,
-        {
-          model,
-          system: SYSTEM_PROMPT,
-          prompt: fullPrompt,
-          ...(Object.keys(tools).length > 0
-            ? {
-                tools: tools as any,
-                stopWhen: stepCountIs(Math.min(profile.stopSteps, isComplex ? 8 : 3)),
-              }
-            : {}),
-          maxOutputTokens: Math.min(profile.maxOutputTokens, isComplex ? 9000 : 4500),
-          maxRetries: 0,
-          timeout: { totalMs: timeoutMs, stepMs: timeoutMs, chunkMs: 12_000 },
-        },
-        "generateWithAI",
-      );
+      const { text: rawText } = await generateTextWithToolFallback(generateText, {
+        model,
+        system: SYSTEM_PROMPT,
+        prompt: fullPrompt,
+        ...(Object.keys(tools).length > 0
+          ? { tools: tools as any, stopWhen: stepCountIs(Math.min(profile.stopSteps, isComplex ? 8 : 3)) }
+          : {}),
+        maxOutputTokens: Math.min(profile.maxOutputTokens, isComplex ? 9000 : 4500),
+        maxRetries: 0,
+        timeout: { totalMs: timeoutMs, stepMs: timeoutMs, chunkMs: 12_000 },
+      }, "generateWithAI");
       // Parse JSON from the raw text response
       const jsonMatch = rawText.match(/\{[\s\S]*\}/);
       if (!jsonMatch) {
@@ -393,77 +317,13 @@ export const generateWithAI = createServerFn({ method: "POST" })
       result.files = result.files ?? [];
       result.actions = result.actions ?? [];
     } catch (err: any) {
+      if (!isOwner)
+        await supabase.rpc("refund_credits", { _amount: cost, _reason: "ai generation failed" });
       const msg = String(err?.message ?? err);
-
-      // If the SELECTED model failed at the gateway (e.g. Neokens doesn't serve
-      // that id → 502/404/model-not-found), retry ONCE on a known-good model so
-      // a bad pick doesn't brick the build. Rate-limit/credits errors are not
-      // model problems, so we don't retry those.
-      const looksLikeModelError =
-        /502|503|bad gateway|not found|404|unknown model|unsupported model|no such model|model_not_found|invalid model/i.test(
-          msg,
-        );
-      if (
-        looksLikeModelError &&
-        resolved.provider === "neokens" &&
-        resolved.modelName !== NEOKENS_SAFE_FALLBACK_MODEL
-      ) {
-        try {
-          console.warn(
-            `[generateWithAI] model "${resolved.modelName}" failed (${msg.slice(
-              0,
-              120,
-            )}). Retrying on "${NEOKENS_SAFE_FALLBACK_MODEL}".`,
-          );
-          const neoKey = process.env.NEOKENS_API_KEY || process.env.NEOKENS_KEY;
-          if (neoKey) {
-            const fallbackModel = createProvider("neokens", NEOKENS_SAFE_FALLBACK_MODEL);
-            const { generateTextWithToolFallback: retryGen } = await import("./ai-retry.server");
-            const { text: retryText } = await retryGen(
-              generateText,
-              {
-                model: fallbackModel(NEOKENS_SAFE_FALLBACK_MODEL),
-                system: SYSTEM_PROMPT,
-                prompt: fullPrompt,
-                maxOutputTokens: Math.min(profile.maxOutputTokens, isComplex ? 9000 : 4500),
-                maxRetries: 0,
-                timeout: { totalMs: timeoutMs, stepMs: timeoutMs, chunkMs: 12_000 },
-              },
-              "generateWithAI:fallback",
-            );
-            const m2 = retryText.match(/\{[\s\S]*\}/);
-            result = m2
-              ? (() => {
-                  try {
-                    return JSON.parse(m2[0]);
-                  } catch {
-                    return { message: retryText.trim(), files: [], actions: [] };
-                  }
-                })()
-              : { message: retryText.trim(), files: [], actions: [] };
-            result.files = result.files ?? [];
-            result.actions = result.actions ?? [];
-            // Recovered — `result` is set; fall through to the normal
-            // validation/persistence path below by skipping the throw.
-            recovered = true;
-          }
-        } catch (err2) {
-          console.warn(
-            "[generateWithAI] fallback model also failed:",
-            err2 instanceof Error ? err2.message : err2,
-          );
-          // fall through to the normal error handling
-        }
-      }
-
-      if (!recovered) {
-        if (!isOwner)
-          await supabase.rpc("refund_credits", { _amount: cost, _reason: "ai generation failed" });
-        if (msg.includes("429")) throw new Error("AI rate limit. Try again in a moment.");
-        if (msg.includes("402"))
-          throw new Error("AI credits exhausted. Add credits in workspace settings.");
-        throw new Error("AI generation failed: " + msg);
-      }
+      if (msg.includes("429")) throw new Error("AI rate limit. Try again in a moment.");
+      if (msg.includes("402"))
+        throw new Error("AI credits exhausted. Add credits in workspace settings.");
+      throw new Error("AI generation failed: " + msg);
     }
 
     // 3. Pre-push sync validation — drop files/actions that would error in Studio.
@@ -609,7 +469,6 @@ export const applyGeneration = createServerFn({ method: "POST" })
     if (gen.user_id !== userId) throw new Error("Not your preview.");
     const projectIdRef: string | null = gen.project_id;
     if (!projectIdRef) throw new Error("Preview has no project.");
-    await assertProjectOwner(supabase, projectIdRef, userId);
 
     // Refuse double-apply.
     const { data: already } = await supabase
@@ -700,7 +559,6 @@ export const planBuild = createServerFn({ method: "POST" })
   .handler(async ({ data, context }) => {
     const { supabase, userId } = context;
     const { projectId, prompt, imageDataUrl, thinking } = data;
-    await assertProjectOwner(supabase, projectId, userId);
 
     const { data: roles } = await supabase.from("user_roles").select("role").eq("user_id", userId);
     const isOwner = (roles ?? []).some((r) => r.role === "owner" || r.role === "admin");
@@ -715,8 +573,7 @@ export const planBuild = createServerFn({ method: "POST" })
 
     const { generateText } = await import("ai");
     const { resolveBuiltInGateway } = await import("./ai-providers.server");
-    const { buildProjectMemoryBlock, rememberProjectInteraction } =
-      await import("./ai-memory.server");
+    const { buildProjectMemoryBlock, rememberProjectInteraction } = await import("./ai-memory.server");
     let model;
     try {
       model = resolveBuiltInGateway({ kind: "fast", thinking }).model;
@@ -834,7 +691,10 @@ const ChatInputSchema = z.object({
   // Vision: data URLs (e.g. "data:image/png;base64,...") captured from the
   // chat composer's attach-image button. Limited to 4 images, ~6 MB each
   // after base64 encoding to stay within model + gateway limits.
-  attachments: z.array(z.string().startsWith("data:image/").max(8_500_000)).max(4).optional(),
+  attachments: z
+    .array(z.string().startsWith("data:image/").max(8_500_000))
+    .max(4)
+    .optional(),
 });
 
 function pickChatTools(prompt: string, allTools: Record<string, any>): Record<string, unknown> {
@@ -844,33 +704,17 @@ function pickChatTools(prompt: string, allTools: Record<string, any>): Record<st
     if (name in allTools) picked[name] = allTools[name];
   };
 
-  if (
-    /\b(datastore|remoteevent|remotefunction|marketplaceservice|pathfindingservice|tweenservice|runservice|animation|animator|humanoid|screen.?gui|luau|creator hub|api reference|docs|documentation)\b/i.test(
-      lower,
-    )
-  ) {
+  if (/\b(datastore|remoteevent|remotefunction|marketplaceservice|pathfindingservice|tweenservice|runservice|animation|animator|humanoid|screen.?gui|luau|creator hub|api reference|docs|documentation)\b/i.test(lower)) {
     add("roblox_docs_search");
   }
-  if (
-    /\b(search the web|web search|look up|current|latest|today|internet|url|https?:\/\/)\b/i.test(
-      lower,
-    )
-  ) {
+  if (/\b(search the web|web search|look up|current|latest|today|internet|url|https?:\/\/)\b/i.test(lower)) {
     add("web_search");
     add("fetch_url");
   }
-  if (
-    /\b(toolbox|creator store|free model|asset|model id|insert model|use a model|marketplace|skybox|music|sound|decal|image id)\b/i.test(
-      lower,
-    )
-  ) {
+  if (/\b(toolbox|creator store|free model|asset|model id|insert model|use a model|marketplace|skybox|music|sound|decal|image id)\b/i.test(lower)) {
     add("roblox_asset_search");
   }
-  if (
-    /\b(asset info|asset details|verify asset|thumbnail|preview|safe model|scan scripts?)\b/i.test(
-      lower,
-    )
-  ) {
+  if (/\b(asset info|asset details|verify asset|thumbnail|preview|safe model|scan scripts?)\b/i.test(lower)) {
     add("roblox_asset_info");
     add("roblox_asset_thumbnail");
   }
@@ -884,7 +728,6 @@ export const chatWithAI = createServerFn({ method: "POST" })
   .handler(async ({ data, context }) => {
     const { supabase, userId } = context;
     const { projectId, prompt, history, thinking, attachments } = data;
-    if (projectId) await assertProjectOwner(supabase, projectId, userId);
 
     const { data: roles } = await supabase.from("user_roles").select("role").eq("user_id", userId);
     const isOwner = (roles ?? []).some((r) => r.role === "owner" || r.role === "admin");
@@ -897,11 +740,9 @@ export const chatWithAI = createServerFn({ method: "POST" })
       if (spendErr) throw new Error("Not enough credits. Buy more on the Pricing page.");
     }
 
-    const { getModelProfile, recordProviderHealth, resolveAiGateway, resolveBuiltInGateway } =
-      await import("./ai-providers.server");
+    const { getModelProfile, recordProviderHealth, resolveAiGateway, resolveBuiltInGateway } = await import("./ai-providers.server");
     const { ROBLOX_KNOWLEDGE_PROMPT } = await import("./roblox-knowledge");
-    const { buildProjectMemoryBlock, rememberProjectInteraction } =
-      await import("./ai-memory.server");
+    const { buildProjectMemoryBlock, rememberProjectInteraction } = await import("./ai-memory.server");
     let resolved;
     try {
       resolved = await resolveAiGateway({
@@ -1019,7 +860,7 @@ ${ROBLOX_KNOWLEDGE_PROMPT}${includeProject && memoryBlock ? `\n\n${memoryBlock}`
         console.log(`[chatWithAI] ${label} model=${modelLabel} messages=${messages.length}`);
         return await generateText({
           model,
-          messages: messages as NonNullable<Parameters<typeof generateText>[0]["messages"]>,
+          messages: messages as any,
           maxOutputTokens,
           maxRetries: 0,
           timeout: { totalMs: timeoutMs, stepMs: timeoutMs, chunkMs: 10_000 },
@@ -1037,15 +878,11 @@ ${ROBLOX_KNOWLEDGE_PROMPT}${includeProject && memoryBlock ? `\n\n${memoryBlock}`
       {
         label: "primary",
         resolved,
-        historyTurns: getModelProfile(resolved.provider, resolved.modelName, { thinking })
-          .historyTurns,
-        historyChars: getModelProfile(resolved.provider, resolved.modelName, { thinking })
-          .historyChars,
+        historyTurns: getModelProfile(resolved.provider, resolved.modelName, { thinking }).historyTurns,
+        historyChars: getModelProfile(resolved.provider, resolved.modelName, { thinking }).historyChars,
         includeProject: true,
-        maxOutputTokens: getModelProfile(resolved.provider, resolved.modelName, { thinking })
-          .chatOutputTokens,
-        timeoutMs: getModelProfile(resolved.provider, resolved.modelName, { thinking })
-          .chatTimeoutMs,
+        maxOutputTokens: getModelProfile(resolved.provider, resolved.modelName, { thinking }).chatOutputTokens,
+        timeoutMs: getModelProfile(resolved.provider, resolved.modelName, { thinking }).chatTimeoutMs,
       },
       {
         label: "primary-compact",
@@ -1092,7 +929,8 @@ ${ROBLOX_KNOWLEDGE_PROMPT}${includeProject && memoryBlock ? `\n\n${memoryBlock}`
           thinking,
         });
         const tools = !toolsDisabled && profile.supportsTools ? chatTools : {};
-        const includeImages = !!attachments?.length && profile.supportsVision;
+        const includeImages =
+          !!attachments?.length && profile.supportsVision;
         const messages = makeMessages({
           includeProject: attempt.includeProject,
           historyTurns: attempt.historyTurns,
@@ -1137,10 +975,7 @@ ${ROBLOX_KNOWLEDGE_PROMPT}${includeProject && memoryBlock ? `\n\n${memoryBlock}`
           });
           lastErr = err;
           const retryable =
-            isTransientAIError(err) ||
-            isContextAIError(err) ||
-            isAbortError(err) ||
-            isToolAIError(err);
+            isTransientAIError(err) || isContextAIError(err) || isAbortError(err) || isToolAIError(err);
           if (isToolAIError(err)) toolsDisabled = true;
           console.warn(
             `[chatWithAI] ${attempt.label} failed retryable=${retryable}: ${getAIErrorMessage(err).slice(0, 220)}`,
@@ -1244,7 +1079,6 @@ export const fixErrorsWithAI = createServerFn({ method: "POST" })
   .handler(async ({ data, context }) => {
     const { supabase, userId } = context;
     const { projectId, logs } = data;
-    await assertProjectOwner(supabase, projectId, userId);
 
     const { data: roles } = await supabase.from("user_roles").select("role").eq("user_id", userId);
     const isOwner = (roles ?? []).some((r) => r.role === "owner" || r.role === "admin");
@@ -1258,8 +1092,7 @@ export const fixErrorsWithAI = createServerFn({ method: "POST" })
     const { generateText, Output, stepCountIs } = await import("ai");
     const { resolveBuiltInGateway } = await import("./ai-providers.server");
     const { buildBloxSmithTools } = await import("./ai-tools.server");
-    const { buildProjectMemoryBlock, rememberProjectInteraction } =
-      await import("./ai-memory.server");
+    const { buildProjectMemoryBlock, rememberProjectInteraction } = await import("./ai-memory.server");
 
     let model;
     try {
@@ -1326,22 +1159,15 @@ Respond ONLY with the JSON object specified.`;
     let result: { message: string; files: GenFile[]; actions: GenAction[]; errors_found: number };
     try {
       const { generateTextWithToolFallback } = await import("./ai-retry.server");
-      const { text: rawText } = await generateTextWithToolFallback(
-        generateText,
-        {
-          model,
-          system: FIX_SYSTEM,
-          prompt: `STUDIO OUTPUT LOGS:\n\`\`\`\n${logs}\n\`\`\`\n\n${memoryBlock ? `${memoryBlock}\n\n` : ""}${liveBlock}\n\nProject files in DB:\n${filesBlock || "(empty)"}\n\nThink step-by-step. Use web_search / fetch_url if you need to look up a Roblox API to fix the error. Then patch the broken files now.`,
-          tools: pickGenerationTools(
-            logs,
-            buildBloxSmithTools({ userId, projectId }) as Record<string, any>,
-          ) as any,
-          stopWhen: stepCountIs(8),
-          maxRetries: 0,
-          timeout: { totalMs: 24_000, stepMs: 24_000, chunkMs: 10_000 },
-        },
-        "fixErrorsWithAI",
-      );
+      const { text: rawText } = await generateTextWithToolFallback(generateText, {
+        model,
+        system: FIX_SYSTEM,
+        prompt: `STUDIO OUTPUT LOGS:\n\`\`\`\n${logs}\n\`\`\`\n\n${memoryBlock ? `${memoryBlock}\n\n` : ""}${liveBlock}\n\nProject files in DB:\n${filesBlock || "(empty)"}\n\nThink step-by-step. Use web_search / fetch_url if you need to look up a Roblox API to fix the error. Then patch the broken files now.`,
+        tools: pickGenerationTools(logs, buildBloxSmithTools({ userId }) as Record<string, any>) as any,
+        stopWhen: stepCountIs(8),
+        maxRetries: 0,
+        timeout: { totalMs: 24_000, stepMs: 24_000, chunkMs: 10_000 },
+      }, "fixErrorsWithAI");
       // Parse JSON from raw text
       const fixJsonMatch = rawText.match(/\{[\s\S]*\}/);
       if (!fixJsonMatch) throw new Error("AI did not return valid JSON.");
@@ -1475,7 +1301,6 @@ export const autopilotBuild = createServerFn({ method: "POST" })
   .handler(async ({ data, context }) => {
     const { supabase, userId } = context;
     const { projectId, description } = data;
-    await assertProjectOwner(supabase, projectId, userId);
 
     const { data: roles } = await supabase.from("user_roles").select("role").eq("user_id", userId);
     const isOwner = (roles ?? []).some((r) => r.role === "owner" || r.role === "admin");
@@ -1646,7 +1471,11 @@ Build EVERYTHING. Ship the complete game.`;
       // Whitelist a small tool subset to keep tool-definition tokens low.
       // MCP tools are NOT included — they bloat the request and aren't needed
       // for an initial whole-game build.
-      const TOOL_WHITELIST = ["web_search", "roblox_asset_search", "roblox_asset_info"];
+      const TOOL_WHITELIST = [
+        "web_search",
+        "roblox_asset_search",
+        "roblox_asset_info",
+      ];
       const slimTools: Record<string, any> = {};
       for (const k of TOOL_WHITELIST) if (allTools[k]) slimTools[k] = allTools[k];
 
@@ -1847,7 +1676,17 @@ export const queuePluginAction = createServerFn({ method: "POST" })
   .handler(async ({ data, context }) => {
     const { supabase: userSupabase, userId } = context;
     const { projectId, actionType, payload } = data;
-    await assertProjectOwner(userSupabase, projectId, userId);
+
+    // Verify project authorization (owner or collaborator)
+    const { data: project } = await userSupabase
+      .from("projects")
+      .select("id")
+      .eq("id", projectId)
+      .maybeSingle();
+
+    if (!project) {
+      throw new Error("Project not found or unauthorized");
+    }
 
     const { data: inserted, error } = await userSupabase
       .from("plugin_actions")

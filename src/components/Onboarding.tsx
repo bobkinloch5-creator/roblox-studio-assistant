@@ -38,20 +38,13 @@ const STEPS: Step[] = [
   },
 ];
 
-export function Onboarding({
-  force = false,
-  onClose,
-}: { force?: boolean; onClose?: () => void } = {}) {
+export function Onboarding({ force = false, onClose }: { force?: boolean; onClose?: () => void } = {}) {
   const [open, setOpen] = useState(false);
   const [step, setStep] = useState(0);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
-    if (force) {
-      setOpen(true);
-      setStep(0);
-      return;
-    }
+    if (force) { setOpen(true); setStep(0); return; }
     if (!localStorage.getItem(KEY)) setOpen(true);
   }, [force]);
 
@@ -84,10 +77,7 @@ export function Onboarding({
         <div
           aria-hidden
           className="pointer-events-none absolute -top-24 -right-24 h-64 w-64 rounded-full opacity-40 blur-3xl"
-          style={{
-            background:
-              "var(--gradient-primary, linear-gradient(135deg, hsl(var(--primary)), hsl(var(--primary))))",
-          }}
+          style={{ background: "var(--gradient-primary, linear-gradient(135deg, hsl(var(--primary)), hsl(var(--primary))))" }}
         />
         <button
           onClick={dismiss}
@@ -106,8 +96,8 @@ export function Onboarding({
                   i === step
                     ? "bg-gradient-to-r from-primary to-primary-glow"
                     : i < step
-                      ? "bg-primary/50"
-                      : "bg-border"
+                    ? "bg-primary/50"
+                    : "bg-border"
                 }`}
               />
             ))}

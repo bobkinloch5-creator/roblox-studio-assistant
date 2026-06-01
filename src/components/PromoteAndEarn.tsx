@@ -79,8 +79,7 @@ export function PromoteAndEarn() {
           <Megaphone className="h-5 w-5 text-primary" /> Promote & Earn Credits
         </h2>
         <p className="text-sm text-muted-foreground mt-1">
-          Make a video about BloxSmith on TikTok or YouTube and earn free credits when it's
-          approved.
+          Make a video about BloxSmith on TikTok or YouTube and earn free credits when it's approved.
         </p>
       </div>
 

@@ -35,17 +35,9 @@ export const Route = createFileRoute("/plugin")({
   head: () => ({
     meta: [
       { title: "Plugin Setup — BloxSmith" },
-      {
-        name: "description",
-        content:
-          "Step-by-step wizard to link your BloxSmith account to Roblox Studio and securely sync your projects.",
-      },
+      { name: "description", content: "Step-by-step wizard to link your BloxSmith account to Roblox Studio and securely sync your projects." },
       { property: "og:title", content: "Plugin Setup — BloxSmith" },
-      {
-        property: "og:description",
-        content:
-          "Install the BloxSmith Roblox Studio plugin and connect it to your account in under a minute.",
-      },
+      { property: "og:description", content: "Install the BloxSmith Roblox Studio plugin and connect it to your account in under a minute." },
       { property: "og:url", content: "https://bloxsmith.pro/plugin" },
     ],
     links: [{ rel: "canonical", href: "https://bloxsmith.pro/plugin" }],
@@ -61,20 +53,10 @@ type Step = {
 
 const STEPS: Step[] = [
   { id: "account", title: "Sign in", subtitle: "Link your BloxSmith account", icon: Lock },
-  {
-    id: "install",
-    title: "Install plugin",
-    subtitle: "Get BloxSmith AI from Roblox",
-    icon: Download,
-  },
+  { id: "install", title: "Install plugin", subtitle: "Get BloxSmith AI from Roblox", icon: Download },
   { id: "http", title: "Allow HTTP", subtitle: "Let Studio talk to BloxSmith", icon: Wifi },
   { id: "token", title: "Generate token", subtitle: "Your private connection key", icon: KeyRound },
-  {
-    id: "verify",
-    title: "Verify connection",
-    subtitle: "Make sure Studio is talking",
-    icon: ShieldCheck,
-  },
+  { id: "verify", title: "Verify connection", subtitle: "Make sure Studio is talking", icon: ShieldCheck },
   { id: "project", title: "Pick a project", subtitle: "Start syncing into Studio", icon: Rocket },
 ];
 
@@ -200,7 +182,9 @@ function PluginWizard() {
 
   if (loading) {
     return (
-      <div className="min-h-screen grid place-items-center text-muted-foreground">Loading...</div>
+      <div className="min-h-screen grid place-items-center text-muted-foreground">
+        Loading...
+      </div>
     );
   }
 
@@ -216,10 +200,9 @@ function PluginWizard() {
             Link Roblox Studio to BloxSmith
           </h1>
           <p className="mt-2 text-muted-foreground max-w-2xl leading-relaxed">
-            BloxSmith AI is an advanced game-building assistant that helps you build real, playable
-            Roblox games from simple prompts. It creates full game systems, places objects into the
-            world, inserts Toolbox assets, organizes the Explorer, connects scripts properly, and
-            turns an idea into a working game.
+            BloxSmith AI is an advanced game-building assistant that helps you build real, playable Roblox games from simple prompts.
+            It creates full game systems, places objects into the world, inserts Toolbox assets, organizes the Explorer,
+            connects scripts properly, and turns an idea into a working game.
           </p>
         </div>
 
@@ -245,38 +228,29 @@ function PluginWizard() {
                         active
                           ? "bg-primary text-primary-foreground ring-4 ring-primary/20 shadow-[0_0_15px_hsl(var(--primary)/0.4)]"
                           : done
-                            ? "bg-primary/20 border border-primary/50 text-primary-glow"
-                            : "bg-surface-elevated text-muted-foreground opacity-60 group-hover:opacity-100"
+                          ? "bg-primary/20 border border-primary/50 text-primary-glow"
+                          : "bg-surface-elevated text-muted-foreground opacity-60 group-hover:opacity-100"
                       }`}
                     >
                       {done && !active ? <Check className="h-4 w-4" /> : i + 1}
                     </span>
                     <span
                       className={`hidden md:inline text-xs font-semibold whitespace-nowrap ${
-                        active
-                          ? "text-foreground"
-                          : done
-                            ? "text-muted-foreground"
-                            : "text-muted-foreground/60"
+                        active ? "text-foreground" : done ? "text-muted-foreground" : "text-muted-foreground/60"
                       }`}
                     >
                       {s.title}
                     </span>
                   </button>
                   {i < STEPS.length - 1 && (
-                    <span
-                      className={`hidden sm:block w-6 h-px ${done ? "bg-primary/40" : "bg-border"}`}
-                    />
+                    <span className={`hidden sm:block w-6 h-px ${done ? "bg-primary/40" : "bg-border"}`} />
                   )}
                 </li>
               );
             })}
           </ol>
           <div className="text-[11px] font-mono text-muted-foreground tracking-widest uppercase shrink-0">
-            Step {String(step + 1).padStart(2, "0")}{" "}
-            <span className="text-muted-foreground/40">
-              / {String(STEPS.length).padStart(2, "0")}
-            </span>
+            Step {String(step + 1).padStart(2, "0")} <span className="text-muted-foreground/40">/ {String(STEPS.length).padStart(2, "0")}</span>
           </div>
         </div>
 
@@ -284,336 +258,329 @@ function PluginWizard() {
         <div className="relative group">
           <div className="absolute -inset-0.5 bg-gradient-to-b from-primary/20 to-transparent rounded-3xl blur-xl opacity-50 pointer-events-none" />
           <div className="relative premium-card gradient-border p-6 sm:p-10 rounded-3xl">
-            {STEPS[step].id === "account" && (
-              <StepBlock
-                icon={Lock}
-                title="Sign in to your BloxSmith account"
-                body={
-                  user ? (
-                    <p>
-                      Signed in as <span className="text-foreground font-medium">{user.email}</span>
-                      . Continue to step 2 →
-                    </p>
-                  ) : (
-                    <p>You'll need an account to mint a plugin token and own your projects.</p>
-                  )
-                }
-                action={
-                  user ? null : (
-                    <div className="flex gap-2">
-                      <Link
-                        to="/login"
-                        className="rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground"
-                      >
-                        Sign in
-                      </Link>
-                      <Link
-                        to="/signup"
-                        className="rounded-lg border border-border px-4 py-2 text-sm font-semibold hover:bg-surface"
-                      >
-                        Create account
-                      </Link>
-                    </div>
-                  )
-                }
-              />
-            )}
-
-            {STEPS[step].id === "install" && (
-              <StepBlock
-                icon={Download}
-                title="Install the BloxSmith AI Plugin"
-                body={
-                  <div className="space-y-4">
-                    <p>
-                      BloxSmith AI is a powerful Roblox Studio builder that helps you create real,
-                      playable Roblox games. It can generate scripts, insert Toolbox assets, build
-                      maps, create UI, add game systems, fix errors, and turn simple ideas into
-                      working Roblox experiences.
-                    </p>
-
-                    <div className="rounded-2xl border border-border bg-surface-elevated/40 p-4 space-y-2">
-                      <div className="flex items-center gap-2 text-sm font-semibold text-foreground">
-                        <Laptop className="h-4 w-4 text-primary-glow" />
-                        Don't have Roblox Studio?
-                      </div>
-                      <p className="text-xs text-muted-foreground">
-                        Roblox Studio is the official development program for building Roblox games.
-                        It is free and available on Windows and macOS.
-                      </p>
-                      <a
-                        href="https://www.roblox.com/create"
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="inline-flex items-center gap-1 text-xs font-semibold text-primary-glow hover:underline"
-                      >
-                        Download Roblox Studio <ArrowRight className="h-3 w-3" />
-                      </a>
-                    </div>
-
-                    <AutoPluginInstaller
-                      onInstalled={() => {
-                        setInstalled(true);
-                        setStep(2);
-                      }}
-                    />
-
-                    <div className="pt-2">
-                      <p className="text-xs text-muted-foreground mb-2">
-                        Prefer to install manually? Download the <code>.lua</code> and drop it into
-                        your Studio Plugins folder.
-                      </p>
-                      {user ? (
-                        <PluginSourceReveal source={pluginSource} />
-                      ) : (
-                        <div className="rounded-lg border border-dashed border-border bg-surface/40 px-4 py-3 text-sm text-muted-foreground">
-                          <Lock className="mr-2 inline h-4 w-4" />
-                          Sign in to view the plugin source code inline.
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                }
-                action={
-                  <div className="flex flex-wrap gap-2">
-                    <a
-                      href={PLUGIN_DOWNLOAD_URL}
-                      download="BloxSmith.lua"
-                      className="inline-flex items-center gap-2 rounded-lg border border-border px-4 py-2 text-sm font-semibold hover:bg-surface"
-                    >
-                      <Download className="h-4 w-4" /> Download .lua ({PLUGIN_VERSION})
-                    </a>
-                    <button
-                      onClick={() => {
-                        setInstalled(true);
-                        setStep(2);
-                      }}
-                      className="rounded-lg border border-border px-4 py-2 text-sm font-semibold hover:bg-surface"
-                    >
-                      I've installed it
-                    </button>
-                  </div>
-                }
-              />
-            )}
-
-            {STEPS[step].id === "http" && (
-              <StepBlock
-                icon={Wifi}
-                title="Allow HTTP Requests in Studio"
-                body={
-                  <>
-                    <p>Studio blocks outbound traffic by default. Enable it once per place:</p>
-                    <ol className="mt-3 text-sm text-muted-foreground space-y-1 list-decimal pl-5">
-                      <li>Open your place in Roblox Studio.</li>
-                      <li>
-                        Go to <em>Home → Game Settings → Security</em>.
-                      </li>
-                      <li>
-                        Toggle <em>Allow HTTP Requests</em> on, then click Save.
-                      </li>
-                    </ol>
-                  </>
-                }
-                action={
-                  <button
-                    onClick={() => {
-                      setHttpEnabled(true);
-                      setStep(3);
-                    }}
-                    className="rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground"
-                  >
-                    HTTP is enabled — continue
-                  </button>
-                }
-              />
-            )}
-
-            {STEPS[step].id === "token" && (
-              <StepBlock
-                icon={KeyRound}
-                title="Generate your private plugin token"
-                body={
-                  <>
-                    <p>
-                      The token is what tells our servers a Studio session belongs to you. We store
-                      only its SHA-256 hash — even we can't read it back. Treat it like a password.
-                    </p>
-                    {token && (
-                      <div className="mt-4 rounded-xl border border-primary/40 bg-primary/5 p-3">
-                        <div className="flex items-center justify-between gap-3">
-                          <code className="text-sm font-mono break-all text-primary-glow">
-                            {showToken ? token : "•".repeat(Math.min(token.length, 48))}
-                          </code>
-                          <div className="shrink-0 flex items-center gap-2">
-                            <button
-                              onClick={() => setShowToken((v) => !v)}
-                              className="inline-flex items-center gap-1 rounded-md border border-border px-2.5 py-1.5 text-xs font-semibold hover:bg-surface-elevated"
-                              title={showToken ? "Hide token" : "Show token"}
-                            >
-                              {showToken ? (
-                                <EyeOff className="h-3 w-3" />
-                              ) : (
-                                <Eye className="h-3 w-3" />
-                              )}
-                            </button>
-                            <button
-                              onClick={copy}
-                              className="inline-flex items-center gap-1 rounded-md bg-primary px-3 py-1.5 text-xs font-semibold text-primary-foreground"
-                            >
-                              <Copy className="h-3 w-3" /> Copy
-                            </button>
-                          </div>
-                        </div>
-
-                        <p className="mt-2 text-[11px] text-muted-foreground">
-                          Paste this into the BloxSmith plugin panel in Studio, then continue.
-                        </p>
-                      </div>
-                    )}
-                  </>
-                }
-                action={
-                  <div className="flex flex-wrap gap-2">
-                    <button
-                      onClick={generate}
-                      disabled={genBusy}
-                      className="inline-flex items-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground disabled:opacity-50"
-                    >
-                      {genBusy ? (
-                        <Loader2 className="h-4 w-4 animate-spin" />
-                      ) : token ? (
-                        <RefreshCw className="h-4 w-4" />
-                      ) : (
-                        <KeyRound className="h-4 w-4" />
-                      )}
-                      {token ? "Regenerate token" : "Generate token"}
-                    </button>
-                    {token && (
-                      <button
-                        onClick={() => setStep(4)}
-                        className="rounded-lg border border-border px-4 py-2 text-sm font-semibold hover:bg-surface"
-                      >
-                        I pasted it in Studio
-                      </button>
-                    )}
-                  </div>
-                }
-              />
-            )}
-
-            {STEPS[step].id === "verify" && (
-              <StepBlock
-                icon={ShieldCheck}
-                title="Verify the live connection"
-                body={
-                  <>
-                    <p>
-                      Click <em>Connect</em> in the BloxSmith plugin panel in Studio. We'll watch
-                      for the handshake.
-                    </p>
-                    {verified && studioMeta?.last_connected_at && (
-                      <div className="mt-3 inline-flex items-center gap-2 rounded-lg border border-primary/40 bg-primary/10 px-3 py-2 text-sm text-primary-glow">
-                        <Check className="h-4 w-4" /> Connected at{" "}
-                        {new Date(studioMeta.last_connected_at).toLocaleTimeString()}
-                      </div>
-                    )}
-                  </>
-                }
-                action={
-                  <div className="flex flex-wrap gap-2">
-                    {!verified ? (
-                      <button
-                        onClick={startVerify}
-                        disabled={verifying}
-                        className="inline-flex items-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground disabled:opacity-50"
-                      >
-                        {verifying ? (
-                          <>
-                            <Loader2 className="h-4 w-4 animate-spin" /> Waiting for Studio…
-                          </>
-                        ) : (
-                          <>
-                            <ShieldCheck className="h-4 w-4" /> Check connection
-                          </>
-                        )}
-                      </button>
-                    ) : (
-                      <button
-                        onClick={() => setStep(5)}
-                        className="inline-flex items-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground"
-                      >
-                        Continue <ArrowRight className="h-4 w-4" />
-                      </button>
-                    )}
-                  </div>
-                }
-              />
-            )}
-
-            {STEPS[step].id === "project" && (
-              <StepBlock
-                icon={Rocket}
-                title="Pick a project to sync"
-                body={
-                  projects.length === 0 ? (
-                    <p>
-                      You don't have any projects yet. Create one from the dashboard, then come back
-                      here to sync it.
-                    </p>
-                  ) : (
-                    <div className="mt-3 grid sm:grid-cols-2 gap-2">
-                      {projects.slice(0, 8).map((p) => (
-                        <button
-                          key={p.id}
-                          onClick={() =>
-                            nav({ to: "/project/$projectId", params: { projectId: p.id } })
-                          }
-                          className="text-left rounded-xl border border-border bg-surface/40 hover:bg-surface px-4 py-3"
-                        >
-                          <div className="text-sm font-semibold truncate">{p.name}</div>
-                          <div className="text-[11px] text-muted-foreground">
-                            {p.game_type} · updated {new Date(p.updated_at).toLocaleDateString()}
-                          </div>
-                        </button>
-                      ))}
-                    </div>
-                  )
-                }
-                action={
-                  <div className="flex flex-wrap gap-2">
+          {STEPS[step].id === "account" && (
+            <StepBlock
+              icon={Lock}
+              title="Sign in to your BloxSmith account"
+              body={
+                user ? (
+                  <p>
+                    Signed in as <span className="text-foreground font-medium">{user.email}</span>.
+                    Continue to step 2 →
+                  </p>
+                ) : (
+                  <p>You'll need an account to mint a plugin token and own your projects.</p>
+                )
+              }
+              action={
+                user ? null : (
+                  <div className="flex gap-2">
                     <Link
-                      to="/dashboard"
+                      to="/login"
                       className="rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground"
                     >
-                      Open dashboard
+                      Sign in
+                    </Link>
+                    <Link
+                      to="/signup"
+                      className="rounded-lg border border-border px-4 py-2 text-sm font-semibold hover:bg-surface"
+                    >
+                      Create account
                     </Link>
                   </div>
-                }
-              />
-            )}
+                )
+              }
+            />
+          )}
 
-            {/* nav buttons */}
-            <div className="mt-6 flex items-center justify-between gap-3 border-t border-border pt-4">
-              <button
-                onClick={() => setStep((s) => Math.max(0, s - 1))}
-                disabled={step === 0}
-                className="rounded-lg border border-border px-3 py-1.5 text-xs font-semibold hover:bg-surface disabled:opacity-40"
-              >
-                Back
-              </button>
-              <div className="text-xs text-muted-foreground">
-                Step {step + 1} of {STEPS.length}
-              </div>
-              <button
-                onClick={() => setStep((s) => Math.min(STEPS.length - 1, s + 1))}
-                disabled={!canAdvance(step) || step === STEPS.length - 1}
-                className="inline-flex items-center gap-1 rounded-lg bg-primary px-3 py-1.5 text-xs font-semibold text-primary-foreground disabled:opacity-40"
-              >
-                Next <ArrowRight className="h-3 w-3" />
-              </button>
+          {STEPS[step].id === "install" && (
+            <StepBlock
+              icon={Download}
+              title="Install the BloxSmith AI Plugin"
+              body={
+                <div className="space-y-4">
+                  <p>
+                    BloxSmith AI is a powerful Roblox Studio builder that helps you create real, playable Roblox games.
+                    It can generate scripts, insert Toolbox assets, build maps, create UI, add game systems, fix errors,
+                    and turn simple ideas into working Roblox experiences.
+                  </p>
+                  
+                  <div className="rounded-2xl border border-border bg-surface-elevated/40 p-4 space-y-2">
+                    <div className="flex items-center gap-2 text-sm font-semibold text-foreground">
+                      <Laptop className="h-4 w-4 text-primary-glow" />
+                      Don't have Roblox Studio?
+                    </div>
+                    <p className="text-xs text-muted-foreground">
+                      Roblox Studio is the official development program for building Roblox games. It is free and available on Windows and macOS.
+                    </p>
+                    <a
+                      href="https://www.roblox.com/create"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center gap-1 text-xs font-semibold text-primary-glow hover:underline"
+                    >
+                      Download Roblox Studio <ArrowRight className="h-3 w-3" />
+                    </a>
+                  </div>
+
+                  <AutoPluginInstaller
+                    onInstalled={() => {
+                      setInstalled(true);
+                      setStep(2);
+                    }}
+                  />
+
+                  <div className="pt-2">
+                    <p className="text-xs text-muted-foreground mb-2">
+                      Prefer to install manually? Download the <code>.lua</code> and drop it into your Studio Plugins folder.
+                    </p>
+                    {user ? (
+                      <PluginSourceReveal source={pluginSource} />
+                    ) : (
+                      <div className="rounded-lg border border-dashed border-border bg-surface/40 px-4 py-3 text-sm text-muted-foreground">
+                        <Lock className="mr-2 inline h-4 w-4" />
+                        Sign in to view the plugin source code inline.
+                      </div>
+                    )}
+                  </div>
+                </div>
+              }
+              action={
+                <div className="flex flex-wrap gap-2">
+                  <a
+                    href={PLUGIN_DOWNLOAD_URL}
+                    download="BloxSmith.lua"
+                    className="inline-flex items-center gap-2 rounded-lg border border-border px-4 py-2 text-sm font-semibold hover:bg-surface"
+                  >
+                    <Download className="h-4 w-4" /> Download .lua ({PLUGIN_VERSION})
+                  </a>
+                  <button
+                    onClick={() => {
+                      setInstalled(true);
+                      setStep(2);
+                    }}
+                    className="rounded-lg border border-border px-4 py-2 text-sm font-semibold hover:bg-surface"
+                  >
+                    I've installed it
+                  </button>
+                </div>
+              }
+            />
+          )}
+
+          {STEPS[step].id === "http" && (
+            <StepBlock
+              icon={Wifi}
+              title="Allow HTTP Requests in Studio"
+              body={
+                <>
+                  <p>
+                    Studio blocks outbound traffic by default. Enable it once per place:
+                  </p>
+                  <ol className="mt-3 text-sm text-muted-foreground space-y-1 list-decimal pl-5">
+                    <li>Open your place in Roblox Studio.</li>
+                    <li>
+                      Go to <em>Home → Game Settings → Security</em>.
+                    </li>
+                    <li>
+                      Toggle <em>Allow HTTP Requests</em> on, then click Save.
+                    </li>
+                  </ol>
+                </>
+              }
+              action={
+                <button
+                  onClick={() => {
+                    setHttpEnabled(true);
+                    setStep(3);
+                  }}
+                  className="rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground"
+                >
+                  HTTP is enabled — continue
+                </button>
+              }
+            />
+          )}
+
+          {STEPS[step].id === "token" && (
+            <StepBlock
+              icon={KeyRound}
+              title="Generate your private plugin token"
+              body={
+                <>
+                  <p>
+                    The token is what tells our servers a Studio session belongs to you. We store
+                    only its SHA-256 hash — even we can't read it back. Treat it like a password.
+                  </p>
+                  {token && (
+                    <div className="mt-4 rounded-xl border border-primary/40 bg-primary/5 p-3">
+                      <div className="flex items-center justify-between gap-3">
+                        <code className="text-sm font-mono break-all text-primary-glow">
+                          {showToken ? token : "•".repeat(Math.min(token.length, 48))}
+                        </code>
+                        <div className="shrink-0 flex items-center gap-2">
+                          <button
+                            onClick={() => setShowToken((v) => !v)}
+                            className="inline-flex items-center gap-1 rounded-md border border-border px-2.5 py-1.5 text-xs font-semibold hover:bg-surface-elevated"
+                            title={showToken ? "Hide token" : "Show token"}
+                          >
+                            {showToken ? <EyeOff className="h-3 w-3" /> : <Eye className="h-3 w-3" />}
+                          </button>
+                          <button
+                            onClick={copy}
+                            className="inline-flex items-center gap-1 rounded-md bg-primary px-3 py-1.5 text-xs font-semibold text-primary-foreground"
+                          >
+                            <Copy className="h-3 w-3" /> Copy
+                          </button>
+                        </div>
+                      </div>
+
+                      <p className="mt-2 text-[11px] text-muted-foreground">
+                        Paste this into the BloxSmith plugin panel in Studio, then continue.
+                      </p>
+                    </div>
+                  )}
+                </>
+              }
+              action={
+                <div className="flex flex-wrap gap-2">
+                  <button
+                    onClick={generate}
+                    disabled={genBusy}
+                    className="inline-flex items-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground disabled:opacity-50"
+                  >
+                    {genBusy ? (
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                    ) : token ? (
+                      <RefreshCw className="h-4 w-4" />
+                    ) : (
+                      <KeyRound className="h-4 w-4" />
+                    )}
+                    {token ? "Regenerate token" : "Generate token"}
+                  </button>
+                  {token && (
+                    <button
+                      onClick={() => setStep(4)}
+                      className="rounded-lg border border-border px-4 py-2 text-sm font-semibold hover:bg-surface"
+                    >
+                      I pasted it in Studio
+                    </button>
+                  )}
+                </div>
+              }
+            />
+          )}
+
+          {STEPS[step].id === "verify" && (
+            <StepBlock
+              icon={ShieldCheck}
+              title="Verify the live connection"
+              body={
+                <>
+                  <p>
+                    Click <em>Connect</em> in the BloxSmith plugin panel in Studio. We'll watch for
+                    the handshake.
+                  </p>
+                  {verified && studioMeta?.last_connected_at && (
+                    <div className="mt-3 inline-flex items-center gap-2 rounded-lg border border-primary/40 bg-primary/10 px-3 py-2 text-sm text-primary-glow">
+                      <Check className="h-4 w-4" /> Connected at{" "}
+                      {new Date(studioMeta.last_connected_at).toLocaleTimeString()}
+                    </div>
+                  )}
+                </>
+              }
+              action={
+                <div className="flex flex-wrap gap-2">
+                  {!verified ? (
+                    <button
+                      onClick={startVerify}
+                      disabled={verifying}
+                      className="inline-flex items-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground disabled:opacity-50"
+                    >
+                      {verifying ? (
+                        <>
+                          <Loader2 className="h-4 w-4 animate-spin" /> Waiting for Studio…
+                        </>
+                      ) : (
+                        <>
+                          <ShieldCheck className="h-4 w-4" /> Check connection
+                        </>
+                      )}
+                    </button>
+                  ) : (
+                    <button
+                      onClick={() => setStep(5)}
+                      className="inline-flex items-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground"
+                    >
+                      Continue <ArrowRight className="h-4 w-4" />
+                    </button>
+                  )}
+                </div>
+              }
+            />
+          )}
+
+          {STEPS[step].id === "project" && (
+            <StepBlock
+              icon={Rocket}
+              title="Pick a project to sync"
+              body={
+                projects.length === 0 ? (
+                  <p>
+                    You don't have any projects yet. Create one from the dashboard, then come back
+                    here to sync it.
+                  </p>
+                ) : (
+                  <div className="mt-3 grid sm:grid-cols-2 gap-2">
+                    {projects.slice(0, 8).map((p) => (
+                      <button
+                        key={p.id}
+                        onClick={() => nav({ to: "/project/$projectId", params: { projectId: p.id } })}
+                        className="text-left rounded-xl border border-border bg-surface/40 hover:bg-surface px-4 py-3"
+                      >
+                        <div className="text-sm font-semibold truncate">{p.name}</div>
+                        <div className="text-[11px] text-muted-foreground">
+                          {p.game_type} · updated {new Date(p.updated_at).toLocaleDateString()}
+                        </div>
+                      </button>
+                    ))}
+                  </div>
+                )
+              }
+              action={
+                <div className="flex flex-wrap gap-2">
+                  <Link
+                    to="/dashboard"
+                    className="rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground"
+                  >
+                    Open dashboard
+                  </Link>
+                </div>
+              }
+            />
+          )}
+
+          {/* nav buttons */}
+          <div className="mt-6 flex items-center justify-between gap-3 border-t border-border pt-4">
+            <button
+              onClick={() => setStep((s) => Math.max(0, s - 1))}
+              disabled={step === 0}
+              className="rounded-lg border border-border px-3 py-1.5 text-xs font-semibold hover:bg-surface disabled:opacity-40"
+            >
+              Back
+            </button>
+            <div className="text-xs text-muted-foreground">
+              Step {step + 1} of {STEPS.length}
             </div>
+            <button
+              onClick={() => setStep((s) => Math.min(STEPS.length - 1, s + 1))}
+              disabled={!canAdvance(step) || step === STEPS.length - 1}
+              className="inline-flex items-center gap-1 rounded-lg bg-primary px-3 py-1.5 text-xs font-semibold text-primary-foreground disabled:opacity-40"
+            >
+              Next <ArrowRight className="h-3 w-3" />
+            </button>
           </div>
+        </div>
         </div>
 
         {/* Security footer — pill style */}
@@ -624,11 +591,7 @@ function PluginWizard() {
           </span>
           <p className="leading-relaxed">
             Tokens are SHA-256 hashed and scoped per user. Revoke anytime from this wizard or your{" "}
-            <Link to="/account" className="text-primary-glow hover:underline">
-              Account
-            </Link>
-            . All Studio traffic flows over HTTPS to{" "}
-            <code className="text-primary-glow/90">/api/public/plugin/*</code>.
+            <Link to="/account" className="text-primary-glow hover:underline">Account</Link>. All Studio traffic flows over HTTPS to <code className="text-primary-glow/90">/api/public/plugin/*</code>.
           </p>
         </div>
       </main>
@@ -675,9 +638,7 @@ function PluginSourceReveal({ source }: { source: string }) {
         <div className="flex items-center gap-2 text-sm">
           <ShieldCheck className="h-4 w-4 text-primary-glow" />
           <span className="font-semibold text-foreground">BloxSmith.server.lua</span>
-          <span className="text-muted-foreground">
-            · {lineCount} lines · {PLUGIN_VERSION}
-          </span>
+          <span className="text-muted-foreground">· {lineCount} lines · {PLUGIN_VERSION}</span>
         </div>
         <div className="flex items-center gap-2">
           <button

@@ -1,8 +1,10 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
+import { RequireAuth } from "@/components/RequireAuth";
 import { Header } from "@/components/layout";
 import { AiSourceSettings } from "@/components/AiSourceSettings";
 import { ModelPicker } from "@/components/ModelPicker";
 import { useAiBusySounds } from "@/hooks/useSounds";
+import { SITE_PROVIDER_LABELS, type SiteProviderId } from "@/lib/ai-models";
 
 import { useAuth } from "@/lib/auth-context";
 import { useEffect, useRef, useState } from "react";
@@ -17,6 +19,11 @@ import {
   improvePrompt,
   chatWithAI,
 } from "@/lib/ai.functions";
+import {
+  forgetProjectAiMemory,
+  listProjectAiMemories,
+  rememberProjectNote,
+} from "@/lib/ai-memory.functions";
 import {
   Loader2,
   Plus,
@@ -48,6 +55,7 @@ import {
   Plug,
   Search,
   AlertCircle,
+  BookOpen,
   PanelLeft,
   PanelRight,
   Square,
@@ -66,6 +74,7 @@ import { PluginStatus } from "@/components/PluginStatus";
 import { PushPreview, type PreviewPayload } from "@/components/PushPreview";
 import { ChatSettings } from "@/components/ChatSettings";
 import { SyncValidationDrawer } from "@/components/SyncValidationDrawer";
+import { PlaytestPanel } from "@/components/PlaytestPanel";
 import { AssistantMessage } from "@/components/AssistantMessage";
 import { BuildHistoryDrawer } from "@/components/BuildHistoryDrawer";
 import { OrganizeProjectButton } from "@/components/OrganizeProjectButton";
@@ -73,7 +82,11 @@ import { TaskBoard } from "@/components/TaskBoard";
 import { MessagesSquare, Kanban } from "lucide-react";
 
 export const Route = createFileRoute("/project/$projectId")({
-  component: ProjectEditor,
+  component: () => (
+    <RequireAuth>
+      <ProjectEditor />
+    </RequireAuth>
+  ),
   head: () => ({ meta: [{ title: "Project — BloxSmith" }] }),
 });
 
@@ -93,11 +106,20 @@ type Project = {
   game_type: string;
   user_id: string;
 };
+type AiMemory = {
+  id: string;
+  key: string;
+  kind: string;
+  value: string;
+  confidence: number;
+  updated_at: string;
+  last_seen_at: string;
+};
 type Msg = { id: string; role: "user" | "assistant"; content: string; actions?: any };
 
 function ProjectEditor() {
   const { projectId } = Route.useParams();
-  const { user, session, loading } = useAuth();
+  const { user, session, loading, isOwner } = useAuth();
   const nav = useNavigate();
   const [project, setProject] = useState<Project | null>(null);
   const [files, setFiles] = useState<ProjectFile[]>([]);
@@ -249,7 +271,7 @@ function ProjectEditor() {
     // or working through a long batch — we should NOT throw a scary error
     // just because Studio hasn't checked in yet. We downgrade to a soft
     // "queued" state instead, and let the user resume by opening Studio.
-    const MAX_ATTEMPTS = 600; // 10 minutes
+    const MAX_ATTEMPTS = 200; // ~10 minutes at 3s/poll
     const interval = setInterval(async () => {
       attempts++;
 
@@ -322,7 +344,7 @@ function ProjectEditor() {
           };
         });
       }
-    }, 1000);
+    }, 3000);
   };
   const [activeId, setActiveId] = useState<string | null>(null);
   const [draft, setDraft] = useState("");
@@ -386,13 +408,16 @@ function ProjectEditor() {
   useAiBusySounds(aiBusy);
   const [credits, setCredits] = useState<number | null>(null);
   const GENERATE_COST = 3;
-  const outOfCredits = credits !== null && credits < GENERATE_COST;
+  const outOfCredits = !isOwner && credits !== null && credits < GENERATE_COST;
   const [aiMode, setAiMode] = useState<string>("build");
   const runAI = useServerFn(generateWithAI);
   const runFixErrors = useServerFn(fixErrorsWithAI);
   const runAutopilot = useServerFn(autopilotBuild);
   const runQueuePluginAction = useServerFn(queuePluginAction);
   const runImprovePrompt = useServerFn(improvePrompt);
+  const listMemories = useServerFn(listProjectAiMemories);
+  const rememberNote = useServerFn(rememberProjectNote);
+  const forgetMemory = useServerFn(forgetProjectAiMemory);
   const [improving, setImproving] = useState(false);
   const chatEnd = useRef<HTMLDivElement>(null);
   const [showFix, setShowFix] = useState(false);
@@ -511,11 +536,26 @@ function ProjectEditor() {
   const [aiUsage, setAiUsage] = useState<{
     used_5h: number;
     limit_5h: number;
+    used_24h?: number;
+    limit_24h?: number;
     used_7d: number;
     limit_7d: number;
     owner?: boolean;
     reset_5h?: string | null;
+    reset_24h?: string | null;
   } | null>(null);
+  const aiUsageUsed = aiUsage?.used_24h ?? aiUsage?.used_5h ?? 0;
+  const aiUsageLimit = aiUsage?.limit_24h ?? aiUsage?.limit_5h ?? 0;
+  const aiUsageBlocked = Boolean(
+    aiUsage && !aiUsage.owner && aiUsageLimit > 0 && aiUsageUsed >= aiUsageLimit,
+  );
+  const aiUsageResetLabel = aiUsage?.reset_24h
+    ? new Date(aiUsage.reset_24h).toLocaleTimeString([], {
+        hour: "numeric",
+        minute: "2-digit",
+        hour12: true,
+      })
+    : "later";
   useEffect(() => {
     let cancelled = false;
     const load = async () => {
@@ -552,7 +592,7 @@ function ProjectEditor() {
 
     load();
     const ch = supabase
-      .channel("ai-indicator")
+      .channel(`ai-indicator-${projectId}-${Math.random().toString(36).slice(2)}`)
       .on("postgres_changes", { event: "*", schema: "public", table: "user_mcp_servers" }, load)
       .on("postgres_changes", { event: "*", schema: "public", table: "mcp_tokens" }, load)
       .on("postgres_changes", { event: "*", schema: "public", table: "project_ai_settings" }, load)
@@ -579,13 +619,18 @@ function ProjectEditor() {
     fileCount: number;
     instanceCount: number | null;
     updatedAt: string | null;
+    memoryCount: number;
   } | null>(null);
+  const [memories, setMemories] = useState<AiMemory[]>([]);
+  const [memoryOpen, setMemoryOpen] = useState(false);
+  const [memoryDraft, setMemoryDraft] = useState("");
+  const [memoryBusy, setMemoryBusy] = useState(false);
   const [treeQuery, setTreeQuery] = useState("");
   const [scanRequestedAt, setScanRequestedAt] = useState<number | null>(null);
   const [scanTimedOut, setScanTimedOut] = useState(false);
 
   const refreshAiContext = async () => {
-    const [{ count }, { data: ctx }] = await Promise.all([
+    const [{ count }, { data: ctx }, { count: memoryCount }] = await Promise.all([
       supabase
         .from("project_files")
         .select("id", { count: "exact", head: true })
@@ -595,12 +640,57 @@ function ProjectEditor() {
         .select("instance_count,updated_at")
         .eq("project_id", projectId)
         .maybeSingle(),
+      supabase
+        .from("project_ai_memories")
+        .select("id", { count: "exact", head: true })
+        .eq("project_id", projectId),
     ]);
     setAiContext({
       fileCount: count ?? 0,
       instanceCount: ctx?.instance_count ?? null,
       updatedAt: ctx?.updated_at ?? null,
+      memoryCount: memoryCount ?? 0,
     });
+  };
+
+  const refreshMemories = async () => {
+    try {
+      const out = await listMemories({ data: { projectId } });
+      setMemories((out.memories ?? []) as AiMemory[]);
+      setAiContext((ctx) => (ctx ? { ...ctx, memoryCount: out.memories?.length ?? 0 } : ctx));
+    } catch (e: any) {
+      toast.error(e?.message ?? "Could not load AI memory.");
+    }
+  };
+
+  const addManualMemory = async () => {
+    const value = memoryDraft.trim();
+    if (value.length < 3 || memoryBusy) return;
+    setMemoryBusy(true);
+    try {
+      await rememberNote({ data: { projectId, value, kind: "preference" } });
+      setMemoryDraft("");
+      await refreshMemories();
+      toast.success("Saved to AI memory.");
+    } catch (e: any) {
+      toast.error(e?.message ?? "Could not save memory.");
+    } finally {
+      setMemoryBusy(false);
+    }
+  };
+
+  const deleteMemory = async (id: string) => {
+    if (memoryBusy) return;
+    setMemoryBusy(true);
+    try {
+      await forgetMemory({ data: { projectId, id } });
+      await refreshMemories();
+      toast.success("Forgot that memory.");
+    } catch (e: any) {
+      toast.error(e?.message ?? "Could not forget memory.");
+    } finally {
+      setMemoryBusy(false);
+    }
   };
 
   const refreshCredits = async () => {
@@ -638,6 +728,7 @@ function ProjectEditor() {
 
       refreshCredits();
       refreshAiContext();
+      refreshMemories();
 
       // Load all conversations for this project, pick the most recent (or create one).
       const { data: allConvos } = await supabase
@@ -664,14 +755,20 @@ function ProjectEditor() {
           .select("id,role,content,actions")
           .eq("conversation_id", cid)
           .order("created_at", { ascending: true });
-        setMessages(
-          (msgs ?? []).map((m: any) => ({
-            id: m.id,
-            role: m.role,
-            content: m.content,
-            actions: m.actions,
-          })),
+        const loaded = (msgs ?? []).map((m: any) => ({
+          id: m.id,
+          role: m.role,
+          content: m.content,
+          actions: m.actions,
+        }));
+        // Collapse accidental duplicate messages (same role + identical content
+        // back-to-back) so a double-write greeting only renders once.
+        const deduped = loaded.filter(
+          (m, i) =>
+            i === 0 ||
+            !(m.role === loaded[i - 1].role && m.content === loaded[i - 1].content),
         );
+        setMessages(deduped);
       }
     })();
   }, [user, projectId]);
@@ -997,6 +1094,7 @@ function ProjectEditor() {
             fileCount: prev?.fileCount ?? 0,
             instanceCount: updatedCtx?.instance_count ?? null,
             updatedAt: updatedCtx?.updated_at ?? null,
+            memoryCount: prev?.memoryCount ?? 0,
           }));
         },
       )
@@ -1008,6 +1106,8 @@ function ProjectEditor() {
 
   const isStudioConnected =
     aiContext?.updatedAt != null && Date.now() - new Date(aiContext.updatedAt).getTime() < 40_000;
+
+  const [playtestPanelOpen, setPlaytestPanelOpen] = useState(false);
 
   useEffect(() => {
     if (!scanRequestedAt) return;
@@ -1084,7 +1184,7 @@ function ProjectEditor() {
 
   const runGenerate = async (
     userPrompt: string,
-    opts?: { skipUserBubble?: boolean; images?: string[] },
+    opts?: { skipUserBubble?: boolean; images?: string[]; forceThinking?: boolean },
   ) => {
     if (aiBusy) return;
     if (outOfCredits) {
@@ -1096,12 +1196,40 @@ function ProjectEditor() {
     const controller = new AbortController();
     aiAbortRef.current = controller;
     const imgs = opts?.images ?? [];
+    // Watchdog: if the server call never resolves, don't let the input stay
+    // locked forever (which makes every later prompt silently do nothing
+    // because of the `if (aiBusy) return` guard). Image/replica builds get
+    // longer because they need vision analysis and richer Studio actions.
+    let watchdogFired = false;
+    const heavyVisionBuild =
+      imgs.length > 0 ||
+      /\b(replica|replicate|recreate|1\s*:?\s*1|one[-\s]?to[-\s]?one|attached image|reference image|full game|entire game)\b/i.test(
+        userPrompt,
+      );
+    const watchdog = setTimeout(
+      () => {
+        watchdogFired = true;
+        try {
+          controller.abort();
+        } catch {
+          /* noop */
+        }
+      },
+      heavyVisionBuild ? 150_000 : 90_000,
+    );
     if (!opts?.skipUserBubble) {
       const bubble = imgs.length
         ? `${userPrompt}\n\n_📎 attached ${imgs.length} image${imgs.length === 1 ? "" : "s"}_`
         : userPrompt;
       await pushMsg("user", bubble);
     }
+    // Show an immediate "thinking" placeholder so the user always gets visible
+    // feedback. Without this, a slow or empty generation looks like "nothing
+    // happened" (a blank bubble). We replace this id with the real result, or
+    // remove it on error.
+    const thinkingId = crypto.randomUUID();
+    setMessages((m) => [...m, { id: thinkingId, role: "assistant", content: "_Thinking…_" }]);
+    const removeThinking = () => setMessages((m) => m.filter((x) => x.id !== thinkingId));
     try {
       // Call the REAL AI generation server function (Claude Sonnet via the
       // gateway, with tools, clothing, validation, and the error-feedback
@@ -1114,7 +1242,7 @@ function ProjectEditor() {
           prompt: userPrompt,
           mode: "generate",
           preview: true,
-          thinking,
+          thinking: opts?.forceThinking ?? thinking,
           ...(imgs.length && /^data:image\//.test(imgs[0]) ? { imageDataUrl: imgs[0] } : {}),
         },
       })) as {
@@ -1130,28 +1258,31 @@ function ProjectEditor() {
       };
 
       if (stopRequested.current) {
+        removeThinking();
         await pushMsg("assistant", "Stopped the request before it finished.");
         return;
       }
+      removeThinking();
 
       const v = out.validation;
-      const vLine = v
-        ? `\n\nSync check: ${v.errors?.length ?? 0} blocked · ${v.warnings?.length ?? 0} warning(s).` +
-          (v.errors?.length
-            ? "\n" +
-              v.errors
-                .slice(0, 5)
-                .map((e: any) => `  ✗ ${e.target} — ${e.message}`)
-                .join("\n")
-            : "") +
-          (v.warnings?.length
-            ? "\n" +
-              v.warnings
-                .slice(0, 3)
-                .map((w: any) => `  ⚠ ${w.target} — ${w.message}`)
-                .join("\n")
-            : "")
-        : "";
+      const vLine =
+        v && ((v.errors?.length ?? 0) > 0 || (v.warnings?.length ?? 0) > 0)
+          ? `\n\nSync check: ${v.errors?.length ?? 0} blocked · ${v.warnings?.length ?? 0} warning(s).` +
+            (v.errors?.length
+              ? "\n" +
+                v.errors
+                  .slice(0, 5)
+                  .map((e: any) => `  ✗ ${e.target} — ${e.message}`)
+                  .join("\n")
+              : "") +
+            (v.warnings?.length
+              ? "\n" +
+                v.warnings
+                  .slice(0, 3)
+                  .map((w: any) => `  ⚠ ${w.target} — ${w.message}`)
+                  .join("\n")
+              : "")
+          : "";
       const askLine =
         (out.queuedCount ?? 0) > 0 && out.status !== "executing"
           ? `\n\nReview the ${out.queuedCount} operation${out.queuedCount === 1 ? "" : "s"} below — push to Studio when ready.`
@@ -1163,10 +1294,16 @@ function ProjectEditor() {
             .join("\n")}`
         : "";
       const tempId = crypto.randomUUID();
-      setMessages((m) => [
-        ...m,
-        { id: tempId, role: "assistant", content: out.message + vLine + dangerLine + askLine },
-      ]);
+      // Never render an empty assistant bubble. If the server came back with no
+      // message text, synthesize one from what it queued (or an honest fallback
+      // so the user always knows what happened).
+      const baseMessage =
+        (out.message && out.message.trim()) ||
+        ((out.queuedCount ?? out.actions?.length ?? 0) > 0
+          ? `Queued ${out.queuedCount ?? out.actions?.length} operation${(out.queuedCount ?? out.actions?.length) === 1 ? "" : "s"} for Studio.`
+          : "The AI didn't return a build this time. Try again, or rephrase into a smaller step (e.g. 'just the spawn area' or 'just the shop UI').");
+      const fullContent = baseMessage + vLine + dangerLine + askLine;
+      setMessages((m) => [...m, { id: tempId, role: "assistant", content: fullContent }]);
       // Snapshot pre-state of every file the AI is about to touch, so the user
       // can hit "Revert" to undo this batch (restore old content / delete new
       // files / queue plugin deletes in Studio).
@@ -1190,11 +1327,7 @@ function ProjectEditor() {
         dangers: out.dangers ?? [],
         snapshot,
       };
-      const realId = await persistMsg(
-        "assistant",
-        out.message + vLine + dangerLine + askLine,
-        actionsMeta,
-      );
+      const realId = await persistMsg("assistant", fullContent, actionsMeta);
       const finalId = realId ?? tempId;
       setMessages((m) =>
         m.map((x) => (x.id === tempId ? { ...x, id: finalId, actions: actionsMeta } : x)),
@@ -1238,6 +1371,14 @@ function ProjectEditor() {
         }));
       }
     } catch (e: any) {
+      removeThinking();
+      if (watchdogFired) {
+        await pushMsg(
+          "assistant",
+          "That took too long and timed out. The server may be busy or the request was too big — try again, or break it into a smaller step.",
+        );
+        return;
+      }
       if (stopRequested.current || e?.name === "AbortError") {
         await pushMsg("assistant", "Stopped the request before it finished.");
         return;
@@ -1249,12 +1390,18 @@ function ProjectEditor() {
       // Surface the real cause. A generation failure is almost always an AI
       // problem (missing GROQ_API_KEY, model error, bad JSON), NOT a Studio
       // plugin issue — so don't blame the plugin connection.
-      if (
+      const timeoutLike =
+        /operation was aborted|aborted due to timeout|took too long|timeout|timed out/i.test(msg);
+      if (timeoutLike) {
+        friendly =
+          "The AI provider timed out before finishing this build. I refunded any credits charged for this failed run. Try again, switch to Gemini Flash, or split the request into a smaller step.";
+      }
+      const generationFailure =
         friendly.includes("Failed to call a function") ||
         friendly.includes("generation failed") ||
         friendly.includes("AI returned") ||
-        friendly.includes("Autopilot failed")
-      ) {
+        friendly.includes("Autopilot failed");
+      if (!timeoutLike && generationFailure) {
         friendly =
           "The AI build request failed on the server" +
           (msg && msg !== "Failed" ? `: ${msg}` : ".") +
@@ -1264,16 +1411,18 @@ function ProjectEditor() {
       toast.error(friendly);
       await pushMsg("assistant", friendly);
     } finally {
+      clearTimeout(watchdog);
       if (aiAbortRef.current === controller) aiAbortRef.current = null;
       setAiBusy(false);
       refreshCredits();
       refreshAiContext();
+      refreshMemories();
     }
   };
 
   const runPlanRequest = async (userPrompt: string) => {
     if (aiBusy) return;
-    if (credits !== null && credits < PLAN_COST) {
+    if (!isOwner && credits !== null && credits < PLAN_COST) {
       toast.error("Not enough credits for a plan.");
       return;
     }
@@ -1299,12 +1448,13 @@ function ProjectEditor() {
       setAiBusy(false);
       refreshCredits();
       refreshAiContext();
+      refreshMemories();
     }
   };
 
   const runChatRequest = async (userPrompt: string, images: string[] = []) => {
     if (aiBusy) return;
-    if (credits !== null && credits < CHAT_COST) {
+    if (!isOwner && credits !== null && credits < CHAT_COST) {
       toast.error("Not enough credits for chat.");
       return;
     }
@@ -1363,11 +1513,17 @@ function ProjectEditor() {
     } finally {
       setAiBusy(false);
       refreshCredits();
+      refreshAiContext();
+      refreshMemories();
     }
   };
 
   const send = async () => {
     if ((!prompt.trim() && attachments.length === 0) || aiBusy) return;
+    if (aiUsageBlocked) {
+      toast.error(`Daily AI timer used up. Try again at ${aiUsageResetLabel}.`);
+      return;
+    }
     const p = prompt;
     const imgs = attachments;
     setPrompt("");
@@ -1381,6 +1537,42 @@ function ProjectEditor() {
     if (chatMode) await runChatRequest(composedPrompt, imgs);
     else if (planMode) await runPlanRequest(composedPrompt);
     else await runGenerate(composedPrompt, { images: imgs });
+  };
+
+  const runPlaytestRequest = async () => {
+    if (aiBusy) return;
+    if (aiUsageBlocked) {
+      toast.error(`Daily AI timer used up. Try again at ${aiUsageResetLabel}.`);
+      return;
+    }
+    // Immediate acknowledgement so the tap visibly does something.
+    if (!isStudioConnected) {
+      toast.warning(
+        "Studio isn't connected — open the BloxSmith plugin in Roblox Studio so the test scene appears there. Setting it up now anyway.",
+      );
+    } else {
+      toast.info("Setting up your playtest scene in Studio…");
+    }
+    setThinking(true);
+    setWebSearch(true);
+    setPlanMode(false);
+    toggleChatMode(false);
+    await runGenerate(
+      `[AI PLAYTEST MODE]
+[WEB SEARCH ENABLED] Use web_search / fetch_url only when current Roblox API docs or safety guidance are needed.
+You are setting up a LIVE, runnable playtest inside the user's Roblox Studio via the connected plugin, then they will press Play (F5) and watch it.
+
+Goal: make the requested scenario actually runnable and observable in Studio, not just a written report.
+
+Do this in order:
+1. Read the current project files and any live Studio/plugin snapshot.
+2. Set up the test scenario the user asked for by QUEUEING REAL ACTIONS (create/create_part/spawn/script/insertAsset/set/select etc.) — e.g. a spawn point, the player's starting tools/items, any props, and any temporary test scripts needed to observe the behavior. Keep changes focused and clearly named (e.g. put test-only objects under a "Workspace/PlaytestSetup" folder so they're easy to remove).
+3. Add small, safe instrumentation if helpful (e.g. a Script that prints clear [PLAYTEST] markers to Output for the things the user wants to verify).
+4. As the FINAL action, emit a single "playtest_ready" action with: focus = the path to the main thing to watch, note = one short line on what you set up, and checklist = the concrete things the user should look for when they press Play.
+
+After the actions, write a SHORT message: what you set up, then "Press Play (F5) in Studio to run it" and the checklist. Do NOT claim you pressed Play — Roblox doesn't allow the plugin to start Play Solo, so the user presses it. When they report what happened (or paste Output), follow up with Pass / Needs Fix and queue focused fixes.`,
+      { forceThinking: true },
+    );
   };
 
   const buildFromPlan = async (msgId: string) => {
@@ -1465,7 +1657,7 @@ function ProjectEditor() {
 
   const doFix = async () => {
     if (!fixLogs.trim() || fixBusy) return;
-    if (credits !== null && credits < FIX_COST && !outOfCredits) {
+    if (!isOwner && credits !== null && credits < FIX_COST && !outOfCredits) {
       toast.error("Not enough credits.");
       return;
     }
@@ -1504,12 +1696,13 @@ function ProjectEditor() {
       setFixBusy(false);
       refreshCredits();
       refreshAiContext();
+      refreshMemories();
     }
   };
 
   const doAutopilot = async () => {
     if (!autoDesc.trim() || autoBusy) return;
-    if (credits !== null && credits < AUTOPILOT_COST) {
+    if (!isOwner && credits !== null && credits < AUTOPILOT_COST) {
       toast.error(`Autopilot needs ${AUTOPILOT_COST} credits.`);
       return;
     }
@@ -1527,31 +1720,32 @@ function ProjectEditor() {
         ? `\n\nAssumptions:\n${out.assumptions.map((a) => `  • ${a}`).join("\n")}`
         : "";
       const v = (out as any).validation;
-      const vLine = v
-        ? `\n\nSync check: ${v.errors ?? 0} blocked · ${v.warnings ?? 0} warning(s) across ${v.phases?.length ?? 0} phase(s).` +
-          (v.phases ?? [])
-            .filter((p: any) => p.errors?.length || p.warnings?.length)
-            .slice(0, 4)
-            .map(
-              (p: any) =>
-                `\n  ${p.title}:` +
-                (p.errors?.length
-                  ? "\n" +
-                    p.errors
-                      .slice(0, 3)
-                      .map((e: any) => `    ✗ ${e.target} — ${e.message}`)
-                      .join("\n")
-                  : "") +
-                (p.warnings?.length
-                  ? "\n" +
-                    p.warnings
-                      .slice(0, 2)
-                      .map((w: any) => `    ⚠ ${w.target} — ${w.message}`)
-                      .join("\n")
-                  : ""),
-            )
-            .join("")
-        : "";
+      const vLine =
+        v && ((v.errors ?? 0) > 0 || (v.warnings ?? 0) > 0)
+          ? `\n\nSync check: ${v.errors ?? 0} blocked · ${v.warnings ?? 0} warning(s) across ${v.phases?.length ?? 0} phase(s).` +
+            (v.phases ?? [])
+              .filter((p: any) => p.errors?.length || p.warnings?.length)
+              .slice(0, 4)
+              .map(
+                (p: any) =>
+                  `\n  ${p.title}:` +
+                  (p.errors?.length
+                    ? "\n" +
+                      p.errors
+                        .slice(0, 3)
+                        .map((e: any) => `    ✗ ${e.target} — ${e.message}`)
+                        .join("\n")
+                    : "") +
+                  (p.warnings?.length
+                    ? "\n" +
+                      p.warnings
+                        .slice(0, 2)
+                        .map((w: any) => `    ⚠ ${w.target} — ${w.message}`)
+                        .join("\n")
+                    : ""),
+              )
+              .join("")
+          : "";
       const summary = `${out.summary}\n\nBuild plan:\n${phaseList}${assumptions}\n\nQueued ${out.totalActions} actions covering ${out.totalFiles} files. Waiting for the Studio plugin to confirm each action before calling it applied.${vLine}`;
       await pushMsg("assistant", summary, {
         kind: "autopilot",
@@ -1572,6 +1766,7 @@ function ProjectEditor() {
       setAutoBusy(false);
       refreshCredits();
       refreshAiContext();
+      refreshMemories();
     }
   };
 
@@ -1592,6 +1787,13 @@ function ProjectEditor() {
         outOfCredits={outOfCredits}
         fixCost={GENERATE_COST}
       />
+      {playtestPanelOpen && (
+        <PlaytestPanel
+          projectId={projectId}
+          studioConnected={isStudioConnected}
+          onClose={() => setPlaytestPanelOpen(false)}
+        />
+      )}
       <div className="shrink-0 border-b border-border bg-surface/40">
         <div className="mx-auto max-w-7xl px-3 sm:px-4 py-3 flex items-center justify-between gap-2 sm:gap-3 flex-wrap">
           <div className="flex items-center gap-2 sm:gap-3 min-w-0 flex-1">
@@ -1990,10 +2192,24 @@ function ProjectEditor() {
                     />
                     <span className="font-medium text-foreground">BloxSmith Executor</span>
                     <span className="text-muted-foreground/70">·</span>
-                    <span className="tabular-nums">{credits === null ? "…" : credits} cr</span>
+                    <span className="tabular-nums">
+                      {isOwner ? "∞ cr" : credits === null ? "…" : `${credits} cr`}
+                    </span>
                   </button>
                 );
               })()}
+              <button
+                type="button"
+                onClick={async () => {
+                  setMemoryOpen(true);
+                  await refreshMemories();
+                }}
+                title="View and edit persistent AI memory for this project"
+                className="inline-flex items-center gap-1.5 rounded-full border border-border/50 bg-background/40 px-2 py-1 text-[11px] font-medium text-muted-foreground transition hover:border-primary/50 hover:text-foreground"
+              >
+                <BookOpen className="h-3.5 w-3.5 text-primary" />
+                Memory {aiContext?.memoryCount ?? memories.length}
+              </button>
               <div className="flex items-center gap-0.5">
                 <button
                   onClick={() => setShowAuto(true)}
@@ -2008,6 +2224,13 @@ function ProjectEditor() {
                   className="h-7 w-7 grid place-items-center rounded-md text-muted-foreground hover:text-foreground hover:bg-surface-elevated transition"
                 >
                   <Bug className="h-3.5 w-3.5" />
+                </button>
+                <button
+                  onClick={() => setPlaytestPanelOpen(true)}
+                  title="Playtest with AI — scan your game, find problems, and fix them in Studio"
+                  className="h-7 w-7 grid place-items-center rounded-md text-muted-foreground hover:text-primary-glow hover:bg-primary/10 transition disabled:cursor-not-allowed disabled:opacity-40"
+                >
+                  <Gamepad2 className="h-3.5 w-3.5" />
                 </button>
                 {(() => {
                   const totalErr = Object.values(validationByMsg).reduce(
@@ -2149,7 +2372,7 @@ function ProjectEditor() {
                 </button>
               </div>
             </div>
-            <div className="grid grid-cols-4 gap-2 text-[11px]">
+            <div className="grid grid-cols-2 gap-2 text-[11px] xl:grid-cols-5">
               <button
                 onClick={() => setShowAuto(true)}
                 className="rounded-lg border border-border bg-background/35 px-2 py-2 text-left hover:bg-surface-elevated transition"
@@ -2187,6 +2410,18 @@ function ProjectEditor() {
                 </span>
                 <span className="mt-0.5 block truncate text-muted-foreground">
                   {chatMode ? "on" : `${CHAT_COST} cr`}
+                </span>
+              </button>
+              <button
+                onClick={() => setPlaytestPanelOpen(true)}
+                className="rounded-lg border border-border bg-background/35 px-2 py-2 text-left hover:bg-surface-elevated transition disabled:cursor-not-allowed disabled:opacity-50"
+                title="Playtest with AI — scan, find problems, and Fix in Studio"
+              >
+                <span className="flex items-center gap-1.5 font-semibold text-foreground">
+                  <Gamepad2 className="h-3 w-3 text-primary" /> Playtest
+                </span>
+                <span className="mt-0.5 block truncate text-muted-foreground">
+                  deep QA
                 </span>
               </button>
               <button
@@ -2603,17 +2838,34 @@ function ProjectEditor() {
                       "Add a leaderstats system",
                       "Build a simple shop GUI",
                       "Make a loading screen",
-                      "Add a daily reward",
+                      "1:1 building replica",
                     ].map((tpl) => (
                       <button
                         key={tpl}
                         type="button"
-                        onClick={() => setPrompt(tpl)}
-                        className="rounded-full border border-border bg-surface/60 px-2.5 py-1 text-[11px] text-muted-foreground hover:text-foreground hover:border-primary/40 hover:bg-primary/5 transition"
+                        disabled={aiUsageBlocked}
+                        onClick={() => {
+                          if (tpl === "1:1 building replica") {
+                            setPrompt(
+                              "Generate a detailed 1-to-1 Roblox building replica from my attached image. Match the architecture, roof, colors, materials, windows, doors, trim, scale, and visible details. Build it as a complete Model under Workspace/Map/Buildings with ground, spawn, lighting, and many anchored parts.",
+                            );
+                            setThinking(true);
+                            fileInputRef.current?.click();
+                          } else {
+                            setPrompt(tpl);
+                          }
+                        }}
+                        className="rounded-full border border-border bg-surface/60 px-2.5 py-1 text-[11px] text-muted-foreground hover:text-foreground hover:border-primary/40 hover:bg-primary/5 transition disabled:cursor-not-allowed disabled:opacity-50"
                       >
                         {tpl}
                       </button>
                     ))}
+                  </div>
+                )}
+                {aiUsageBlocked && (
+                  <div className="mb-2 rounded-lg border border-amber-400/40 bg-amber-500/10 px-3 py-2 text-xs text-amber-100">
+                    Daily AI timer used up ({aiUsageUsed}/{aiUsageLimit}). Chat and builds unlock
+                    again at {aiUsageResetLabel}.
                   </div>
                 )}
                 <textarea
@@ -2632,6 +2884,10 @@ function ProjectEditor() {
                     }
                   }}
                   onKeyDown={(e) => {
+                    if (aiUsageBlocked) {
+                      e.preventDefault();
+                      return;
+                    }
                     if (e.key === "Enter" && !e.shiftKey) {
                       e.preventDefault();
                       send();
@@ -2639,13 +2895,16 @@ function ProjectEditor() {
                   }}
                   rows={3}
                   placeholder={
-                    chatMode
-                      ? "Ask anything, or attach a screenshot of your game/Studio — the AI will analyze it."
-                      : planMode
-                        ? "Describe the Roblox system you want planned..."
-                        : "Type any command: build a map, add UI, create scripts, insert assets, fix bugs..."
+                    aiUsageBlocked
+                      ? `Daily AI timer used up. Try again at ${aiUsageResetLabel}.`
+                      : chatMode
+                        ? "Ask anything, or attach a screenshot of your game/Studio — the AI will analyze it."
+                        : planMode
+                          ? "Describe the Roblox system or attach a building picture you want planned..."
+                          : "Type any command: build a map, add UI, recreate a building from reference image, fix bugs..."
                   }
-                  className="min-h-20 w-full resize-none bg-transparent px-1 py-1 text-sm leading-relaxed placeholder:text-muted-foreground focus:outline-none"
+                  disabled={aiUsageBlocked}
+                  className="min-h-20 w-full resize-none bg-transparent px-1 py-1 text-sm leading-relaxed placeholder:text-muted-foreground focus:outline-none disabled:cursor-not-allowed disabled:opacity-60"
                 />
                 <input
                   ref={fileInputRef}
@@ -2686,7 +2945,7 @@ function ProjectEditor() {
                           setImproving(false);
                         }
                       }}
-                      disabled={improving || !prompt.trim()}
+                      disabled={aiUsageBlocked || improving || !prompt.trim()}
                       title="Improve prompt"
                       className="h-8 w-8 grid place-items-center rounded-lg text-muted-foreground hover:text-foreground hover:bg-surface transition disabled:opacity-40"
                     >
@@ -2720,7 +2979,7 @@ function ProjectEditor() {
                           ? `Max ${MAX_ATTACHMENTS} images`
                           : "Attach image for AI to analyze"
                       }
-                      disabled={attachments.length >= MAX_ATTACHMENTS}
+                      disabled={aiUsageBlocked || attachments.length >= MAX_ATTACHMENTS}
                       className={`inline-flex h-8 items-center gap-1 rounded-lg border px-2 transition disabled:opacity-40 ${attachments.length > 0 ? "border-primary/40 text-primary bg-primary/10" : "border-primary/30 text-primary/90 hover:bg-primary/10"}`}
                     >
                       <ImagePlus className="h-4 w-4" />
@@ -2751,7 +3010,7 @@ function ProjectEditor() {
                   ) : (
                     <button
                       onClick={send}
-                      disabled={!prompt.trim() && attachments.length === 0}
+                      disabled={aiUsageBlocked || (!prompt.trim() && attachments.length === 0)}
                       className="inline-flex h-8 items-center gap-2 rounded-lg bg-primary px-3 text-xs font-semibold text-primary-foreground hover:opacity-90 transition disabled:opacity-30"
                       title={
                         chatMode
@@ -2762,7 +3021,13 @@ function ProjectEditor() {
                       }
                     >
                       <Send className="h-3.5 w-3.5" />
-                      {chatMode ? "Chat" : planMode ? "Plan" : autoExecute ? "Execute" : "Preview"}
+                      {chatMode
+                        ? "Chat"
+                        : planMode
+                          ? "Plan"
+                          : autoExecute
+                            ? "Apply to Studio"
+                            : "Preview"}
                     </button>
                   )}
                 </div>
@@ -2838,7 +3103,11 @@ function ProjectEditor() {
 
                   <ModelPicker
                     projectId={projectId}
-                    provider={aiSettings.provider === "neokens" ? aiSettings.provider : null}
+                    provider={
+                      aiSettings.provider && aiSettings.provider in SITE_PROVIDER_LABELS
+                        ? (aiSettings.provider as SiteProviderId)
+                        : null
+                    }
                     model={aiSettings.model}
                     onChange={(p, m) => setAiSettings({ mode: "api_key", provider: p, model: m })}
                   />
@@ -2846,23 +3115,21 @@ function ProjectEditor() {
                   {aiUsage &&
                     !aiUsage.owner &&
                     (() => {
-                      const pct5 = Math.min(
-                        100,
-                        Math.round((aiUsage.used_5h / aiUsage.limit_5h) * 100),
-                      );
-                      const near = pct5 >= 80;
-                      const full = pct5 >= 100;
+                      const used = aiUsage.used_24h ?? aiUsage.used_5h;
+                      const limit = aiUsage.limit_24h ?? aiUsage.limit_5h;
+                      const pct = Math.min(100, Math.round((used / limit) * 100));
+                      const near = pct >= 80;
+                      const full = pct >= 100;
                       return (
                         <div
                           className={`inline-flex items-center gap-1.5 rounded-full bg-surface-elevated/60 border px-2.5 py-0.5 text-[10px] tabular-nums ${full ? "border-destructive/60" : near ? "border-amber-400/60" : "border-border/40"}`}
-                          title={`AI usage: ${aiUsage.used_5h}/${aiUsage.limit_5h} in last 5h · ${aiUsage.used_7d}/${aiUsage.limit_7d} in last 7d${aiUsage.reset_5h ? ` · resets ${new Date(aiUsage.reset_5h).toLocaleTimeString()}` : ""}`}
+                          title={`AI timer: ${used}/${limit} in last 24h · ${aiUsage.used_7d}/${aiUsage.limit_7d} in last 7d${aiUsage.reset_24h ? ` · resets ${new Date(aiUsage.reset_24h).toLocaleTimeString([], { hour: "numeric", minute: "2-digit", hour12: true })}` : ""}`}
                         >
                           <span
                             className={`h-1.5 w-1.5 rounded-full ${full ? "bg-destructive" : near ? "bg-amber-400" : "bg-emerald-500/70"}`}
                           />
                           <span className="text-muted-foreground">
-                            Usage {aiUsage.used_5h}/{aiUsage.limit_5h} · {aiUsage.used_7d}/
-                            {aiUsage.limit_7d}
+                            24h {used}/{limit} · 7d {aiUsage.used_7d}/{aiUsage.limit_7d}
                           </span>
                         </div>
                       );
@@ -2901,6 +3168,100 @@ function ProjectEditor() {
 
       {showAiSourceModal && (
         <AiSourceSettings projectId={projectId} onClose={() => setShowAiSourceModal(false)} />
+      )}
+
+      {memoryOpen && (
+        <div
+          className="fixed inset-0 z-50 grid place-items-center bg-background/80 p-4 backdrop-blur-sm"
+          onClick={() => !memoryBusy && setMemoryOpen(false)}
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            className="flex max-h-[82vh] w-full max-w-2xl flex-col rounded-2xl border border-border bg-surface shadow-2xl"
+          >
+            <div className="flex items-center justify-between border-b border-border p-4">
+              <div className="flex items-center gap-2">
+                <BookOpen className="h-4 w-4 text-primary" />
+                <div>
+                  <h2 className="text-sm font-semibold">AI Memory</h2>
+                  <p className="text-xs text-muted-foreground">
+                    Saved project preferences and facts are included in future chat, plans, fixes,
+                    and builds.
+                  </p>
+                </div>
+              </div>
+              <button
+                onClick={() => !memoryBusy && setMemoryOpen(false)}
+                className="text-muted-foreground hover:text-foreground"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+            <div className="min-h-0 flex-1 overflow-y-auto p-4">
+              <div className="rounded-xl border border-border bg-background/45 p-3">
+                <label className="text-xs font-semibold text-foreground">Remember this</label>
+                <textarea
+                  value={memoryDraft}
+                  onChange={(e) => setMemoryDraft(e.target.value)}
+                  placeholder="Example: Always make my game neon cyberpunk, mobile friendly, and server-authoritative."
+                  rows={3}
+                  maxLength={1000}
+                  className="mt-2 w-full resize-none rounded-lg border border-border bg-background/70 p-3 text-sm outline-none focus:border-primary/50"
+                />
+                <div className="mt-2 flex items-center justify-between gap-2">
+                  <span className="text-[11px] text-muted-foreground">
+                    The AI also learns from messages like "remember that..." automatically.
+                  </span>
+                  <button
+                    onClick={addManualMemory}
+                    disabled={memoryBusy || memoryDraft.trim().length < 3}
+                    className="inline-flex items-center gap-2 rounded-lg bg-primary px-3 py-2 text-xs font-semibold text-primary-foreground transition hover:opacity-90 disabled:opacity-40"
+                  >
+                    {memoryBusy ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <BookOpen className="h-3.5 w-3.5" />}
+                    Save memory
+                  </button>
+                </div>
+              </div>
+
+              <div className="mt-4 space-y-2">
+                {memories.length === 0 ? (
+                  <div className="rounded-xl border border-dashed border-border p-6 text-center text-sm text-muted-foreground">
+                    No memories saved yet. Add one above or tell the AI "remember that..."
+                  </div>
+                ) : (
+                  memories.map((memory) => (
+                    <div
+                      key={memory.id}
+                      className="flex items-start justify-between gap-3 rounded-xl border border-border bg-background/35 p-3"
+                    >
+                      <div className="min-w-0">
+                        <div className="flex flex-wrap items-center gap-2">
+                          <span className="rounded-full bg-primary/10 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-primary">
+                            {memory.kind.replace(/_/g, " ")}
+                          </span>
+                          <span className="truncate text-[11px] text-muted-foreground">
+                            {memory.key.replace(/_/g, " ")}
+                          </span>
+                        </div>
+                        <p className="mt-1 text-sm leading-relaxed text-foreground/90">
+                          {memory.value}
+                        </p>
+                      </div>
+                      <button
+                        onClick={() => deleteMemory(memory.id)}
+                        disabled={memoryBusy}
+                        className="grid h-8 w-8 shrink-0 place-items-center rounded-lg text-muted-foreground transition hover:bg-destructive/10 hover:text-destructive disabled:opacity-40"
+                        title="Forget this memory"
+                      >
+                        <Trash2 className="h-3.5 w-3.5" />
+                      </button>
+                    </div>
+                  ))
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
       )}
 
       {showFix && (
@@ -3064,7 +3425,9 @@ function ProjectEditor() {
                   <button
                     onClick={doAutopilot}
                     disabled={
-                      autoBusy || !autoDesc.trim() || (credits !== null && credits < AUTOPILOT_COST)
+                      autoBusy ||
+                      !autoDesc.trim() ||
+                      (!isOwner && credits !== null && credits < AUTOPILOT_COST)
                     }
                     className="inline-flex items-center gap-2 rounded-lg bg-gradient-to-r from-primary to-primary-glow px-4 py-2 text-sm font-semibold text-primary-foreground disabled:opacity-50"
                   >

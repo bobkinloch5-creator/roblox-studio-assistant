@@ -75,8 +75,8 @@ function AuthorizePage() {
             <code className="bg-muted px-1.5 py-0.5 rounded">{missing.join(", ")}</code>
           </p>
           <p className="text-sm text-muted-foreground">
-            This page is opened by MCP clients (Claude.ai, etc.) when they connect to BloxSmith. You
-            don't need to visit it directly.
+            This page is opened by MCP clients (Claude.ai, etc.) when they connect to BloxSmith.
+            You don't need to visit it directly.
           </p>
           <Link to="/mcp" className="underline text-sm">
             Back to MCP setup
@@ -96,9 +96,7 @@ function AuthorizePage() {
 
   if (!user) {
     const current =
-      typeof window !== "undefined"
-        ? window.location.pathname + window.location.search
-        : "/authorize";
+      typeof window !== "undefined" ? window.location.pathname + window.location.search : "/authorize";
     return (
       <main className="min-h-screen bg-background text-foreground flex items-center justify-center px-6">
         <div className="max-w-md w-full bg-card border border-border rounded-xl p-8 space-y-4">
@@ -107,7 +105,11 @@ function AuthorizePage() {
             <strong>{search.client_name ?? "An MCP client"}</strong> wants to connect to your
             BloxSmith account. Sign in to continue.
           </p>
-          <Link to="/login" search={{ redirect: current }} className="block">
+          <Link
+            to="/login"
+            search={{ redirect: current }}
+            className="block"
+          >
             <Button className="w-full">Sign in</Button>
           </Link>
         </div>

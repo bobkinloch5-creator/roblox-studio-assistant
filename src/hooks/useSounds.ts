@@ -6,9 +6,7 @@ function getCtx(): AudioContext | null {
   if (typeof window === "undefined") return null;
   const w = window as unknown as { __bsAudioCtx?: AudioContext };
   if (w.__bsAudioCtx) return w.__bsAudioCtx;
-  const Ctor =
-    window.AudioContext ||
-    (window as unknown as { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
+  const Ctor = (window.AudioContext || (window as unknown as { webkitAudioContext?: typeof AudioContext }).webkitAudioContext);
   if (!Ctor) return null;
   w.__bsAudioCtx = new Ctor();
   return w.__bsAudioCtx;
@@ -27,11 +25,7 @@ export function setSoundsEnabled(on: boolean) {
   localStorage.setItem(STORAGE_KEY, on ? "1" : "0");
 }
 
-function tone(
-  freq: number,
-  durMs: number,
-  opts: { type?: OscillatorType; vol?: number; delay?: number; slideTo?: number } = {},
-) {
+function tone(freq: number, durMs: number, opts: { type?: OscillatorType; vol?: number; delay?: number; slideTo?: number } = {}) {
   if (!soundsEnabled()) return;
   const ctx = getCtx();
   if (!ctx) return;
@@ -42,7 +36,7 @@ function tone(
   o.type = opts.type ?? "sine";
   o.frequency.setValueAtTime(freq, t0);
   if (opts.slideTo) o.frequency.exponentialRampToValueAtTime(opts.slideTo, t0 + durMs / 1000);
-  const vol = opts.vol ?? 0.08;
+  const vol = (opts.vol ?? 0.08);
   g.gain.setValueAtTime(0.0001, t0);
   g.gain.exponentialRampToValueAtTime(vol, t0 + 0.012);
   g.gain.exponentialRampToValueAtTime(0.0001, t0 + durMs / 1000);

@@ -57,7 +57,13 @@ async function resolveAuthHeader(server: McpServer, userId: string): Promise<str
   return normalizeMcpAuthHeader(server.auth_header);
 }
 
-async function mcpRpc(server: McpServer, authHeader: string, method: string, params?: any, id = 1) {
+async function mcpRpc(
+  server: McpServer,
+  authHeader: string,
+  method: string,
+  params?: any,
+  id = 1,
+) {
   const r = await fetch(server.url, {
     method: "POST",
     headers: mcpHttpHeaders(authHeader),

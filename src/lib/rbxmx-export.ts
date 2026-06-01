@@ -8,7 +8,8 @@ type FileLike = {
   content: string;
 };
 
-const esc = (s: string) => s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+const esc = (s: string) =>
+  s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
 
 const classFor = (ft: string) => {
   const f = (ft || "").toLowerCase();
@@ -59,9 +60,7 @@ export function buildRbxmx(projectName: string, files: FileLike[]): string {
   for (const f of files) {
     const rawPath = f.path.replace(/\\/g, "/").replace(/^\/+|\/+$/g, "");
     const pathSegs = rawPath.split("/").filter(Boolean);
-    const serviceSegs = (f.service_location || "ServerScriptService")
-      .split(/[.\/]/)
-      .filter(Boolean);
+    const serviceSegs = (f.service_location || "ServerScriptService").split(/[.\/]/).filter(Boolean);
 
     // If the path already starts with the service, don't double it.
     const startsWithService =

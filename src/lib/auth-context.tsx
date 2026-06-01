@@ -40,25 +40,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const qc = useQueryClient();
 
   const loadProfile = async (uid: string) => {
-    try {
-      const [{ data: p }, { data: r }] = await Promise.all([
-        supabase
-          .from("profiles")
-          .select(
-            "id,email,display_name,avatar_url,credits,discord_claimed,referral_code,referred_by",
-          )
-          .eq("id", uid)
-          .maybeSingle(),
-        supabase.from("user_roles").select("role").eq("user_id", uid),
-      ]);
-      setProfile(p as Profile | null);
-      setRoles(((r ?? []) as { role: Role }[]).map((x) => x.role));
-    } catch (e) {
-      // Supabase unreachable/unconfigured — don't crash; leave profile empty.
-      console.error("[auth] failed to load profile:", e instanceof Error ? e.message : e);
-      setProfile(null);
-      setRoles([]);
-    }
+    const [{ data: p }, { data: r }] = await Promise.all([
+      supabase.from("profiles").select("id,email,display_name,avatar_url,credits,discord_claimed,referral_code,referred_by").eq("id", uid).maybeSingle(),
+      supabase.from("user_roles").select("role").eq("user_id", uid),
+    ]);
+    setProfile(p as Profile | null);
+    setRoles(((r ?? []) as { role: Role }[]).map((x) => x.role));
   };
 
   useEffect(() => {
@@ -74,17 +61,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       qc.invalidateQueries();
     });
 
-    supabase.auth
-      .getSession()
-      .then(({ data }) => {
-        setSession(data.session);
-        if (data.session?.user) loadProfile(data.session.user.id).finally(() => setLoading(false));
-        else setLoading(false);
-      })
-      .catch((e: unknown) => {
-        console.error("[auth] getSession failed:", e instanceof Error ? e.message : e);
-        setLoading(false);
-      });
+    supabase.auth.getSession().then(({ data }) => {
+      setSession(data.session);
+      if (data.session?.user) loadProfile(data.session.user.id).finally(() => setLoading(false));
+      else setLoading(false);
+    });
 
     return () => sub.subscription.unsubscribe();
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -99,11 +80,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       clearTimeout(timer);
       timer = setTimeout(async () => {
         await supabase.auth.signOut();
-        try {
-          router.navigate({ to: "/login", search: { reason: "idle" } as any });
-        } catch {
-          /* noop */
-        }
+        try { router.navigate({ to: "/login", search: { reason: "idle" } as any }); } catch { /* noop */ }
       }, IDLE_MS);
     };
     const events = ["mousemove", "keydown", "click", "touchstart", "scroll", "visibilitychange"];

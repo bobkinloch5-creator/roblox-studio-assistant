@@ -27,20 +27,16 @@ const CLIENT_SERVICES = new Set([
   "StarterPack",
 ]);
 
-const CURRENCY_WORDS =
-  /\b(coin|coins|cash|gem|gems|money|gold|points|exp|xp|level|inventory|reward|grant)\b/i;
+const CURRENCY_WORDS = /\b(coin|coins|cash|gem|gems|money|gold|points|exp|xp|level|inventory|reward|grant)\b/i;
 const DAMAGE_WORDS = /\b(takedamage|:takedamage|humanoid\.health|damage\b|kill\b)\b/i;
 const REMOTE_FIRE = /:FireServer\(/;
 const REMOTE_HANDLER = /\.OnServerEvent\b|\.OnServerInvoke\b/;
 const DATASTORE_USE = /DataStoreService|GetDataStore|:SetAsync|:UpdateAsync/;
-const DATASTORE_LOOP =
-  /(while\s+true|RunService\.(Heartbeat|RenderStepped|Stepped):Connect)[\s\S]{0,200}:SetAsync/;
+const DATASTORE_LOOP = /(while\s+true|RunService\.(Heartbeat|RenderStepped|Stepped):Connect)[\s\S]{0,200}:SetAsync/;
 const ADMIN_CMD = /\b(admin|kick|ban|teleport|setwalkspeed|givecoins|giveitem)\b/i;
-const ADMIN_ALLOWLIST =
-  /(UserId\s*==|table\.find\([^,]+,\s*\w+\.UserId\)|has_role|IsInGroup|GroupService)/;
+const ADMIN_ALLOWLIST = /(UserId\s*==|table\.find\([^,]+,\s*\w+\.UserId\)|has_role|IsInGroup|GroupService)/;
 const COOLDOWN = /(tick\(\)|os\.clock\(\)|os\.time\(\)|debounce|cooldown)/i;
-const BACKDOOR_CODE =
-  /\brequire\s*\(\s*\d{5,}\s*\)|\bloadstring\s*\(|\bgetfenv\s*\(|\bsetfenv\s*\(|\bInsertService\s*:\s*LoadAsset\s*\(\s*\d{5,}\s*\)/i;
+const BACKDOOR_CODE = /\brequire\s*\(\s*\d{5,}\s*\)|\bloadstring\s*\(|\bgetfenv\s*\(|\bsetfenv\s*\(|\bInsertService\s*:\s*LoadAsset\s*\(\s*\d{5,}\s*\)/i;
 
 const MOBILE_UDIM_OFFSET = /UDim2\.new\(\s*0\s*,\s*\d{2,}/; // hardcoded large pixel offset
 const MOBILE_TEXTBUTTON = /TextButton|ImageButton|ScreenGui/;
@@ -67,16 +63,10 @@ export function scoreGeneration(files: GenFile[], actions: GenAction[]): Quality
   const hasAnyRemote =
     REMOTE_FIRE.test(allCode) ||
     REMOTE_HANDLER.test(allCode) ||
-    actions.some(
-      (a) =>
-        a.type === "create" && /Remote/.test(String((a as { className?: string }).className ?? "")),
-    );
-  const hasAnyUi =
-    actions.some((a) =>
-      /ScreenGui|Frame|TextButton|ImageButton/.test(
-        String((a as { className?: string }).className ?? ""),
-      ),
-    ) || /ScreenGui|TextButton|ImageButton/.test(allCode);
+    actions.some((a) => a.type === "create" && /Remote/.test(String((a as { className?: string }).className ?? "")));
+  const hasAnyUi = actions.some((a) =>
+    /ScreenGui|Frame|TextButton|ImageButton/.test(String((a as { className?: string }).className ?? "")),
+  ) || /ScreenGui|TextButton|ImageButton/.test(allCode);
   const hasDataStore = DATASTORE_USE.test(allCode);
 
   for (const f of files) {
@@ -87,9 +77,7 @@ export function scoreGeneration(files: GenFile[], actions: GenAction[]): Quality
 
     // Placement checks
     if (isServer && inClientService) {
-      placementIssues.push(
-        `${f.path}: Server Script placed in ${f.service_location} (use ServerScriptService).`,
-      );
+      placementIssues.push(`${f.path}: Server Script placed in ${f.service_location} (use ServerScriptService).`);
       placementScore -= 20;
     }
     if (isLocal && inServerService) {
@@ -99,18 +87,14 @@ export function scoreGeneration(files: GenFile[], actions: GenAction[]): Quality
 
     // Security — LocalScript granting currency / damage
     if (BACKDOOR_CODE.test(f.content)) {
-      securityFindings.push(
-        `${f.path}: Suspicious code execution / marketplace require pattern detected.`,
-      );
+      securityFindings.push(`${f.path}: Suspicious code execution / marketplace require pattern detected.`);
       securityScore -= 60;
       exploitRisk = "high";
       exploitReasons.push("Potential backdoor code pattern");
     }
 
     if (isLocal && CURRENCY_WORDS.test(f.content) && /\+=|=\s*\w+\s*\+/.test(f.content)) {
-      securityFindings.push(
-        `${f.path}: LocalScript appears to modify currency/inventory client-side.`,
-      );
+      securityFindings.push(`${f.path}: LocalScript appears to modify currency/inventory client-side.`);
       securityScore -= 35;
       exploitReasons.push("Client-side currency mutation");
       exploitRisk = "high";
@@ -126,9 +110,7 @@ export function scoreGeneration(files: GenFile[], actions: GenAction[]): Quality
     const fireMatches = f.content.match(/:FireServer\(([^)]*)\)/g) ?? [];
     for (const m of fireMatches) {
       if (/\b(amount|count|coins|cash|gold|gems|price|qty)\b/i.test(m)) {
-        securityFindings.push(
-          `${f.path}: Client passes amount/price into FireServer — must re-validate server-side.`,
-        );
+        securityFindings.push(`${f.path}: Client passes amount/price into FireServer — must re-validate server-side.`);
         securityScore -= 15;
         if (exploitRisk === "low") exploitRisk = "medium";
         exploitReasons.push("Client supplies a numeric value to a RemoteEvent");
@@ -149,9 +131,7 @@ export function scoreGeneration(files: GenFile[], actions: GenAction[]): Quality
         if (exploitRisk === "low") exploitRisk = "medium";
       }
       if (!COOLDOWN.test(handlerBlock)) {
-        securityFindings.push(
-          `${f.path}: RemoteEvent handler has no debounce/cooldown — spammable.`,
-        );
+        securityFindings.push(`${f.path}: RemoteEvent handler has no debounce/cooldown — spammable.`);
         securityScore -= 10;
       }
     }
@@ -159,23 +139,17 @@ export function scoreGeneration(files: GenFile[], actions: GenAction[]): Quality
     // DataStore checks
     if (DATASTORE_USE.test(f.content)) {
       if (isLocal) {
-        securityFindings.push(
-          `${f.path}: DataStoreService used in a LocalScript — only works server-side.`,
-        );
+        securityFindings.push(`${f.path}: DataStoreService used in a LocalScript — only works server-side.`);
         securityScore -= 30;
         datastoreReady = false;
         datastoreNotes.push("DataStore used from LocalScript");
       }
       if (DATASTORE_LOOP.test(f.content)) {
-        datastoreNotes.push(
-          `${f.path}: DataStore write inside a tight loop — will hit rate limits.`,
-        );
+        datastoreNotes.push(`${f.path}: DataStore write inside a tight loop — will hit rate limits.`);
         datastoreReady = false;
       }
       if (!/pcall\s*\(/.test(f.content)) {
-        datastoreNotes.push(
-          `${f.path}: DataStore call without pcall — will crash on transient failure.`,
-        );
+        datastoreNotes.push(`${f.path}: DataStore call without pcall — will crash on transient failure.`);
         if (datastoreReady) datastoreReady = false;
       }
     }
@@ -190,23 +164,15 @@ export function scoreGeneration(files: GenFile[], actions: GenAction[]): Quality
 
     // Mobile friendliness for UI scripts
     if (hasAnyUi && MOBILE_TEXTBUTTON.test(f.content)) {
-      if (
-        MOBILE_UDIM_OFFSET.test(f.content) &&
-        !/UDim2\.fromScale|UIAspectRatioConstraint|UISizeConstraint/.test(f.content)
-      ) {
+      if (MOBILE_UDIM_OFFSET.test(f.content) && !/UDim2\.fromScale|UIAspectRatioConstraint|UISizeConstraint/.test(f.content)) {
         mobileFriendly = false;
-        mobileNotes.push(
-          `${f.path}: Hardcoded pixel offsets, no scale or aspect constraint — won't fit mobile.`,
-        );
+        mobileNotes.push(`${f.path}: Hardcoded pixel offsets, no scale or aspect constraint — won't fit mobile.`);
       }
     }
   }
 
   // Project-level checks
-  if (
-    hasAnyRemote &&
-    !files.some((f) => f.file_type === "Script" && REMOTE_HANDLER.test(f.content))
-  ) {
+  if (hasAnyRemote && !files.some((f) => f.file_type === "Script" && REMOTE_HANDLER.test(f.content))) {
     securityFindings.push("RemoteEvents exist but no server-side handler validates them.");
     securityScore -= 15;
     if (exploitRisk === "low") exploitRisk = "medium";
@@ -221,31 +187,21 @@ export function scoreGeneration(files: GenFile[], actions: GenAction[]): Quality
   }
 
   // Testing suggestions
-  if (files.length > 0)
-    testingSuggestions.push("Press Play in Studio and exercise the new system once.");
-  if (hasAnyRemote)
-    testingSuggestions.push("Open a 2-player local server and verify RemoteEvents fire correctly.");
+  if (files.length > 0) testingSuggestions.push("Press Play in Studio and exercise the new system once.");
+  if (hasAnyRemote) testingSuggestions.push("Open a 2-player local server and verify RemoteEvents fire correctly.");
   if (hasDataStore) testingSuggestions.push("Test save/load by rejoining the server.");
   if (hasAnyUi) testingSuggestions.push("Test the UI on a mobile/tablet emulator in Studio.");
 
-  const security = securityScore >= 85 ? "safe" : securityScore >= 60 ? "review" : "risky";
+  const security =
+    securityScore >= 85 ? "safe" : securityScore >= 60 ? "review" : "risky";
 
   const overall = clamp(
-    Math.round(
-      securityScore * 0.5 +
-        placementScore * 0.3 +
-        (mobileFriendly ? 100 : 60) * 0.1 +
-        (datastoreReady ? 100 : 60) * 0.1,
-    ),
+    Math.round(securityScore * 0.5 + placementScore * 0.3 + (mobileFriendly ? 100 : 60) * 0.1 + (datastoreReady ? 100 : 60) * 0.1),
   );
 
   return {
     overall,
-    security: {
-      level: security,
-      score: clamp(securityScore),
-      findings: securityFindings.slice(0, 8),
-    },
+    security: { level: security, score: clamp(securityScore), findings: securityFindings.slice(0, 8) },
     placement: { score: clamp(placementScore), issues: placementIssues.slice(0, 6) },
     mobile: { friendly: mobileFriendly, notes: mobileNotes.slice(0, 4) },
     datastore: { ready: datastoreReady, notes: datastoreNotes.slice(0, 4) },

@@ -12,12 +12,6 @@ import { supabaseAdmin } from "@/integrations/supabase/client.server";
 export type BloxSmithToolCtx = {
   projectId?: string | null;
   userId?: string | null;
-  /**
-   * Optional reference image (data URL) the user uploaded with their request.
-   * When present, image-generating tools can use it to guide the design. If
-   * absent, the model describes the reference in the `style` text instead.
-   */
-  referenceImageDataUrl?: string | null;
 };
 
 // ── Roblox asset search (shared helper) ────────────────────────────────
@@ -141,7 +135,8 @@ export async function searchRobloxAssets(
       if (verifiedOnly) items = items.filter((i) => i.verified === true);
       items.sort(
         (a, b) =>
-          (b.upVotePercent ?? 0) * (b.voteCount ?? 0) - (a.upVotePercent ?? 0) * (a.voteCount ?? 0),
+          (b.upVotePercent ?? 0) * (b.voteCount ?? 0) -
+          (a.upVotePercent ?? 0) * (a.voteCount ?? 0),
       );
       return items.slice(0, limit);
     } catch {
@@ -175,6 +170,7 @@ export async function searchRobloxAssets(
   }
 }
 
+
 export const buildBloxSmithTools = (ctx: BloxSmithToolCtx = {}) => ({
   web_search: tool({
     description:
@@ -185,7 +181,7 @@ export const buildBloxSmithTools = (ctx: BloxSmithToolCtx = {}) => ({
     execute: async ({ query }) => {
       try {
         const url = `https://api.duckduckgo.com/?q=${encodeURIComponent(
-          query,
+          query
         )}&format=json&no_html=1&no_redirect=1&t=bloxsmith`;
         const r = await fetch(url, { headers: { "User-Agent": "BloxSmith/1.0" } });
         if (!r.ok) return { error: `HTTP ${r.status}`, results: [] };
@@ -342,9 +338,7 @@ export const buildBloxSmithTools = (ctx: BloxSmithToolCtx = {}) => ({
       verifiedOnly: z
         .boolean()
         .default(false)
-        .describe(
-          "If true, only return assets from Roblox or verified-badge creators. Default false — most free toolbox models are made by ordinary users.",
-        ),
+        .describe("If true, only return assets from Roblox or verified-badge creators. Default false — most free toolbox models are made by ordinary users."),
     }),
     execute: async ({ query, category, limit, verifiedOnly }) => {
       const items = await searchRobloxAssets(query, category, limit, { verifiedOnly });
@@ -362,7 +356,7 @@ export const buildBloxSmithTools = (ctx: BloxSmithToolCtx = {}) => ({
     execute: async ({ assetId, size }) => {
       try {
         const r = await fetch(
-          `https://thumbnails.roblox.com/v1/assets?assetIds=${assetId}&size=${size}&format=Png&isCircular=false`,
+          `https://thumbnails.roblox.com/v1/assets?assetIds=${assetId}&size=${size}&format=Png&isCircular=false`
         );
         const j: any = await r.json();
         const item = (j.data ?? [])[0];
@@ -476,31 +470,14 @@ export const buildBloxSmithTools = (ctx: BloxSmithToolCtx = {}) => ({
     description:
       "Add a new MCP (Model Context Protocol) server to the user's BloxSmith account. Use this when the user asks you to 'add an MCP server', pastes an MCP server URL, or pastes a BloxSmith MCP token (starts with 'bsmcp_'). If the user gives ONLY a 'bsmcp_...' token with no URL, default to BloxSmith's own MCP server (name: 'BloxSmith', url: 'https://bloxsmith.pro/api/public/mcp'). auth_header is optional — pass either the raw token or the full 'Bearer xxx' value; this tool will prepend 'Bearer ' automatically when missing. After adding, tell the user it's configured and they can manage it at /mcp-servers.",
     inputSchema: z.object({
-      name: z
-        .string()
-        .min(1)
-        .max(80)
-        .optional()
-        .describe("Short friendly name. Defaults to 'BloxSmith' for bsmcp_ tokens."),
-      url: z
-        .string()
-        .url()
-        .optional()
-        .describe(
-          "Full MCP endpoint URL. Defaults to https://bloxsmith.pro/api/public/mcp for bsmcp_ tokens.",
-        ),
+      name: z.string().min(1).max(80).optional().describe("Short friendly name. Defaults to 'BloxSmith' for bsmcp_ tokens."),
+      url: z.string().url().optional().describe("Full MCP endpoint URL. Defaults to https://bloxsmith.pro/api/public/mcp for bsmcp_ tokens."),
       auth_header: z
         .string()
         .max(2000)
         .optional()
-        .describe(
-          "Optional token or Authorization header. 'Bearer ' is added automatically if missing.",
-        ),
-      token: z
-        .string()
-        .max(2000)
-        .optional()
-        .describe("Alias for auth_header — accepts a bare token like 'bsmcp_...'."),
+        .describe("Optional token or Authorization header. 'Bearer ' is added automatically if missing."),
+      token: z.string().max(2000).optional().describe("Alias for auth_header — accepts a bare token like 'bsmcp_...'."),
     }),
     execute: async ({ name, url, auth_header, token }) => {
       if (!ctx.userId) return { error: "not authenticated" };
@@ -508,8 +485,7 @@ export const buildBloxSmithTools = (ctx: BloxSmithToolCtx = {}) => ({
       const isBsmcp = rawAuth.replace(/^Bearer\s+/i, "").startsWith("bsmcp_");
       if (!url && isBsmcp) url = "https://bloxsmith.pro/api/public/mcp";
       if (!name && isBsmcp) name = "BloxSmith";
-      if (!url)
-        return { error: "Missing MCP server URL. Ask the user for the full https:// endpoint." };
+      if (!url) return { error: "Missing MCP server URL. Ask the user for the full https:// endpoint." };
       if (!name) return { error: "Missing name. Ask the user for a short label for this server." };
       if (!/^https:\/\//i.test(url)) return { error: "URL must start with https://" };
       if (rawAuth && !/^Bearer\s+/i.test(rawAuth) && !rawAuth.includes(" ")) {
@@ -528,12 +504,7 @@ export const buildBloxSmithTools = (ctx: BloxSmithToolCtx = {}) => ({
             .update({ auth_header: rawAuth, enabled: true })
             .eq("id", existing.id)
             .eq("user_id", ctx.userId);
-          return {
-            success: true,
-            updated: true,
-            id: existing.id,
-            message: "Token updated on existing server.",
-          };
+          return { success: true, updated: true, id: existing.id, message: "Token updated on existing server." };
         }
         return { error: "An MCP server with that URL is already added", id: existing.id };
       }
@@ -563,10 +534,7 @@ export const buildBloxSmithTools = (ctx: BloxSmithToolCtx = {}) => ({
     inputSchema: z.object({
       id: z.string().uuid().optional(),
       match_url: z.string().url().optional().describe("Find the server by URL if id not provided."),
-      match_name: z
-        .string()
-        .optional()
-        .describe("Find the server by name (case-insensitive) if id and match_url not provided."),
+      match_name: z.string().optional().describe("Find the server by name (case-insensitive) if id and match_url not provided."),
       name: z.string().min(1).max(80).optional(),
       url: z.string().url().optional(),
       auth_header: z.string().max(2000).optional(),
@@ -577,10 +545,7 @@ export const buildBloxSmithTools = (ctx: BloxSmithToolCtx = {}) => ({
       if (!ctx.userId) return { error: "not authenticated" };
       let targetId = id;
       if (!targetId) {
-        let q = supabaseAdmin
-          .from("user_mcp_servers")
-          .select("id,name,url")
-          .eq("user_id", ctx.userId);
+        let q = supabaseAdmin.from("user_mcp_servers").select("id,name,url").eq("user_id", ctx.userId);
         if (match_url) q = q.eq("url", match_url);
         const { data: rows } = await q;
         let row = rows?.[0];
@@ -588,10 +553,7 @@ export const buildBloxSmithTools = (ctx: BloxSmithToolCtx = {}) => ({
           row = rows.find((r: any) => r.name?.toLowerCase() === match_name.toLowerCase());
         }
         if (!row && rows && rows.length === 1) row = rows[0];
-        if (!row)
-          return {
-            error: "Could not find a matching MCP server. Call list_mcp_servers and pass an id.",
-          };
+        if (!row) return { error: "Could not find a matching MCP server. Call list_mcp_servers and pass an id." };
         targetId = row.id;
       }
       let rawAuth = (auth_header ?? token ?? "").trim();
@@ -631,281 +593,60 @@ export const buildBloxSmithTools = (ctx: BloxSmithToolCtx = {}) => ({
     },
   }),
 
-  // ── AI image generation (Google Gemini) ──────────────────────────────
-  // Generates Roblox thumbnails, game icons, GUI artwork, decals, logos and
-  // concept art using the site's OWN Google Gemini key, via the native
-  // `:generateContent` endpoint. (The OpenAI-compatible /images/generations
-  // route only works for Imagen models — the Gemini "Nano Banana" image
-  // models must be called through generateContent.) The PNG is uploaded to
-  // the public `generated-images` bucket and a URL is returned; the AI embeds
-  // it as markdown so the user sees it inline in chat and can download it.
-  //
-  // Server config:
-  //   GEMINI_API_KEY  (preferred)  — your Google Gemini API key, "the one you have".
-  //                   Falls back to GOOGLE_GENERATIVE_AI_API_KEY / GOOGLE_API_KEY.
-  //   GEMINI_IMAGE_MODEL (optional) — defaults to "gemini-2.5-flash-image".
-  //                   Set to "gemini-3-pro-image-preview" for the sharpest
-  //                   thumbnails / best in-image text, or
-  //                   "gemini-3.1-flash-image-preview" for a faster, cheaper one.
-  // If no Gemini key is set, it falls back to the old Lovable gateway so an
-  // existing deployment keeps working until the Gemini key is added.
+  // ── AI image generation (Gemini) ─────────────────────────────────────
+  // Generates game icons, thumbnails, GUI artwork, decals, concept art via
+  // Lovable AI Gateway's Gemini image model. Image is uploaded to the
+  // public `generated-images` bucket and a URL is returned. The AI should
+  // embed that URL as a markdown image in its reply so the user sees it
+  // inline in chat and can download it to upload to Roblox as a decal.
   generate_image: tool({
     description:
-      "Generate a brand-new image — Roblox game thumbnail, game icon, GUI artwork, decal art, logo, badge, splash, banner, or loading screen — from a text prompt using Google Gemini. Pick aspectRatio '16:9' for game thumbnails/promo art, '1:1' for game icons and decals, '9:16' for portrait/mobile art. Returns a public URL. ALWAYS embed it in your reply as markdown: ![alt](url). Use for any 'make me a thumbnail / icon / logo / decal / artwork / poster' request. Do NOT use for Roblox toolbox lookups — use roblox_asset_search for existing catalog assets.",
+      "Generate a brand-new image (game icon, thumbnail, GUI artwork, decal art, concept piece, UI sticker, badge, splash, logo, banner, loading screen) from a text prompt using Google Gemini. Returns a public URL. ALWAYS embed it in your reply as markdown: ![alt](url). Use for any 'make me a thumbnail / icon / logo / decal / artwork / poster' request. Do NOT use for Roblox toolbox lookups — use roblox_asset_search for existing assets.",
     inputSchema: z.object({
-      prompt: z
-        .string()
-        .min(3)
-        .max(1500)
-        .describe(
-          "Detailed visual description: subject, style, mood, colors, framing, and any title/text to render in the image. Specific = better. e.g. 'Roblox tower defense game thumbnail: three cartoon heroes defending a glowing base from a robot horde, dramatic rim lighting, bold readable title TOWER SIEGE across the top, vibrant cyan and orange, high contrast'.",
-        ),
-      aspectRatio: z
-        .enum(["16:9", "1:1", "9:16", "4:3", "3:4"])
-        .default("16:9")
-        .describe(
-          "Image shape. '16:9' = Roblox game thumbnail / promo image (default). '1:1' = game icon or decal. '9:16' = portrait/mobile. '4:3' or '3:4' = misc.",
-        ),
+      prompt: z.string().min(3).max(1000).describe("Detailed visual description: subject, style, mood, colors, framing. Specific = better. e.g. 'A glowing neon obby game icon, top-down isometric, vibrant cyan and magenta blocks on dark background, dramatic rim lighting, Roblox-style cartoon shading'."),
+      size: z.enum(["1024x1024", "1024x1536", "1536x1024"]).default("1024x1024"),
     }),
-    execute: async ({ prompt, aspectRatio }) => {
-      // Image generation runs on the site owner's Gemini key and costs real
-      // money per call, so it must be gated. Require an authenticated user…
-      if (!ctx.userId) {
-        return { error: "Please sign in to generate images." };
-      }
-      // …and apply a simple per-user hourly cap. We count the user's own
-      // recent uploads in the generated-images bucket (no extra table needed).
-      // This check fails OPEN — if listing errors we allow the generation so a
-      // transient storage hiccup never blocks a paying user.
-      const HOURLY_LIMIT = Number(process.env.GEMINI_IMAGE_HOURLY_LIMIT || "30");
-      if (HOURLY_LIMIT > 0) {
-        try {
-          const { data: recent } = await supabaseAdmin.storage
-            .from("generated-images")
-            .list(ctx.userId, { limit: 100, sortBy: { column: "created_at", order: "desc" } });
-          const cutoff = Date.now() - 60 * 60 * 1000;
-          const lastHour = (recent ?? []).filter((o: any) => {
-            const t = Date.parse(o?.created_at ?? o?.updated_at ?? "");
-            return Number.isFinite(t) && t >= cutoff;
-          }).length;
-          if (lastHour >= HOURLY_LIMIT) {
-            return {
-              error: `You've reached the image limit (${HOURLY_LIMIT}/hour). Try again later.`,
-            };
-          }
-        } catch {
-          // fail open — never block generation on a listing error
-        }
-      }
-
-      const ASPECT_HINTS: Record<string, string> = {
-        "16:9": "Compose as a wide 16:9 landscape thumbnail.",
-        "1:1": "Compose as a perfectly square 1:1 icon with the subject centered.",
-        "9:16": "Compose as a tall 9:16 vertical/portrait image.",
-        "4:3": "Compose as a 4:3 landscape image.",
-        "3:4": "Compose as a 3:4 portrait image.",
-      };
-      const fullPrompt = `${prompt}\n\n${ASPECT_HINTS[aspectRatio] ?? ""}`.trim();
-
-      // Shared upload + return helper for both the Gemini and fallback paths.
-      const saveImage = async (bytes: Buffer, mime: string) => {
-        const ext = /jpe?g/i.test(mime) ? "jpg" : "png";
-        const filename = `${ctx.userId ?? "anon"}/${Date.now()}-${Math.random()
-          .toString(36)
-          .slice(2, 8)}.${ext}`;
-        const { error: upErr } = await supabaseAdmin.storage
-          .from("generated-images")
-          .upload(filename, bytes, { contentType: mime || "image/png", upsert: false });
-        if (upErr) return { error: `Could not save image: ${upErr.message}` };
-        const { data: pub } = supabaseAdmin.storage.from("generated-images").getPublicUrl(filename);
-        return {
-          imageUrl: pub.publicUrl,
-          aspectRatio,
-          markdown: `![${prompt.slice(0, 80)}](${pub.publicUrl})`,
-          tip: "Embed `markdown` in your reply so the user sees the image inline. To use it in Roblox: download the PNG, then upload it in the Creator Dashboard / Studio Asset Manager (game thumbnails accept 16:9 up to 1920x1080; the game icon is 512x512). Uploaded decals/images become an assetId.",
-        };
-      };
-
-      const geminiKey =
-        process.env.GEMINI_API_KEY ||
-        process.env.GOOGLE_GENERATIVE_AI_API_KEY ||
-        process.env.GOOGLE_API_KEY;
-
-      // ── Primary path: the site's own Google Gemini key ─────────────────
-      if (geminiKey) {
-        const model = process.env.GEMINI_IMAGE_MODEL || "gemini-2.5-flash-image";
-        const generationConfig: any = { responseModalities: ["TEXT", "IMAGE"] };
-        // imageConfig.aspectRatio is honored by the Gemini 3.x image models
-        // (Nano Banana 2 / Pro). The 2.5 model ignores it and would 400 on
-        // some fields, so we only attach it for gemini-3* and otherwise rely
-        // on the textual aspect hint baked into the prompt.
-        if (/gemini-3/.test(model)) {
-          generationConfig.imageConfig = { aspectRatio };
-        }
-        try {
-          const r = await fetch(
-            `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`,
-            {
-              method: "POST",
-              headers: {
-                "x-goog-api-key": geminiKey,
-                "Content-Type": "application/json",
-              },
-              body: JSON.stringify({
-                contents: [{ role: "user", parts: [{ text: fullPrompt }] }],
-                generationConfig,
-              }),
-            },
-          );
-          if (!r.ok) {
-            const txt = await r.text().catch(() => "");
-            if (r.status === 429)
-              return {
-                error: "Gemini image generation is rate-limited right now. Try again in a moment.",
-              };
-            if (r.status === 400 && /billing|quota|FAILED_PRECONDITION/i.test(txt))
-              return {
-                error:
-                  "Gemini rejected the request — the Gemini image models need a Google API key with billing enabled. Check the server's GEMINI_API_KEY.",
-              };
-            if (r.status === 401 || r.status === 403)
-              return { error: "Gemini rejected the API key (check GEMINI_API_KEY on the server)." };
-            return {
-              error: `Gemini image generation failed (HTTP ${r.status}): ${txt.slice(0, 200)}`,
-            };
-          }
-          const j: any = await r.json();
-          const parts: any[] = j?.candidates?.[0]?.content?.parts ?? [];
-          const imgPart = parts.find((p) => p?.inlineData?.data || p?.inline_data?.data);
-          const inline = imgPart?.inlineData ?? imgPart?.inline_data;
-          if (!inline?.data) {
-            const block =
-              j?.promptFeedback?.blockReason ||
-              j?.candidates?.[0]?.finishReason ||
-              "no image returned";
-            return {
-              error: `Gemini did not return an image (${block}). Try rephrasing, or remove anything that might trip safety filters.`,
-            };
-          }
-          return await saveImage(
-            Buffer.from(inline.data, "base64"),
-            inline.mimeType || inline.mime_type || "image/png",
-          );
-        } catch (e: any) {
-          return { error: `Gemini image generation error: ${String(e?.message ?? e)}` };
-        }
-      }
-
-      // ── Fallback path: Lovable AI Gateway (kept for back-compat) ───────
-      const lovableKey = process.env.LOVABLE_API_KEY;
-      if (!lovableKey)
-        return {
-          error:
-            "Image generation is unavailable — set GEMINI_API_KEY (your Google Gemini key) on the server to enable thumbnail generation.",
-        };
+    execute: async ({ prompt, size: _size }) => {
+      const apiKey = process.env.LOVABLE_API_KEY;
+      if (!apiKey) return { error: "Image generation is unavailable (server missing LOVABLE_API_KEY)." };
       try {
         const r = await fetch("https://ai.gateway.lovable.dev/v1/images/generations", {
           method: "POST",
-          headers: { Authorization: `Bearer ${lovableKey}`, "Content-Type": "application/json" },
+          headers: {
+            Authorization: `Bearer ${apiKey}`,
+            "Content-Type": "application/json",
+          },
           body: JSON.stringify({
             model: "google/gemini-2.5-flash-image",
-            messages: [{ role: "user", content: fullPrompt }],
+            messages: [{ role: "user", content: prompt }],
             modalities: ["image", "text"],
           }),
         });
         if (!r.ok) {
           const txt = await r.text().catch(() => "");
-          if (r.status === 429)
-            return { error: "Image generation rate-limited. Try again in a moment." };
+          if (r.status === 429) return { error: "Image generation rate-limited. Try again in a moment." };
           if (r.status === 402) return { error: "Image generation credits exhausted." };
           return { error: `Image generation failed (HTTP ${r.status}): ${txt.slice(0, 200)}` };
         }
         const j: any = await r.json();
         const b64: string | undefined = j?.data?.[0]?.b64_json;
         if (!b64) return { error: "Image generation returned no image data." };
-        return await saveImage(Buffer.from(b64, "base64"), "image/png");
+        const bytes = Buffer.from(b64, "base64");
+        const filename = `${ctx.userId ?? "anon"}/${Date.now()}-${Math.random().toString(36).slice(2, 8)}.png`;
+        const { error: upErr } = await supabaseAdmin.storage
+          .from("generated-images")
+          .upload(filename, bytes, { contentType: "image/png", upsert: false });
+        if (upErr) return { error: `Could not save image: ${upErr.message}` };
+        const { data: pub } = supabaseAdmin.storage.from("generated-images").getPublicUrl(filename);
+        return {
+          imageUrl: pub.publicUrl,
+          markdown: `![${prompt.slice(0, 80)}](${pub.publicUrl})`,
+          tip: "Embed `markdown` in your reply so the user sees the image. To use as a Roblox decal, the user uploads it via Roblox's Asset Manager and you'll get an assetId.",
+        };
       } catch (e: any) {
         return { error: String(e?.message ?? e) };
       }
     },
   }),
-
-  // ── Clothing & accessory studio ─────────────────────────────────────
-  // Generates Roblox CLASSIC clothing textures (shirts/pants) and T-Shirt
-  // graphics end-to-end. For layered clothing and 3D accessories (hats, wings,
-  // backpacks, etc.) it generates design/texture art and the model is expected
-  // to pair it with a build spec — those are meshes, not textures, so we never
-  // claim to have produced a ready-to-wear 3D item.
-  generate_clothing: tool({
-    description:
-      "Generate a Roblox WEARABLE design. Use for shirts, pants, uniforms, outfits, T-shirts, and the texture/concept art for hoodies, jackets, and accessories (hats, glasses, masks, backpacks, chains, wings, hair, shoulder items). kind 'classic_shirt'/'classic_pants' produce upload-ready flat template textures; 'tshirt' produces a square torso graphic; 'layered_or_accessory' produces design/concept art for a 3D item (which the user must model/import as a mesh — explain this). Returns a public image URL; embed the returned markdown in your reply so the user sees the preview.",
-    inputSchema: z.object({
-      kind: z
-        .enum(["classic_shirt", "classic_pants", "tshirt", "layered_or_accessory"])
-        .describe(
-          "classic_shirt/classic_pants = flat wrap texture; tshirt = square torso decal; layered_or_accessory = concept/texture art for a 3D mesh item.",
-        ),
-      style: z
-        .string()
-        .min(3)
-        .max(900)
-        .describe(
-          "Full design description: garment/accessory type, colors, theme, motifs, mood. e.g. 'black and red cyber hoodie, neon circuit lines, techwear, glowing red trim'.",
-        ),
-    }),
-    execute: async ({ kind, style }) => {
-      if (!ctx.userId) return { error: "Please sign in to generate clothing." };
-      const { checkImageHourlyLimit, generateImageFromPrompt } = await import(
-        "./image-gen.server"
-      );
-      const limitErr = await checkImageHourlyLimit(ctx.userId);
-      if (limitErr) return { error: limitErr };
-
-      const { buildClothingImagePrompt } = await import("./roblox-clothing");
-      // classic templates are tall-ish flat sheets; tshirt is square; accessory
-      // concept art reads best square too.
-      const aspectRatio = kind === "classic_shirt" || kind === "classic_pants" ? "1:1" : "1:1";
-      const prompt = buildClothingImagePrompt(kind, style);
-
-      // If the user uploaded a reference image, pass it to guide the design.
-      let referenceImageBase64: string | undefined;
-      let referenceMime: string | undefined;
-      const ref = ctx.referenceImageDataUrl;
-      if (ref && ref.startsWith("data:")) {
-        const comma = ref.indexOf(",");
-        if (comma > 0) {
-          referenceMime = ref.slice(5, ref.indexOf(";"));
-          referenceImageBase64 = ref.slice(comma + 1);
-        }
-      }
-
-      const result = await generateImageFromPrompt({
-        userId: ctx.userId ?? undefined,
-        prompt,
-        aspectRatio,
-        referenceImageBase64,
-        referenceMime,
-        altText: `${kind.replace(/_/g, " ")}: ${style}`,
-      });
-      if ("error" in result) return result;
-
-      const isClassic = kind === "classic_shirt" || kind === "classic_pants";
-      const uploadTip = isClassic
-        ? "Download the PNG, then in the Roblox Creator Dashboard go to Create → Avatar Items → Classic Clothing, upload it as a " +
-          (kind === "classic_shirt" ? "Shirt" : "Pants") +
-          ". Roblox wraps the template onto the avatar. Note: classic clothing uploads need a verified account/group and cost ~R$10."
-        : kind === "tshirt"
-          ? "Download the PNG and upload it as a Classic T-Shirt (Create → Avatar Items → Classic T-Shirt). It shows flat on the torso front."
-          : "This is DESIGN ART for a 3D accessory, not a ready mesh. To make it wearable: model the shape in Blender (or import a base mesh), bring it into Studio via Avatar → Accessory Fitting Tool, set the correct Attachment (e.g. Hat → HatAttachment on the Head, back items → BodyBackAttachment), apply this art as its texture, then publish as an Accessory.";
-
-      return {
-        ...result,
-        kind,
-        isClassic,
-        uploadTip,
-        reminder:
-          "Embed `markdown` in your reply so the user sees the preview, then give them the uploadTip steps.",
-      };
-    },
-  }),
 });
+

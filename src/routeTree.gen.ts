@@ -9,6 +9,7 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
+import { Route as VideoRouteImport } from './routes/video'
 import { Route as TermsRouteImport } from './routes/terms'
 import { Route as TemplatesRouteImport } from './routes/templates'
 import { Route as SitemapDotxmlRouteImport } from './routes/sitemap[.]xml'
@@ -22,7 +23,6 @@ import { Route as McpRouteImport } from './routes/mcp'
 import { Route as LoginRouteImport } from './routes/login'
 import { Route as IdeasRouteImport } from './routes/ideas'
 import { Route as FaqRouteImport } from './routes/faq'
-import { Route as ExecuteRouteImport } from './routes/execute'
 import { Route as DocsRouteImport } from './routes/docs'
 import { Route as DashboardRouteImport } from './routes/dashboard'
 import { Route as ChangelogRouteImport } from './routes/changelog'
@@ -52,6 +52,11 @@ import { Route as ApiPublicPaypalWebhookRouteImport } from './routes/api/public/
 import { Route as ApiPublicOauthTokenRouteImport } from './routes/api/public/oauth/token'
 import { Route as ApiPublicOauthRegisterRouteImport } from './routes/api/public/oauth/register'
 
+const VideoRoute = VideoRouteImport.update({
+  id: '/video',
+  path: '/video',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const TermsRoute = TermsRouteImport.update({
   id: '/terms',
   path: '/terms',
@@ -115,11 +120,6 @@ const IdeasRoute = IdeasRouteImport.update({
 const FaqRoute = FaqRouteImport.update({
   id: '/faq',
   path: '/faq',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const ExecuteRoute = ExecuteRouteImport.update({
-  id: '/execute',
-  path: '/execute',
   getParentRoute: () => rootRouteImport,
 } as any)
 const DocsRoute = DocsRouteImport.update({
@@ -273,7 +273,6 @@ export interface FileRoutesByFullPath {
   '/changelog': typeof ChangelogRoute
   '/dashboard': typeof DashboardRoute
   '/docs': typeof DocsRoute
-  '/execute': typeof ExecuteRoute
   '/faq': typeof FaqRoute
   '/ideas': typeof IdeasRoute
   '/login': typeof LoginRoute
@@ -287,6 +286,7 @@ export interface FileRoutesByFullPath {
   '/sitemap.xml': typeof SitemapDotxmlRoute
   '/templates': typeof TemplatesRoute
   '/terms': typeof TermsRoute
+  '/video': typeof VideoRoute
   '/.well-known/oauth-authorization-server': typeof DotwellKnownOauthAuthorizationServerRoute
   '/.well-known/oauth-protected-resource': typeof DotwellKnownOauthProtectedResourceRoute
   '/checkout/$pack': typeof CheckoutPackRoute
@@ -317,7 +317,6 @@ export interface FileRoutesByTo {
   '/changelog': typeof ChangelogRoute
   '/dashboard': typeof DashboardRoute
   '/docs': typeof DocsRoute
-  '/execute': typeof ExecuteRoute
   '/faq': typeof FaqRoute
   '/ideas': typeof IdeasRoute
   '/login': typeof LoginRoute
@@ -331,6 +330,7 @@ export interface FileRoutesByTo {
   '/sitemap.xml': typeof SitemapDotxmlRoute
   '/templates': typeof TemplatesRoute
   '/terms': typeof TermsRoute
+  '/video': typeof VideoRoute
   '/.well-known/oauth-authorization-server': typeof DotwellKnownOauthAuthorizationServerRoute
   '/.well-known/oauth-protected-resource': typeof DotwellKnownOauthProtectedResourceRoute
   '/checkout/$pack': typeof CheckoutPackRoute
@@ -362,7 +362,6 @@ export interface FileRoutesById {
   '/changelog': typeof ChangelogRoute
   '/dashboard': typeof DashboardRoute
   '/docs': typeof DocsRoute
-  '/execute': typeof ExecuteRoute
   '/faq': typeof FaqRoute
   '/ideas': typeof IdeasRoute
   '/login': typeof LoginRoute
@@ -376,6 +375,7 @@ export interface FileRoutesById {
   '/sitemap.xml': typeof SitemapDotxmlRoute
   '/templates': typeof TemplatesRoute
   '/terms': typeof TermsRoute
+  '/video': typeof VideoRoute
   '/.well-known/oauth-authorization-server': typeof DotwellKnownOauthAuthorizationServerRoute
   '/.well-known/oauth-protected-resource': typeof DotwellKnownOauthProtectedResourceRoute
   '/checkout/$pack': typeof CheckoutPackRoute
@@ -408,7 +408,6 @@ export interface FileRouteTypes {
     | '/changelog'
     | '/dashboard'
     | '/docs'
-    | '/execute'
     | '/faq'
     | '/ideas'
     | '/login'
@@ -422,6 +421,7 @@ export interface FileRouteTypes {
     | '/sitemap.xml'
     | '/templates'
     | '/terms'
+    | '/video'
     | '/.well-known/oauth-authorization-server'
     | '/.well-known/oauth-protected-resource'
     | '/checkout/$pack'
@@ -452,7 +452,6 @@ export interface FileRouteTypes {
     | '/changelog'
     | '/dashboard'
     | '/docs'
-    | '/execute'
     | '/faq'
     | '/ideas'
     | '/login'
@@ -466,6 +465,7 @@ export interface FileRouteTypes {
     | '/sitemap.xml'
     | '/templates'
     | '/terms'
+    | '/video'
     | '/.well-known/oauth-authorization-server'
     | '/.well-known/oauth-protected-resource'
     | '/checkout/$pack'
@@ -496,7 +496,6 @@ export interface FileRouteTypes {
     | '/changelog'
     | '/dashboard'
     | '/docs'
-    | '/execute'
     | '/faq'
     | '/ideas'
     | '/login'
@@ -510,6 +509,7 @@ export interface FileRouteTypes {
     | '/sitemap.xml'
     | '/templates'
     | '/terms'
+    | '/video'
     | '/.well-known/oauth-authorization-server'
     | '/.well-known/oauth-protected-resource'
     | '/checkout/$pack'
@@ -541,7 +541,6 @@ export interface RootRouteChildren {
   ChangelogRoute: typeof ChangelogRoute
   DashboardRoute: typeof DashboardRoute
   DocsRoute: typeof DocsRoute
-  ExecuteRoute: typeof ExecuteRoute
   FaqRoute: typeof FaqRoute
   IdeasRoute: typeof IdeasRoute
   LoginRoute: typeof LoginRoute
@@ -555,6 +554,7 @@ export interface RootRouteChildren {
   SitemapDotxmlRoute: typeof SitemapDotxmlRoute
   TemplatesRoute: typeof TemplatesRoute
   TermsRoute: typeof TermsRoute
+  VideoRoute: typeof VideoRoute
   DotwellKnownOauthAuthorizationServerRoute: typeof DotwellKnownOauthAuthorizationServerRoute
   DotwellKnownOauthProtectedResourceRoute: typeof DotwellKnownOauthProtectedResourceRoute
   CheckoutPackRoute: typeof CheckoutPackRoute
@@ -579,6 +579,13 @@ export interface RootRouteChildren {
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
+    '/video': {
+      id: '/video'
+      path: '/video'
+      fullPath: '/video'
+      preLoaderRoute: typeof VideoRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/terms': {
       id: '/terms'
       path: '/terms'
@@ -668,13 +675,6 @@ declare module '@tanstack/react-router' {
       path: '/faq'
       fullPath: '/faq'
       preLoaderRoute: typeof FaqRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/execute': {
-      id: '/execute'
-      path: '/execute'
-      fullPath: '/execute'
-      preLoaderRoute: typeof ExecuteRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/docs': {
@@ -896,7 +896,6 @@ const rootRouteChildren: RootRouteChildren = {
   ChangelogRoute: ChangelogRoute,
   DashboardRoute: DashboardRoute,
   DocsRoute: DocsRoute,
-  ExecuteRoute: ExecuteRoute,
   FaqRoute: FaqRoute,
   IdeasRoute: IdeasRoute,
   LoginRoute: LoginRoute,
@@ -910,6 +909,7 @@ const rootRouteChildren: RootRouteChildren = {
   SitemapDotxmlRoute: SitemapDotxmlRoute,
   TemplatesRoute: TemplatesRoute,
   TermsRoute: TermsRoute,
+  VideoRoute: VideoRoute,
   DotwellKnownOauthAuthorizationServerRoute:
     DotwellKnownOauthAuthorizationServerRoute,
   DotwellKnownOauthProtectedResourceRoute:

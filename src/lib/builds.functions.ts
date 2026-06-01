@@ -27,28 +27,17 @@ export type BuildHistoryItem = {
 export const getBuildHistory = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((i: unknown) =>
-    z
-      .object({ projectId: z.string().uuid(), limit: z.number().int().min(1).max(200).default(50) })
-      .parse(i),
+    z.object({ projectId: z.string().uuid(), limit: z.number().int().min(1).max(200).default(50) }).parse(i),
   )
   .handler(async ({ data, context }): Promise<{ items: BuildHistoryItem[] }> => {
-    const { supabase, userId } = context;
+    const { supabase } = context;
     const { projectId, limit } = data;
 
-    const { data: project } = await supabase
-      .from("projects")
-      .select("id")
-      .eq("id", projectId)
-      .eq("user_id", userId)
-      .maybeSingle();
-    if (!project) throw new Error("Project not found or unauthorized.");
-
-    // Conversations for this user's private project chat.
+    // Conversations for this project (RLS scopes to members).
     const { data: convos, error: cErr } = await supabase
       .from("agent_conversations")
       .select("id,title")
-      .eq("project_id", projectId)
-      .eq("user_id", userId);
+      .eq("project_id", projectId);
     if (cErr) throw new Error(cErr.message);
     if (!convos || convos.length === 0) return { items: [] };
 
@@ -143,12 +132,11 @@ export const organizeProject = createServerFn({ method: "POST" })
     const { supabase, userId } = context;
     const { projectId } = data;
 
-    // Owner check via RLS-friendly read.
+    // Membership check via RLS-friendly read.
     const { data: proj, error: pErr } = await supabase
       .from("projects")
       .select("id")
       .eq("id", projectId)
-      .eq("user_id", userId)
       .maybeSingle();
     if (pErr || !proj) throw new Error("Project not found or not accessible.");
 
@@ -186,12 +174,11 @@ export const revertBuild = createServerFn({ method: "POST" })
     const { supabase, userId } = context;
     const { projectId, messageId } = data;
 
-    // Owner check via RLS-friendly read.
+    // Membership check via RLS-friendly read.
     const { data: proj, error: pErr } = await supabase
       .from("projects")
       .select("id")
       .eq("id", projectId)
-      .eq("user_id", userId)
       .maybeSingle();
     if (pErr || !proj) throw new Error("Project not found or not accessible.");
 
@@ -288,15 +275,7 @@ export const getBuildDiff = createServerFn({ method: "POST" })
     z.object({ projectId: z.string().uuid(), messageId: z.string().uuid() }).parse(i),
   )
   .handler(async ({ data, context }): Promise<{ files: BuildDiffFile[] }> => {
-    const { supabase, userId } = context;
-
-    const { data: project } = await supabase
-      .from("projects")
-      .select("id")
-      .eq("id", data.projectId)
-      .eq("user_id", userId)
-      .maybeSingle();
-    if (!project) throw new Error("Project not found or unauthorized.");
+    const { supabase } = context;
 
     const { data: msg, error: mErr } = await supabase
       .from("agent_messages")
@@ -319,11 +298,7 @@ export const getBuildDiff = createServerFn({ method: "POST" })
     const files: BuildDiffFile[] = snap
       .filter((s) => s && typeof s.path === "string")
       .map((s) => {
-        const before: string | null = s.existed
-          ? typeof s.content === "string"
-            ? s.content
-            : ""
-          : null;
+        const before: string | null = s.existed ? (typeof s.content === "string" ? s.content : "") : null;
         const after: string | null = afterMap.has(s.path) ? afterMap.get(s.path)! : null;
         const beforeLines = before == null ? 0 : before.split("\n").length;
         const afterLines = after == null ? 0 : after.split("\n").length;
@@ -332,22 +307,9 @@ export const getBuildDiff = createServerFn({ method: "POST" })
         const afterSet = new Set((after ?? "").split("\n"));
         let added = 0;
         let removed = 0;
-        afterSet.forEach((l) => {
-          if (!beforeSet.has(l)) added++;
-        });
-        beforeSet.forEach((l) => {
-          if (!afterSet.has(l)) removed++;
-        });
-        return {
-          path: s.path,
-          existed: s.existed === true,
-          before,
-          after,
-          beforeLines,
-          afterLines,
-          added,
-          removed,
-        };
+        afterSet.forEach((l) => { if (!beforeSet.has(l)) added++; });
+        beforeSet.forEach((l) => { if (!afterSet.has(l)) removed++; });
+        return { path: s.path, existed: s.existed === true, before, after, beforeLines, afterLines, added, removed };
       });
 
     return { files };

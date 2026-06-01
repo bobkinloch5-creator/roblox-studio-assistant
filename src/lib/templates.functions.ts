@@ -8,9 +8,7 @@ export const listTemplates = createServerFn({ method: "GET" }).handler(async () 
   const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
   const { data, error } = await supabaseAdmin
     .from("templates")
-    .select(
-      "id,slug,name,category,description,thumbnail_url,credits_cost,difficulty,features,install_count",
-    )
+    .select("id,slug,name,category,description,thumbnail_url,credits_cost,difficulty,features,install_count")
     .eq("active", true)
     .order("install_count", { ascending: false });
   if (error) throw new Error(error.message);

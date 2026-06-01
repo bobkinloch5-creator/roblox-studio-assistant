@@ -21,7 +21,11 @@ export function ClickRipple() {
   return (
     <div className="pointer-events-none fixed inset-0 z-[9999] overflow-hidden">
       {ripples.map((r) => (
-        <span key={r.id} className="click-ripple" style={{ left: r.x, top: r.y }} />
+        <span
+          key={r.id}
+          className="click-ripple"
+          style={{ left: r.x, top: r.y }}
+        />
       ))}
     </div>
   );

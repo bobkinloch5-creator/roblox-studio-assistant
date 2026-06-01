@@ -1,86 +1,77 @@
-export type SiteProviderId = "neokens";
+export type SiteProviderId = "groq" | "neokens" | "cometapi";
 
 export const SITE_PROVIDER_LABELS: Record<SiteProviderId, string> = {
+  groq: "Groq (free)",
   neokens: "Neokens (free)",
+  cometapi: "CometAPI (premium)",
 };
 
 export const SITE_PROVIDER_MODELS: Record<SiteProviderId, string[]> = {
+  groq: ["llama-3.3-70b-versatile", "llama-3.1-8b-instant", "gemma2-9b-it"],
   neokens: [
-    "claude-sonnet-4-6-thinking",
+    // Claude Sonnet 4.6/4.7 "thinking" variants were removed after the
+    // model diagnostic returned Bad Gateway from Neokens twice in a row.
+    // Their proxy cannot reach those underlying Anthropic models. Add
+    // them back if/when Neokens supports them.
     "gpt-5.5",
     "gpt-5.3-codex",
     "gpt-5.4",
     "gemini-3.1-pro",
     "gemini-3-flash",
     "claude-haiku-4-5-20251001",
+    "gpt-5.1",
+  ],
+  // CometAPI model IDs use the bare slug (e.g. "claude-opus-4-8"), per
+  // their OpenAI-compatible chat endpoint. Curated to text models that
+  // handle Luau + tool calls well. Long-context picks (DeepSeek V4 1M,
+  // Grok 4.20 2M) are first since they directly serve large documents
+  // and long conversations without losing context. Verify each with the
+  // admin Model Diagnostics tool after deploying — CometAPI's catalog
+  // shifts and not every slug is guaranteed live.
+  cometapi: [
+    "claude-opus-4-8",
+    "claude-sonnet-4-6",
+    "gpt-5.5",
+    "gemini-3.5-flash",
+    "gemini-3.1-pro-preview",
+    "grok-4-3",
+    "grok-4-2",
+    "deepseek-v4",
+    "deepseek-v4-flash",
+    "qwen3-7-max",
+    "qwen3-6-plus",
+    "kimi-k2-6",
+    "glm-5-1",
   ],
 };
 
 export const SITE_PROVIDER_DEFAULT_MODEL: Record<SiteProviderId, string> = {
+  groq: "llama-3.3-70b-versatile",
   neokens: "gpt-5.5",
+  cometapi: "claude-sonnet-4-6",
 };
 
 export const SITE_MODEL_DESCRIPTIONS: Record<string, string> = {
-  "claude-sonnet-4-6-thinking":
-    "Frontier reasoning with adaptive thinking. Best for full-game architecture, complex anti-exploit, and hard debugging where it should slow down and think first.",
-  "gpt-5.5":
-    "OpenAI's newest flagship — strongest at agentic coding, multi-step Roblox builds, and complex Luau refactors. Use for full games and ambitious systems.",
-  "gpt-5.3-codex":
-    "Code specialist. Best for long Luau files, OOP classes, CFrame math, and raycast logic.",
-  "gpt-5.4":
-    "Strong reasoning for combat formulas, anti-exploit checks, ProfileService logic, and complex math.",
-  "gemini-3.1-pro":
-    "Huge-context expert for sprawling Roblox systems: datastores, round loops, economies, and end-to-end game architecture across many files.",
-  "gemini-3-flash":
-    "Fast all-rounder for everyday Roblox scripting: GUIs, RemoteEvents, and small gameplay edits. Cheap and quick.",
-  "claude-haiku-4-5-20251001":
-    "Cheap and careful for cleaning messy Luau, refactoring scripts, and writing tidy ModuleScripts.",
+  // CometAPI text models
+  "claude-opus-4-8": "Most intelligent model — best for the hardest full-game architecture, complex anti-exploit, and deep multi-step debugging. Premium.",
+  "gemini-3.5-flash": "Fast and smart with strong factual grounding. Great everyday driver for most Roblox scripting at low cost.",
+  "gemini-3.1-pro-preview": "Multimodal reasoning over huge inputs — full code repos, long design docs, mixed media. Use for sprawling projects.",
+  "grok-4-3": "Strong agentic reasoning and tool use at a low price. Good all-round build model.",
+  "grok-4-2": "2M-token context. Best when you need to feed in a very large codebase or long conversation without losing track.",
+  "deepseek-v4": "1M-token context, top-tier reasoning and coding at a low price. Excellent for long documents and big multi-file builds.",
+  "deepseek-v4-flash": "1M-token context, efficiency-tuned. Fast and cheap for long-context work where you don't need the full Pro model.",
+  "qwen3-7-max": "Agentic coding specialist — front-end prototyping through complex multi-file engineering. Reliable across long tasks.",
+  "qwen3-6-plus": "Strong code development and fast multimodal reasoning at a low price. Great everyday coding model for Vibe-style iteration.",
+  "kimi-k2-6": "Long, stable code generation with good instruction-following and self-correction. Supports thinking and non-thinking modes.",
+  "glm-5-1": "Built for long-horizon autonomous tasks — keeps goal alignment over very long builds without drifting.",
+  "gpt-5.5": "OpenAI's newest flagship — strongest at agentic coding, multi-step Roblox builds, and complex Luau refactors. Use for full games and ambitious systems.",
+  "gpt-5.3-codex": "Code specialist. Best for long Luau files, OOP classes, CFrame math, and raycast logic.",
+  "gpt-5.4": "Strong reasoning for combat formulas, anti-exploit checks, ProfileService logic, and complex math.",
+  "gemini-3.1-pro": "Huge-context expert for sprawling Roblox systems: datastores, round loops, economies, and end-to-end game architecture across many files.",
+  "gemini-3-flash": "Fast all-rounder for everyday Roblox scripting: GUIs, RemoteEvents, and small gameplay edits. Cheap and quick.",
+  "claude-haiku-4-5-20251001": "Cheap and careful for cleaning messy Luau, refactoring scripts, and writing tidy ModuleScripts.",
+  "gpt-5.1": "Balanced workhorse for UI scripting, Tween animations, and standard ServerScriptService handlers.",
+  "llama-3.3-70b-versatile": "Free Groq workhorse — solid for Roblox scripts, gameplay loops, and normal chat help. No API key needed.",
+  "llama-3.1-8b-instant": "Ultra-fast free Groq option for tiny edits, quick snippets, and simple LocalScripts.",
+  "gemma2-9b-it": "Small free Groq fallback for short answers, simple bug fixes, and lightweight Roblox help.",
 };
-
-// ─────────────────────────────────────────────────────────────────────────
-// Neokens model mapping.
-//
-// The UI model id (the key) is what the picker shows and stores. The value is
-// the EXACT model id Neokens accepts at api.quatarly.cloud, plus whether this
-// UI id implies "thinking" mode.
-//
-// ⚠️ EDIT THIS to match your Neokens dashboard. If a UI id already equals the
-// real Neokens id, you can omit it (unmapped ids pass through unchanged). The
-// only entries that MUST be here are aliases whose UI name differs from the
-// real id — especially the "-thinking" variant, which must map to a base model
-// id plus thinking:true (Neokens does not accept "...-thinking" as a literal
-// model name).
-//
-// Format:  "ui-id": { neokens: "real-neokens-id", thinking?: true }
-// ─────────────────────────────────────────────────────────────────────────
-export const NEOKENS_MODEL_MAP: Record<string, { neokens: string; thinking?: boolean }> = {
-  // The thinking variant must resolve to a real base model id + the flag.
-  // Replace "claude-sonnet-4-6" with whatever your Neokens dashboard lists as
-  // the Sonnet model id if it differs.
-  "claude-sonnet-4-6-thinking": { neokens: "claude-sonnet-4-6", thinking: true },
-
-  // The rest pass through by default. If your dashboard uses different ids
-  // (e.g. "gpt-5.5-preview" or "google/gemini-3.1-pro"), map them here:
-  // "gpt-5.5": { neokens: "gpt-5.5" },
-  // "gemini-3.1-pro": { neokens: "google/gemini-3.1-pro" },
-};
-
-// A Neokens model id that is known to work, used as a last-resort fallback when
-// a selected model errors at the gateway. Set this to your most reliable id.
-export const NEOKENS_SAFE_FALLBACK_MODEL = "gemini-3-flash";
-
-/**
- * Resolve a UI model id to the real Neokens model id + thinking flag.
- * Unmapped ids pass through unchanged (thinking inferred from a "-thinking"
- * suffix as a safety net).
- */
-export function resolveNeokensModel(uiModelId: string): { model: string; thinking: boolean } {
-  const mapped = NEOKENS_MODEL_MAP[uiModelId];
-  if (mapped) return { model: mapped.neokens, thinking: !!mapped.thinking };
-  // Safety net: if a "-thinking" id wasn't explicitly mapped, strip the suffix
-  // and turn on thinking rather than sending an invalid "...-thinking" string.
-  if (uiModelId.endsWith("-thinking")) {
-    return { model: uiModelId.slice(0, -"-thinking".length), thinking: true };
-  }
-  return { model: uiModelId, thinking: false };
-}

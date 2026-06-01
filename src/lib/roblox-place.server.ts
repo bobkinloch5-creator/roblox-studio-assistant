@@ -8,7 +8,8 @@ type FileLike = {
   content: string;
 };
 
-const esc = (s: string) => s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+const esc = (s: string) =>
+  s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
 
 const classFor = (ft: string): "Script" | "LocalScript" | "ModuleScript" => {
   const f = (ft || "").toLowerCase();
@@ -104,17 +105,20 @@ export function buildRbxlx(projectName: string, files: FileLike[]): string {
 
   // Workspace with a default Baseplate so the place runs.
   const workspace = getSvc("Workspace");
-  workspace.children.set("Baseplate", {
-    name: "Baseplate",
-    klass: "Part",
-    children: new Map(),
-    extraProps: [
-      `<bool name="Anchored">true</bool>`,
-      `<Vector3 name="size"><X>2048</X><Y>20</Y><Z>2048</Z></Vector3>`,
-      `<CoordinateFrame name="CFrame"><X>0</X><Y>-10</Y><Z>0</Z><R00>1</R00><R01>0</R01><R02>0</R02><R10>0</R10><R11>1</R11><R12>0</R12><R20>0</R20><R21>0</R21><R22>1</R22></CoordinateFrame>`,
-      `<token name="Material">816</token>`,
-    ].join(""),
-  });
+  workspace.children.set(
+    "Baseplate",
+    {
+      name: "Baseplate",
+      klass: "Part",
+      children: new Map(),
+      extraProps: [
+        `<bool name="Anchored">true</bool>`,
+        `<Vector3 name="size"><X>2048</X><Y>20</Y><Z>2048</Z></Vector3>`,
+        `<CoordinateFrame name="CFrame"><X>0</X><Y>-10</Y><Z>0</Z><R00>1</R00><R01>0</R01><R02>0</R02><R10>0</R10><R11>1</R11><R12>0</R12><R20>0</R20><R21>0</R21><R22>1</R22></CoordinateFrame>`,
+        `<token name="Material">816</token>`,
+      ].join(""),
+    },
+  );
   // Always include core services so scripts have somewhere to live.
   getSvc("ServerScriptService");
   getSvc("ServerStorage");
@@ -124,16 +128,10 @@ export function buildRbxlx(projectName: string, files: FileLike[]): string {
   getSvc("StarterPack");
   const starterPlayer = getSvc("StarterPlayer");
   if (!starterPlayer.children.has("StarterPlayerScripts")) {
-    starterPlayer.children.set(
-      "StarterPlayerScripts",
-      mk("StarterPlayerScripts", "StarterPlayerScripts"),
-    );
+    starterPlayer.children.set("StarterPlayerScripts", mk("StarterPlayerScripts", "StarterPlayerScripts"));
   }
   if (!starterPlayer.children.has("StarterCharacterScripts")) {
-    starterPlayer.children.set(
-      "StarterCharacterScripts",
-      mk("StarterCharacterScripts", "StarterCharacterScripts"),
-    );
+    starterPlayer.children.set("StarterCharacterScripts", mk("StarterCharacterScripts", "StarterCharacterScripts"));
   }
 
   for (const f of files) {
@@ -141,8 +139,7 @@ export function buildRbxlx(projectName: string, files: FileLike[]): string {
     let target = getSvc(service);
     if (service === "StarterPlayer" && sub) {
       if (!target.children.has(sub)) {
-        const subClass =
-          sub === "StarterCharacterScripts" ? "StarterCharacterScripts" : "StarterPlayerScripts";
+        const subClass = sub === "StarterCharacterScripts" ? "StarterCharacterScripts" : "StarterPlayerScripts";
         target.children.set(sub, mk(sub, subClass));
       }
       target = target.children.get(sub)!;

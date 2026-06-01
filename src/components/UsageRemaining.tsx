@@ -104,7 +104,8 @@ function Row({
   pct: number;
   reset: string;
 }) {
-  const tone = pct >= 100 ? "bg-destructive" : pct >= 80 ? "bg-amber-500" : "bg-primary";
+  const tone =
+    pct >= 100 ? "bg-destructive" : pct >= 80 ? "bg-amber-500" : "bg-primary";
   return (
     <div>
       <div className="flex items-center justify-between text-xs text-muted-foreground mb-1">

@@ -11,19 +11,13 @@ const cors = {
 async function sha256(text: string) {
   const buf = new TextEncoder().encode(text);
   const hash = await crypto.subtle.digest("SHA-256", buf);
-  return Array.from(new Uint8Array(hash))
-    .map((b) => b.toString(16).padStart(2, "0"))
-    .join("");
+  return Array.from(new Uint8Array(hash)).map((b) => b.toString(16).padStart(2, "0")).join("");
 }
 
 async function userFromToken(token: string | null) {
   if (!token) return null;
   const hash = await sha256(token);
-  const { data } = await supabaseAdmin
-    .from("plugin_tokens")
-    .select("user_id")
-    .eq("token_hash", hash)
-    .maybeSingle();
+  const { data } = await supabaseAdmin.from("plugin_tokens").select("user_id").eq("token_hash", hash).maybeSingle();
   return data?.user_id ?? null;
 }
 
@@ -35,20 +29,13 @@ export const Route = createFileRoute("/api/public/plugin/context")({
       OPTIONS: async () => new Response(null, { status: 204, headers: cors }),
       POST: async ({ request }) => {
         const userId = await userFromToken(request.headers.get("x-plugin-token"));
-        if (!userId)
-          return new Response(JSON.stringify({ error: "invalid token" }), {
-            status: 401,
-            headers: cors,
-          });
+        if (!userId) return new Response(JSON.stringify({ error: "invalid token" }), { status: 401, headers: cors });
 
-        const body = await request.json().catch(() => ({}) as any);
+        const body = await request.json().catch(() => ({} as any));
         const projectId = body?.projectId;
         const ctx = body?.context;
         if (!projectId || !ctx) {
-          return new Response(JSON.stringify({ error: "missing projectId or context" }), {
-            status: 400,
-            headers: cors,
-          });
+          return new Response(JSON.stringify({ error: "missing projectId or context" }), { status: 400, headers: cors });
         }
 
         const { data: project } = await supabaseAdmin
@@ -56,16 +43,18 @@ export const Route = createFileRoute("/api/public/plugin/context")({
           .select("id,user_id")
           .eq("id", projectId)
           .maybeSingle();
-        if (!project)
-          return new Response(JSON.stringify({ error: "not found" }), {
-            status: 404,
-            headers: cors,
-          });
-        if (project.user_id !== userId)
-          return new Response(JSON.stringify({ error: "forbidden" }), {
-            status: 403,
-            headers: cors,
-          });
+        if (!project) return new Response(JSON.stringify({ error: "not found" }), { status: 404, headers: cors });
+        let allowed = project.user_id === userId;
+        if (!allowed) {
+          const { data: c } = await supabaseAdmin
+            .from("project_collaborators")
+            .select("id")
+            .eq("project_id", projectId)
+            .eq("user_id", userId)
+            .maybeSingle();
+          allowed = !!c;
+        }
+        if (!allowed) return new Response(JSON.stringify({ error: "forbidden" }), { status: 403, headers: cors });
 
         const instanceCount = typeof ctx?.instanceCount === "number" ? ctx.instanceCount : 0;
 
@@ -94,7 +83,7 @@ export const Route = createFileRoute("/api/public/plugin/context")({
             instance_count: instanceCount,
             updated_at: new Date().toISOString(),
           },
-          { onConflict: "project_id" },
+          { onConflict: "project_id" }
         );
 
         return new Response(JSON.stringify({ ok: true }), { headers: cors });

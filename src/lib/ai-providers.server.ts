@@ -9,7 +9,7 @@ import {
 } from "./ai-gateway.server";
 import { SITE_PROVIDER_DEFAULT_MODEL, SITE_PROVIDER_MODELS } from "./ai-models";
 
-export type ProviderId = "openai" | "anthropic" | "google" | "groq" | "neokens";
+export type ProviderId = "openai" | "anthropic" | "google" | "groq" | "neokens" | "cometapi";
 export type ModelKind = "chat" | "build" | "fast" | "large";
 
 export type ModelProfile = {
@@ -67,20 +67,13 @@ export const PROVIDER_LABELS: Record<ProviderId, string> = {
   google: "Google Gemini",
   groq: "Groq",
   neokens: "Neokens (multi-model)",
+  cometapi: "CometAPI (500+ models)",
 };
 
 // Curated model lists per provider. Keep the lists short — only models that
 // reliably handle Lua/Luau and tool calling.
 export const PROVIDER_MODELS: Record<ProviderId, string[]> = {
-  openai: [
-    "gpt-5.5",
-    "gpt-5",
-    "gpt-5-mini",
-    "gpt-5-nano",
-    "gpt-5-codex",
-    "gpt-4.1",
-    "gpt-4.1-mini",
-  ],
+  openai: ["gpt-5.5", "gpt-5", "gpt-5-mini", "gpt-5-nano", "gpt-5-codex", "gpt-4.1", "gpt-4.1-mini"],
   anthropic: [
     "claude-sonnet-4-6",
     "claude-sonnet-4-5",
@@ -88,20 +81,36 @@ export const PROVIDER_MODELS: Record<ProviderId, string[]> = {
     "claude-3-5-sonnet-latest",
     "claude-3-5-haiku-latest",
   ],
-  google: ["gemini-2.5-pro", "gemini-2.5-flash", "gemini-2.5-flash-lite", "gemini-3-flash-preview"],
-  groq: ["llama-3.3-70b-versatile", "llama-3.1-8b-instant"],
+  google: [
+    "gemini-2.5-pro",
+    "gemini-2.5-flash",
+    "gemini-2.5-flash-lite",
+    "gemini-3-flash-preview",
+  ],
+  groq: [
+    ...SITE_PROVIDER_MODELS.groq,
+  ],
   // Neokens proxies many models behind a single key — see neokens.com/docs.
   // We list whichever Neokens has working on their side at the moment;
   // Claude Sonnet 4.6/4.7 were tried and removed (Bad Gateway from Neokens).
-  neokens: [...SITE_PROVIDER_MODELS.neokens],
+  neokens: [
+    ...SITE_PROVIDER_MODELS.neokens,
+  ],
+  // CometAPI — single key, 500+ models, OpenAI-compatible. Text models only
+  // here; video generation goes through its own async endpoint, not this list.
+  cometapi: [
+    ...SITE_PROVIDER_MODELS.cometapi,
+  ],
+
 };
 
 export const PROVIDER_DEFAULT_MODEL: Record<ProviderId, string> = {
   openai: "gpt-5.5",
   anthropic: "claude-sonnet-4-6",
   google: "gemini-2.5-flash",
-  groq: "llama-3.3-70b-versatile",
+  groq: SITE_PROVIDER_DEFAULT_MODEL.groq,
   neokens: SITE_PROVIDER_DEFAULT_MODEL.neokens,
+  cometapi: SITE_PROVIDER_DEFAULT_MODEL.cometapi,
 };
 
 // Some model IDs in the UI are virtual aliases — they map to a real provider
@@ -138,6 +147,7 @@ export function getModelProfile(
     id.includes("haiku");
   const isHuge =
     id.includes("gemini-3.1") ||
+    id.includes("gemini-3.5") ||
     id.includes("gemini-2.5-pro") ||
     id.includes("claude-opus") ||
     id.includes("gpt-5-codex") ||
@@ -145,27 +155,26 @@ export function getModelProfile(
     id.includes("gpt-5.4") ||
     id.includes("gpt-5.5") ||
     id.includes("70b") ||
-    id.includes("sonnet");
+    id.includes("sonnet") ||
+    // CometAPI long-context models (1M–2M token windows)
+    id.includes("deepseek-v4") ||
+    id.includes("grok-4") ||
+    id.includes("qwen3-7") ||
+    id.includes("qwen3-6") ||
+    id.includes("kimi-k2") ||
+    id.includes("glm-5");
   const isGemini = provider === "google" || id.includes("gemini");
   const isOpenAI = provider === "openai" || id.includes("gpt-");
   const isClaude = provider === "anthropic" || id.includes("claude");
 
   const inputTokenBudget = isHuge ? 100_000 : isSmall ? 12_000 : 32_000;
   const maxOutputTokens = opts.thinking
-    ? isHuge
-      ? 16_000
-      : 9_000
+    ? isHuge ? 16_000 : 9_000
     : opts.retry
-      ? isHuge
-        ? 8_000
-        : 5_500
+      ? isHuge ? 8_000 : 5_500
       : opts.heavyBuild
-        ? isHuge
-          ? 10_000
-          : 6_500
-        : isHuge
-          ? 6_500
-          : 4_500;
+        ? isHuge ? 10_000 : 6_500
+        : isHuge ? 6_500 : 4_500;
 
   return {
     inputTokenBudget,
@@ -185,8 +194,7 @@ export function getModelProfile(
       isGemini ||
       isClaude ||
       (isOpenAI && !id.includes("nano")) ||
-      (provider === "neokens" &&
-        (id.includes("gemini") || id.includes("gpt-5") || id.includes("claude"))),
+      (provider === "neokens" && (id.includes("gemini") || id.includes("gpt-5") || id.includes("claude"))),
     historyTurns: opts.thinking ? (isHuge ? 8 : 5) : isSmall ? 3 : 5,
     historyChars: opts.thinking ? (isHuge ? 1_800 : 1_200) : isSmall ? 700 : 1_000,
   };
@@ -235,10 +243,13 @@ function providerEndpoint(provider: ProviderId): { name: string; baseURL: string
     case "neokens":
       // Neokens credits gateway — OpenAI-compatible, one key for many models.
       return { name: "neokens", baseURL: "https://api.quatarly.cloud/v1" };
+    case "cometapi":
+      // CometAPI — OpenAI-compatible aggregator, one key for 500+ models.
+      return { name: "cometapi", baseURL: "https://api.cometapi.com/v1" };
   }
 }
 
-export function createProvider(provider: ProviderId, apiKey: string): (modelId: string) => any {
+export function createProvider(provider: ProviderId, apiKey: string) {
   const { name, baseURL } = providerEndpoint(provider);
   return createOpenAICompatible({
     name,
@@ -253,14 +264,11 @@ export type ResolvedGateway = {
   provider: ProviderId;
   modelName: string;
   // The vercel AI SDK model handle to pass into generateText / streamText.
-  model: any;
+  model: ReturnType<ReturnType<typeof createOpenAICompatible>>;
 };
 
-export function resolveBuiltInGateway(opts: {
-  kind: ModelKind;
-  thinking?: boolean;
-}): ResolvedGateway {
-  const neokensKey = process.env.NEOKENS_API_KEY || process.env.NEOKENS_KEY;
+export function resolveBuiltInGateway(opts: { kind: ModelKind; thinking?: boolean }): ResolvedGateway {
+  const neokensKey = process.env.NEOKENS_API_KEY;
   if (neokensKey) {
     const modelName = NEOKENS_MODEL_BY_KIND[opts.kind] ?? SITE_PROVIDER_DEFAULT_MODEL.neokens;
     const gw = createProvider("neokens", neokensKey);
@@ -268,8 +276,7 @@ export function resolveBuiltInGateway(opts: {
   }
 
   const groqKey = process.env.GROQ_API_KEY;
-  if (!groqKey)
-    throw new Error("AI gateway not configured — NEOKENS_API_KEY or GROQ_API_KEY missing.");
+  if (!groqKey) throw new Error("AI gateway not configured — NEOKENS_API_KEY or GROQ_API_KEY missing.");
   const gw = createGroqProvider(groqKey);
   const modelName =
     opts.kind === "large"
@@ -314,20 +321,6 @@ export async function resolveAiGateway(opts: {
 
   const provider = settings.provider as ProviderId;
   const rawModel = settings.model || PROVIDER_DEFAULT_MODEL[provider];
-
-  // Neokens & Groq are site-wide gateways — use env keys, no per-user key.
-  if (provider === "neokens") {
-    const neoKey = process.env.NEOKENS_API_KEY || process.env.NEOKENS_KEY;
-    if (!neoKey) return fallback();
-    // Map the UI model id to the real Neokens id (+ thinking flag). This is the
-    // single place that decides what model string Neokens actually receives.
-    const { resolveNeokensModel } = await import("./ai-models");
-    const { model: modelName, thinking: implicitThinking } = resolveNeokensModel(rawModel);
-    if (implicitThinking) opts.thinking = true;
-    const gw = createProvider("neokens", neoKey);
-    return { source: "api_key", provider, modelName, model: gw(modelName) };
-  }
-
   // Map virtual aliases (e.g. "claude-sonnet-4-6-thinking") to the real
   // model ID + implicit flags. The thinking flag is OR-ed onto whatever
   // the caller passed in opts, so an explicit Thinking toggle still works.
@@ -335,10 +328,23 @@ export async function resolveAiGateway(opts: {
   const modelName = aliased.realModel;
   if (aliased.thinking) opts.thinking = true;
 
+  // Neokens & Groq are site-wide gateways — use env keys, no per-user key.
+  if (provider === "neokens") {
+    const neoKey = process.env.NEOKENS_API_KEY;
+    if (!neoKey) return fallback();
+    const gw = createProvider("neokens", neoKey);
+    return { source: "api_key", provider, modelName, model: gw(modelName) };
+  }
   if (provider === "groq") {
     const groqKey = process.env.GROQ_API_KEY;
     if (!groqKey) return fallback();
     const gw = createGroqProvider(groqKey);
+    return { source: "api_key", provider, modelName, model: gw(modelName) };
+  }
+  if (provider === "cometapi") {
+    const cometKey = process.env.COMETAPI_KEY;
+    if (!cometKey) return fallback();
+    const gw = createProvider("cometapi", cometKey);
     return { source: "api_key", provider, modelName, model: gw(modelName) };
   }
 

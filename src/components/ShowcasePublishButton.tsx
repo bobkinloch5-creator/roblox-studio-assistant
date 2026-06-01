@@ -69,8 +69,14 @@ export function ShowcasePublishButton({
             : "border-border hover:border-primary/40 hover:text-primary-glow"
         }`}
       >
-        {isPublished ? <EyeOff className="h-3.5 w-3.5" /> : <Globe className="h-3.5 w-3.5" />}
-        <span className="hidden sm:inline">{isPublished ? "Showcased" : "Showcase"}</span>
+        {isPublished ? (
+          <EyeOff className="h-3.5 w-3.5" />
+        ) : (
+          <Globe className="h-3.5 w-3.5" />
+        )}
+        <span className="hidden sm:inline">
+          {isPublished ? "Showcased" : "Showcase"}
+        </span>
       </button>
 
       {open && (
@@ -87,10 +93,7 @@ export function ShowcasePublishButton({
                 <Globe className="h-5 w-5 text-primary-glow" />
                 Publish to Showcase
               </h3>
-              <button
-                onClick={() => setOpen(false)}
-                className="text-muted-foreground hover:text-foreground"
-              >
+              <button onClick={() => setOpen(false)} className="text-muted-foreground hover:text-foreground">
                 <X className="h-5 w-5" />
               </button>
             </div>
@@ -122,7 +125,9 @@ export function ShowcasePublishButton({
                   placeholder="What does your project do? What makes it cool?"
                   className="mt-1 w-full rounded-lg bg-background border border-border px-3 py-2 text-sm focus:outline-none focus:border-primary resize-none"
                 />
-                <p className="text-xs text-muted-foreground mt-1">{description.length}/500</p>
+                <p className="text-xs text-muted-foreground mt-1">
+                  {description.length}/500
+                </p>
               </div>
               <div>
                 <label className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
@@ -147,7 +152,9 @@ export function ShowcasePublishButton({
               <button
                 onClick={() => publishMut.mutate()}
                 disabled={
-                  publishMut.isPending || title.trim().length < 2 || description.trim().length < 10
+                  publishMut.isPending ||
+                  title.trim().length < 2 ||
+                  description.trim().length < 10
                 }
                 className="rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground hover:bg-primary/90 disabled:opacity-60 inline-flex items-center gap-2"
               >

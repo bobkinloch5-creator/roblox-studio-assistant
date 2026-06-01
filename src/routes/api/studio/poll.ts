@@ -11,19 +11,13 @@ const cors = {
 async function sha256(text: string) {
   const buf = new TextEncoder().encode(text);
   const hash = await crypto.subtle.digest("SHA-256", buf);
-  return Array.from(new Uint8Array(hash))
-    .map((b) => b.toString(16).padStart(2, "0"))
-    .join("");
+  return Array.from(new Uint8Array(hash)).map((b) => b.toString(16).padStart(2, "0")).join("");
 }
 
 async function userFromToken(token: string | null) {
   if (!token) return null;
   const hash = await sha256(token);
-  const { data } = await supabaseAdmin
-    .from("plugin_tokens")
-    .select("user_id")
-    .eq("token_hash", hash)
-    .maybeSingle();
+  const { data } = await supabaseAdmin.from("plugin_tokens").select("user_id").eq("token_hash", hash).maybeSingle();
   return data?.user_id ?? null;
 }
 
@@ -34,36 +28,21 @@ export const Route = createFileRoute("/api/studio/poll")({
       POST: async ({ request }) => {
         try {
           const userId = await userFromToken(request.headers.get("x-plugin-token"));
-          if (!userId)
-            return new Response(JSON.stringify({ error: "invalid token" }), {
-              status: 401,
-              headers: cors,
-            });
+          if (!userId) return new Response(JSON.stringify({ error: "invalid token" }), { status: 401, headers: cors });
 
           const body = await request.json().catch(() => ({}));
           const projectId = body?.projectId;
-          if (!projectId)
-            return new Response(JSON.stringify({ error: "missing projectId" }), {
-              status: 400,
-              headers: cors,
-            });
+          if (!projectId) return new Response(JSON.stringify({ error: "missing projectId" }), { status: 400, headers: cors });
 
-          const { data: project } = await supabaseAdmin
-            .from("projects")
-            .select("id,user_id,name")
-            .eq("id", projectId)
-            .maybeSingle();
-          if (!project)
-            return new Response(JSON.stringify({ error: "not found" }), {
-              status: 404,
-              headers: cors,
-            });
+          const { data: project } = await supabaseAdmin.from("projects").select("id,user_id,name").eq("id", projectId).maybeSingle();
+          if (!project) return new Response(JSON.stringify({ error: "not found" }), { status: 404, headers: cors });
 
-          if (project.user_id !== userId)
-            return new Response(JSON.stringify({ error: "forbidden" }), {
-              status: 403,
-              headers: cors,
-            });
+          let allowed = project.user_id === userId;
+          if (!allowed) {
+            const { data: c } = await supabaseAdmin.from("project_collaborators").select("id").eq("project_id", projectId).eq("user_id", userId).maybeSingle();
+            allowed = !!c;
+          }
+          if (!allowed) return new Response(JSON.stringify({ error: "forbidden" }), { status: 403, headers: cors });
 
           // Fetch pending actions
           const { data: pending } = await supabaseAdmin
@@ -102,14 +81,11 @@ export const Route = createFileRoute("/api/studio/poll")({
               actions,
               files: files ?? [],
             }),
-            { headers: cors },
+            { headers: cors }
           );
         } catch (e: any) {
           console.error("API error in studio/poll:", e);
-          return new Response(JSON.stringify({ error: "Internal server error" }), {
-            status: 500,
-            headers: cors,
-          });
+          return new Response(JSON.stringify({ error: "Internal server error" }), { status: 500, headers: cors });
         }
       },
     },

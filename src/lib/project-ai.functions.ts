@@ -24,23 +24,12 @@ const GetSchema = z.object({
   projectId: z.string().uuid(),
 });
 
-async function assertProjectOwner(supabase: any, projectId: string, userId: string) {
-  const { data: project, error } = await supabase
-    .from("projects")
-    .select("id")
-    .eq("id", projectId)
-    .eq("user_id", userId)
-    .maybeSingle();
-  if (error || !project) throw new Error("Project not found or unauthorized.");
-}
-
 export const getProjectAiConfig = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((input: unknown) => GetSchema.parse(input))
   .handler(async ({ data, context }) => {
     const { supabase, userId } = context;
     const { projectId } = data;
-    await assertProjectOwner(supabase, projectId, userId);
 
     const [settingsRes, keysRes] = await Promise.all([
       supabase
@@ -48,21 +37,20 @@ export const getProjectAiConfig = createServerFn({ method: "POST" })
         .select("mode,provider,model,updated_at")
         .eq("project_id", projectId)
         .maybeSingle(),
-      supabase.from("user_provider_keys").select("provider,label,updated_at").eq("user_id", userId),
+      supabase
+        .from("user_provider_keys")
+        .select("provider,label,updated_at")
+        .eq("user_id", userId),
     ]);
 
-    const settings = settingsRes.data ?? {
-      mode: "mcp",
-      provider: null,
-      model: null,
-      updated_at: null,
-    };
-    const keys = (keysRes.data ?? []).reduce<
-      Record<string, { label: string | null; updatedAt: string }>
-    >((acc, k) => {
-      acc[k.provider] = { label: k.label, updatedAt: k.updated_at };
-      return acc;
-    }, {});
+    const settings = settingsRes.data ?? { mode: "mcp", provider: null, model: null, updated_at: null };
+    const keys = (keysRes.data ?? []).reduce<Record<string, { label: string | null; updatedAt: string }>>(
+      (acc, k) => {
+        acc[k.provider] = { label: k.label, updatedAt: k.updated_at };
+        return acc;
+      },
+      {},
+    );
 
     return { settings, keys };
   });
@@ -72,7 +60,6 @@ export const saveProjectAiSettings = createServerFn({ method: "POST" })
   .inputValidator((input: unknown) => SaveSettingsSchema.parse(input))
   .handler(async ({ data, context }) => {
     const { supabase, userId } = context;
-    await assertProjectOwner(supabase, data.projectId, userId);
     const payload = {
       project_id: data.projectId,
       user_id: userId,
@@ -93,15 +80,17 @@ export const saveProviderKey = createServerFn({ method: "POST" })
   .inputValidator((input: unknown) => SaveKeySchema.parse(input))
   .handler(async ({ data, context }) => {
     const { supabase, userId } = context;
-    const { error } = await supabase.from("user_provider_keys").upsert(
-      {
-        user_id: userId,
-        provider: data.provider,
-        api_key: data.apiKey.trim(),
-        label: null,
-      },
-      { onConflict: "user_id,provider" },
-    );
+    const { error } = await supabase
+      .from("user_provider_keys")
+      .upsert(
+        {
+          user_id: userId,
+          provider: data.provider,
+          api_key: data.apiKey.trim(),
+          label: null,
+        },
+        { onConflict: "user_id,provider" },
+      );
     if (error) throw new Error(error.message);
     return { ok: true };
   });

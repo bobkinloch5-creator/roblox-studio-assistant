@@ -7,15 +7,10 @@ export const deleteOwnAccount = createServerFn({ method: "POST" })
   .handler(async ({ context }) => {
     const { userId } = context;
     // Cleanup user-owned rows (no FK cascades on these tables)
-    await supabaseAdmin
-      .from("project_files")
-      .delete()
-      .in(
-        "project_id",
-        (await supabaseAdmin.from("projects").select("id").eq("user_id", userId)).data?.map(
-          (p) => p.id,
-        ) ?? ["00000000-0000-0000-0000-000000000000"],
-      );
+    await supabaseAdmin.from("project_files").delete().in(
+      "project_id",
+      (await supabaseAdmin.from("projects").select("id").eq("user_id", userId)).data?.map((p) => p.id) ?? ["00000000-0000-0000-0000-000000000000"],
+    );
     await supabaseAdmin.from("project_collaborators").delete().eq("user_id", userId);
     await supabaseAdmin.from("projects").delete().eq("user_id", userId);
     await supabaseAdmin.from("plugin_connections").delete().eq("user_id", userId);

@@ -18,10 +18,7 @@ async function getAccessToken(): Promise<string | null> {
   if (!id || !secret) return null;
   const res = await fetch(`${base}/v1/oauth2/token`, {
     method: "POST",
-    headers: {
-      Authorization: `Basic ${btoa(`${id}:${secret}`)}`,
-      "Content-Type": "application/x-www-form-urlencoded",
-    },
+    headers: { Authorization: `Basic ${btoa(`${id}:${secret}`)}`, "Content-Type": "application/x-www-form-urlencoded" },
     body: "grant_type=client_credentials",
   });
   const j = (await res.json()) as any;
@@ -62,19 +59,13 @@ export const Route = createFileRoute("/api/public/paypal/webhook")({
         }
 
         const event = JSON.parse(rawBody);
-        if (
-          event.event_type !== "CHECKOUT.ORDER.APPROVED" &&
-          event.event_type !== "PAYMENT.CAPTURE.COMPLETED"
-        ) {
+        if (event.event_type !== "CHECKOUT.ORDER.APPROVED" && event.event_type !== "PAYMENT.CAPTURE.COMPLETED") {
           return new Response("ignored", { status: 200 });
         }
-        const customId: string =
-          event.resource?.custom_id ?? event.resource?.purchase_units?.[0]?.custom_id ?? "";
+        const customId: string = event.resource?.custom_id ?? event.resource?.purchase_units?.[0]?.custom_id ?? "";
         const [userId, packId] = customId.split(":");
         const pack = PACKS[packId];
-        const amount = Number(
-          event.resource?.amount?.value ?? event.resource?.purchase_units?.[0]?.amount?.value ?? 0,
-        );
+        const amount = Number(event.resource?.amount?.value ?? event.resource?.purchase_units?.[0]?.amount?.value ?? 0);
         if (!userId || !pack) return new Response("bad ref", { status: 400 });
         // Verify the captured amount matches the declared pack price (prevent under-pay credit grants)
         if (Math.abs(amount - pack.price) > 0.01) {
@@ -84,10 +75,7 @@ export const Route = createFileRoute("/api/public/paypal/webhook")({
         // Idempotency: skip if we've already processed this provider_payment_id
         if (providerPaymentId) {
           const { data: existing } = await supabaseAdmin
-            .from("payments")
-            .select("id")
-            .eq("provider_payment_id", providerPaymentId)
-            .maybeSingle();
+            .from("payments").select("id").eq("provider_payment_id", providerPaymentId).maybeSingle();
           if (existing) return new Response("duplicate", { status: 200 });
         }
         await supabaseAdmin.from("payments").insert({
